@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+    
+	<LinearLayout android:orientation="horizontal" 		
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="UID:"/>
+		<EditText android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:id="@+id/edt_uid" android:singleLine="true" 
+			android:capitalize="characters" android:maxLength="20"/>
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal" 		
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="BufSize:"/>
+
+		<EditText
+		    android:id="@+id/edt_bufSize"
+		    android:layout_width="wrap_content"
+		    android:layout_height="wrap_content"
+		    android:layout_weight="1"
+		    android:ems="10"
+		    android:text="512000"
+		    android:inputType="numberSigned" >
+
+		    <requestFocus />
+		</EditText>		
+	</LinearLayout>
+		
+	<LinearLayout android:orientation="horizontal"
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+	    <RadioGroup android:layout_width="wrap_content" android:layout_height="wrap_content" 
+	    android:orientation="horizontal">
+			<RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			    android:id="@+id/radio_device" android:text="Server" android:textSize="14sp"
+			    android:checked="true"/>
+			<RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			    android:id="@+id/radio_client" android:text="Agent" android:textSize="14sp"
+			    android:checked="false"/>
+		</RadioGroup>
+		<Button android:layout_width="wrap_content" android:layout_height="wrap_content"
+			android:id="@+id/btn_start" android:text="@string/title_btn_start1"/>
+		<Button android:layout_width="wrap_content" android:layout_height="wrap_content"
+			android:id="@+id/btn_stop" android:text="Stop"/>
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal"
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="P2PTunnel Ver:" android:textColor="#ffff0000" android:textStyle="bold"/>
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			android:textStyle="bold" android:textColor="#ffff0000"
+		    android:id="@+id/txt_api_ver" android:paddingLeft="5dp"/>
+	</LinearLayout>
+		    
+    <TextView android:text="Log:" android:background="#ff808080"
+		android:singleLine="true" android:layout_width="fill_parent" android:layout_height="wrap_content"/>
+	
+    <TextView android:id="@+id/txt_log" android:paddingLeft="5dp" android:background="#20ffffff"
+		android:scrollbars="vertical" android:singleLine="false" android:maxLines="18"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"/>
+</LinearLayout>

@@ -1,0 +1,314 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		6138C79F166895CB00C255B0 /* TunnelSample.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6138C79E166895CB00C255B0 /* TunnelSample.1 */; };
+		6138C7A91668965A00C255B0 /* P2PTunnelAgent.c in Sources */ = {isa = PBXBuildFile; fileRef = 6138C7A51668965A00C255B0 /* P2PTunnelAgent.c */; };
+		6138C7B01668970F00C255B0 /* TunnelSample.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6138C79E166895CB00C255B0 /* TunnelSample.1 */; };
+		6138C7B71668976400C255B0 /* P2PTunnelServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 6138C7A71668965A00C255B0 /* P2PTunnelServer.c */; };
+		85EA5C42167ED0CD0083D8ED /* libIOTCAPIs_P2PTunnel.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 85EA5C41167ED0CD0083D8ED /* libIOTCAPIs_P2PTunnel.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6138C796166895CA00C255B0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				6138C79F166895CB00C255B0 /* TunnelSample.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		6138C7AF1668970F00C255B0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				6138C7B01668970F00C255B0 /* TunnelSample.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		6138C798166895CB00C255B0 /* TunnelSample Agent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "TunnelSample Agent"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6138C79E166895CB00C255B0 /* TunnelSample.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = TunnelSample.1; sourceTree = "<group>"; };
+		6138C7A51668965A00C255B0 /* P2PTunnelAgent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = P2PTunnelAgent.c; sourceTree = "<group>"; };
+		6138C7A71668965A00C255B0 /* P2PTunnelServer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = P2PTunnelServer.c; sourceTree = "<group>"; };
+		6138C7B41668970F00C255B0 /* TunnelSample Server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "TunnelSample Server"; sourceTree = BUILT_PRODUCTS_DIR; };
+		85E5DBDE1668D8C000F9BCA1 /* platform_Config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = platform_Config.h; path = include/platform_Config.h; sourceTree = "<group>"; };
+		85E5DBDF1668D8CD00F9BCA1 /* P2PTunnelAPIs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = P2PTunnelAPIs.h; path = ../../../../Include/P2PTunnelAPIs.h; sourceTree = "<group>"; };
+		85EA5C41167ED0CD0083D8ED /* libIOTCAPIs_P2PTunnel.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libIOTCAPIs_P2PTunnel.a; path = ../../../../Lib/MAC/libIOTCAPIs_P2PTunnel.a; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6138C795166895CA00C255B0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85EA5C42167ED0CD0083D8ED /* libIOTCAPIs_P2PTunnel.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6138C7AE1668970F00C255B0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		6138C78D166895CA00C255B0 = {
+			isa = PBXGroup;
+			children = (
+				6138C79B166895CB00C255B0 /* TunnelSample */,
+				6138C799166895CB00C255B0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6138C799166895CB00C255B0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6138C798166895CB00C255B0 /* TunnelSample Agent */,
+				6138C7B41668970F00C255B0 /* TunnelSample Server */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6138C79B166895CB00C255B0 /* TunnelSample */ = {
+			isa = PBXGroup;
+			children = (
+				85EA5C41167ED0CD0083D8ED /* libIOTCAPIs_P2PTunnel.a */,
+				6138C79E166895CB00C255B0 /* TunnelSample.1 */,
+				6138C7A51668965A00C255B0 /* P2PTunnelAgent.c */,
+				85E5DBDF1668D8CD00F9BCA1 /* P2PTunnelAPIs.h */,
+				85E5DBDE1668D8C000F9BCA1 /* platform_Config.h */,
+				6138C7A71668965A00C255B0 /* P2PTunnelServer.c */,
+			);
+			path = TunnelSample;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6138C797166895CA00C255B0 /* TunnelSample Agent */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6138C7A2166895CB00C255B0 /* Build configuration list for PBXNativeTarget "TunnelSample Agent" */;
+			buildPhases = (
+				6138C794166895CA00C255B0 /* Sources */,
+				6138C795166895CA00C255B0 /* Frameworks */,
+				6138C796166895CA00C255B0 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "TunnelSample Agent";
+			productName = TunnelSample;
+			productReference = 6138C798166895CB00C255B0 /* TunnelSample Agent */;
+			productType = "com.apple.product-type.tool";
+		};
+		6138C7AB1668970F00C255B0 /* TunnelSample Server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6138C7B11668970F00C255B0 /* Build configuration list for PBXNativeTarget "TunnelSample Server" */;
+			buildPhases = (
+				6138C7AC1668970F00C255B0 /* Sources */,
+				6138C7AE1668970F00C255B0 /* Frameworks */,
+				6138C7AF1668970F00C255B0 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "TunnelSample Server";
+			productName = TunnelSample;
+			productReference = 6138C7B41668970F00C255B0 /* TunnelSample Server */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6138C78F166895CA00C255B0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0450;
+				ORGANIZATIONNAME = TUTK;
+			};
+			buildConfigurationList = 6138C792166895CA00C255B0 /* Build configuration list for PBXProject "TunnelSample" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 6138C78D166895CA00C255B0;
+			productRefGroup = 6138C799166895CB00C255B0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6138C797166895CA00C255B0 /* TunnelSample Agent */,
+				6138C7AB1668970F00C255B0 /* TunnelSample Server */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6138C794166895CA00C255B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6138C7A91668965A00C255B0 /* P2PTunnelAgent.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6138C7AC1668970F00C255B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6138C7B71668976400C255B0 /* P2PTunnelServer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		6138C7A0166895CB00C255B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = ../../../../Include;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		6138C7A1166895CB00C255B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = ../../../../Include;
+				SDKROOT = "";
+			};
+			name = Release;
+		};
+		6138C7A3166895CB00C255B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/TunnelSample/lib\"",
+					"\"$(SRCROOT)/../../../Lib/MAC\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		6138C7A4166895CB00C255B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/TunnelSample/lib\"",
+					"\"$(SRCROOT)/../../../Lib/MAC\"",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		6138C7B21668970F00C255B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/TunnelSample/lib\"",
+				);
+				PRODUCT_NAME = "TunnelSample Server";
+			};
+			name = Debug;
+		};
+		6138C7B31668970F00C255B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/TunnelSample/lib\"",
+				);
+				PRODUCT_NAME = "TunnelSample Server";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6138C792166895CA00C255B0 /* Build configuration list for PBXProject "TunnelSample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6138C7A0166895CB00C255B0 /* Debug */,
+				6138C7A1166895CB00C255B0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6138C7A2166895CB00C255B0 /* Build configuration list for PBXNativeTarget "TunnelSample Agent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6138C7A3166895CB00C255B0 /* Debug */,
+				6138C7A4166895CB00C255B0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6138C7B11668970F00C255B0 /* Build configuration list for PBXNativeTarget "TunnelSample Server" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6138C7B21668970F00C255B0 /* Debug */,
+				6138C7B31668970F00C255B0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6138C78F166895CA00C255B0 /* Project object */;
+}

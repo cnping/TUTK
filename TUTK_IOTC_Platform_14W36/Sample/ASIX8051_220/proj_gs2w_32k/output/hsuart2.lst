@@ -1,0 +1,1373 @@
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE HSUART2
+OBJECT MODULE PLACED IN .\hsuart2.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mhsuart\hsuart2.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCD
+                    -IR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\m
+                    -ping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\s
+                    -rc\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..
+                    -\..\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\hsuart2.lst) OBJECT(.\hsuart2.obj)
+
+line level    source
+
+   1          /*
+   2           *********************************************************************************
+   3           *     Copyright (c) 2010   ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           *********************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : hsuart2.c
+  13           * Purpose     : AX220xx UART2 module is implemented to support external UART2
+  14           *               peripherals via accessing AX220xx UART2 registers. This module
+  15           *               handles the UART2 data transmission and reception on the serial
+  16           *               bus and supports auto-software and auto-hardware flow control
+  17           *               functions.
+  18           * Author      : Robin Lee
+  19           * Date        :
+  20           * Notes       :
+  21           *================================================================================
+  22           */
+  23          
+  24          /* INCLUDE FILE DECLARATIONS */
+  25          #include        "ax22000.h"
+  26          #include        "types.h"
+  27          #include        "mcpu_cfg.h"
+  28          #include        "mcpu.h"
+  29          #include        "hsuart.h"
+  30          #include        "hsuart2.h"
+  31          #include        "dma.h"
+  32          #include        "interrupt.h"
+  33          #include        "mstimer.h"
+  34          #include        "printd.h"
+  35          
+  36          /* NAMING CONSTANT DECLARATIONS */
+  37          
+  38          
+  39          /* STATIC VARIABLE DECLARATIONS */
+  40          static U8_T                             hsur2RxBuffer[UR2_RX_PAGE_BUF] _at_ UR2_RX_BUF_START_ADDR;
+  41          static U8_T                             hsur2FifoCtrl;
+  42          static U8_T                             hsur2LineStatus;
+  43          static U8_T                             hsur2ModemCtrl;
+  44          static U8_T                             hsur2ModemStatus;
+  45          static U8_T                             hsur2XoffReceived;
+  46          static U8_T                             hsur2XonReceived;
+  47          static U8_T                             hsur2TxDmaComplete;
+  48          static U8_T                             hsur2FlowCtrlMode;
+  49          static U8_T                             hsur2SwFlowCtrlGap;
+  50          static U8_T                             *ptHsur2RxDmaRingStart;
+  51          static U8_T                             *ptHsur2RxDmaRingEnd;
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 2   
+
+  52          static U8_T                             *ptHsur2RxDmaRingSwRead;
+  53          static U8_T                             hsur2RxDataAvail=0;
+  54          static U32_T                    hsur2ErrTimeStart;
+  55          static U32_T                    hsur2ErrTimeStop;
+  56          static U8_T                             hsur2ErrBlocking;
+  57          static U8_T                             hsur2IntrEnbType;
+  58          static U32_T                    hsur2RxTxOperationErr;
+  59          static U32_T                    hsur2RingFull;
+  60          static U32_T                    hsur2ErrCount;
+  61          static U8_T                             ur2DsrXCFTL;
+  62          
+  63          static UR2_TX_PAGE_S    hsur2TxPageInfo[UR2_TX_PAGE_NUM] = {0};
+  64          static U8_T                             hsur2TxEnqPage = 0;
+  65          static U8_T                             hsur2TxDeqPage = 0;
+  66          
+  67          /* LOCAL SUBPROGRAM DECLARATIONS */
+  68          static void             hsur2_IntRegWrite(U8_T addr, U8_T *ptData, U8_T dataLen);
+  69          static void             hsur2_IntRegRead(U8_T addr, U8_T *ptData, U8_T dataLen);
+  70          static void             hsur2_EnableXmit(void);
+  71          static void             hsur2_DisableXmit(void);
+  72          static void             hsur2_ReadLsr(void);
+  73          static void             hsur2_ReadMsr(void);
+  74          static void             hsur2_DmaIntrStatusCheck(void);
+  75          static void             hsur2_RxDmaOccupTrigEvent(void);
+  76          static void             hsur2_RxDmaCharTimeoutEvent(void);
+  77          
+  78          /* LOCAL SUBPROGRAM BODIES */
+  79          
+  80          /*
+  81           *--------------------------------------------------------------------------------
+  82           * static void hsur2_IntRegWrite(U8_T addr, U8_T *ptData, U8_T dataLen)
+  83           * Purpose: Write data bytes into a register in interrupt.
+  84           * Params : addr:An index address to UART2 register.
+  85           *          ptData:A pointer to indicate the register data.
+  86           *          dataLen:A number of bytes to indicate how many bytes will be written.
+  87           * Returns: None.
+  88           * Note   : None.
+  89           *--------------------------------------------------------------------------------
+  90           */
+  91          static void hsur2_IntRegWrite(U8_T addr, U8_T *ptData, U8_T dataLen)
+  92          {
+  93   1              while (dataLen--)
+  94   1              {
+  95   2                      U2DR = *(ptData + dataLen);
+  96   2              }
+  97   1              U2CIR = addr;
+  98   1      }
+  99          
+ 100          /*
+ 101           *--------------------------------------------------------------------------------
+ 102           * static void hsur2_IntRegRead(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 103           * Purpose: Read data bytes from a register in interrupt.
+ 104           * Params : addr:An index address to UART2 register.
+ 105           *          ptData:A pointer to indicate the register data.
+ 106           *          dataLen:A number of bytes to indicate how many bytes will be read.
+ 107           * Returns: None.
+ 108           * Note   : None.
+ 109           *--------------------------------------------------------------------------------
+ 110           */
+ 111          static void hsur2_IntRegRead(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 112          {
+ 113   1              U2CIR = addr;
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 3   
+
+ 114   1              while (dataLen--)
+ 115   1              {
+ 116   2                      *(ptData + dataLen) = U2DR;
+ 117   2              }
+ 118   1      }
+ 119          
+ 120          /*
+ 121           *--------------------------------------------------------------------------------
+ 122           * static void hsur2_EnableXmit(void)
+ 123           * Purpose: Turn on the interrupt of transmitting FIFO empty in HSIER.
+ 124           * Params : None.
+ 125           * Returns: None.
+ 126           * Note   : None.
+ 127           *--------------------------------------------------------------------------------
+ 128           */
+ 129          static void hsur2_EnableXmit(void)
+ 130          {
+ 131   1              U8_T    n;
+ 132   1              BIT             oldEintBit = EA;
+ 133   1      
+ 134   1              EA = 0;
+ 135   1      
+ 136   1              U2CIR = HSIER;
+ 137   1              n = U2DR;
+ 138   1              n |= HSIER_TFEI_ENB;
+ 139   1              U2DR = n;
+ 140   1              U2CIR = HSIER;
+ 141   1      
+ 142   1              EA = oldEintBit;
+ 143   1      }
+ 144          
+ 145          /*
+ 146           *--------------------------------------------------------------------------------
+ 147           * static void hsur2_DisableXmit(void)
+ 148           * Purpose: Turn off the interrupt of transmitting FIFO empty in HSIER.
+ 149           * Params : None.
+ 150           * Returns: None.
+ 151           * Note   : None.
+ 152           *--------------------------------------------------------------------------------
+ 153           */
+ 154          static void hsur2_DisableXmit(void)
+ 155          {
+ 156   1              U8_T    n;
+ 157   1              BIT             oldEintBit = EA;
+ 158   1      
+ 159   1              EA = 0;
+ 160   1      
+ 161   1              U2CIR = HSIER;
+ 162   1              n = U2DR;
+ 163   1              n &= ~HSIER_TFEI_ENB;
+ 164   1              U2DR = n;
+ 165   1              U2CIR = HSIER;
+ 166   1      
+ 167   1              EA = oldEintBit;
+ 168   1      }
+ 169          
+ 170          /*
+ 171           *--------------------------------------------------------------------------------
+ 172           * static void hsur_ReadLsr(void)
+ 173           * Purpose: Read the Line Status Register to record the error events in a counter.
+ 174           *          And begin the error recovering if happening many errors.
+ 175           * Params : None.
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 4   
+
+ 176           * Returns: None.
+ 177           * Note   : None.
+ 178           *--------------------------------------------------------------------------------
+ 179           */
+ 180          static void hsur2_ReadLsr(void)
+ 181          {
+ 182   1              U8_T    lineStatus;
+ 183   1              U8_T    fifoCtrl;
+ 184   1              U8_T    intrEnb;
+ 185   1              U16_T   reg16b;
+ 186   1              U32_T   reg32b;
+ 187   1      
+ 188   1              hsur2_IntRegRead(HSLSR, &lineStatus, 1);
+ 189   1              hsur2LineStatus = lineStatus;
+ 190   1              if (lineStatus & HSLSR_OE_OVER)
+ 191   1              {
+ 192   2                      hsur2ErrCount ++;
+ 193   2                      // Overrun Error
+ 194   2              }
+ 195   1              else if (lineStatus & HSLSR_PE_ERROR)
+ 196   1              {
+ 197   2                      hsur2ErrCount ++;
+ 198   2                      // Parity Error
+ 199   2              }
+ 200   1              else if (lineStatus & HSLSR_FE_ERROR)
+ 201   1              {
+ 202   2                      hsur2ErrCount ++;
+ 203   2                      // Framing Error
+ 204   2              }
+ 205   1              else if (lineStatus & HSLSR_BI_INT)
+ 206   1              {
+ 207   2                      hsur2ErrCount ++;
+ 208   2                      // Break Interrupt Occured
+ 209   2              }
+ 210   1              else if (lineStatus & HSLSR_FERR_ERROR)
+ 211   1              {
+ 212   2                      hsur2ErrCount ++;
+ 213   2                      // Mixing Error
+ 214   2              }
+ 215   1      
+ 216   1              /* For Error handling before data synchrony */
+ 217   1              if (hsur2ErrCount)
+ 218   1              {
+ 219   2                      /* Enable the Receiver FIFO STOP (RSTOP) bit to stop data characters transfer into RX FIFO.
+ 220   2                         And Reset Rx FIFO and TX FIFO */
+ 221   2                      fifoCtrl = (hsur2FifoCtrl | HSFCR_RSTOP | HSFCR_RFR | HSFCR_TFR);
+ 222   2                      hsur2_IntRegWrite(HSFCR, &fifoCtrl, 1);
+ 223   2                      /* Read the error data pointer */
+ 224   2                      hsur2_IntRegRead(HSRBDEP, (U8_T *)&reg16b, 2);
+ 225   2                      /* Flush all characters in the RX buffer ring by HSRBRP = HSRBWP when UART2 is in DMA mode */
+ 226   2                      reg16b = 0;
+ 227   2                      hsur2_IntRegRead(HSRBWP, (U8_T *)&reg16b, 2);
+ 228   2                      hsur2_IntRegWrite(HSRBRP, (U8_T *)&reg16b, 2);
+ 229   2                      reg32b = (U32_T)ptHsur2RxDmaRingStart & 0xFF0000;
+ 230   2                      reg32b += (U32_T)reg16b;
+ 231   2                      ptHsur2RxDmaRingSwRead = reg32b;
+ 232   2      
+ 233   2                      /* Disable the Receiver FIFO STOP (RSTOP) bit to re-start RX FIFO */
+ 234   2                      fifoCtrl = (hsur2FifoCtrl | HSFCR_RFR | HSFCR_TFR);
+ 235   2                      fifoCtrl &= ~HSFCR_RSTOP;
+ 236   2                      hsur2_IntRegWrite(HSFCR, &fifoCtrl, 1);
+ 237   2      
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 5   
+
+ 238   2                      if (hsur2ErrCount >= 100)
+ 239   2                              {
+ 240   3                              hsur2ErrBlocking = 1;
+ 241   3                              /* Disable the UART2 interrupt */
+ 242   3                              intrEnb = 0;
+ 243   3                              hsur2_IntRegRead(HSIER, &intrEnb, 1);
+ 244   3                      }
+ 245   2              }
+ 246   1      }
+ 247          
+ 248          /*
+ 249           *--------------------------------------------------------------------------------
+ 250           * static void hsur2_ReadMsr(void)
+ 251           * Purpose: Read the Modem Status Register to record in a corresponding interrupt.
+ 252           * Params : None.
+ 253           * Returns: None.
+ 254           * Note   : None.
+ 255           *--------------------------------------------------------------------------------
+ 256           */
+ 257          static void hsur2_ReadMsr(void)
+ 258          {
+ 259   1              U8_T    modemStatus = 0;
+ 260   1      
+ 261   1              hsur2_IntRegRead(HSMSR, &modemStatus, 1);
+ 262   1              hsur2ModemStatus = modemStatus;
+ 263   1      }
+ 264          
+ 265          /*
+ 266           *--------------------------------------------------------------------------------
+ 267           * static void hsur2_DmaIntrStatusCheck(void)
+ 268           * Purpose: Read the DMA Status Register to record in a corresponding interrupt.
+ 269           * Params : None.
+ 270           * Returns: None.
+ 271           * Note   : None.
+ 272           *--------------------------------------------------------------------------------
+ 273           */
+ 274          static void hsur2_DmaIntrStatusCheck(void)
+ 275          {
+ 276   1              U8_T    ur2DmaIntrStatus = 0;
+ 277   1              U8_T    regDcr = 0;
+ 278   1              
+ 279   1              hsur2_IntRegRead(HSDSR, &ur2DmaIntrStatus, 1);
+ 280   1              hsur2_IntRegRead(HSSFCGR, &hsur2SwFlowCtrlGap, 1);
+ 281   1              
+ 282   1              if (ur2DmaIntrStatus & HSDSR_TDC_CPL)
+ 283   1              {
+ 284   2                      hsur2TxDmaComplete = 1; // Clear the  Tx DMA busy flag
+ 285   2              }
+ 286   1              if (ur2DmaIntrStatus & HSDSR_XCFTL)
+ 287   1              {
+ 288   2                      ur2DsrXCFTL = 1;
+ 289   2              }
+ 290   1              if (ur2DmaIntrStatus & HSDSR_RBTDE)
+ 291   1              {
+ 292   2                      hsur2RxTxOperationErr ++;
+ 293   2              }
+ 294   1              if (ur2DmaIntrStatus & HSDSR_RBRF)
+ 295   1              {
+ 296   2                      hsur2RingFull ++;
+ 297   2              }
+ 298   1              if (ur2DmaIntrStatus & HSDSR_ECRRT)
+ 299   1              {
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 6   
+
+ 300   2                      if (hsur2SwFlowCtrlGap == 0)
+ 301   2                      {
+ 302   3                              U2CIR = HSDCR;
+ 303   3                              regDcr = U2DR;
+ 304   3                              regDcr |= HSDCR_PRERF;
+ 305   3                              U2DR = regDcr;
+ 306   3                              U2CIR = HSDCR;
+ 307   3                      }
+ 308   2              }
+ 309   1              if (ur2DmaIntrStatus & HSDSR_FCCR)
+ 310   1              {
+ 311   2                      if (ur2DmaIntrStatus & HSDSR_FCCRS) // Receuved Xoff
+ 312   2                      {
+ 313   3                              hsur2XoffReceived = 1;
+ 314   3                      }
+ 315   2                      else // Received Xon
+ 316   2                      {
+ 317   3                              hsur2XonReceived = 1;
+ 318   3                      }
+ 319   2              }
+ 320   1              if (ur2DmaIntrStatus & HSDSR_WAKE_UP)
+ 321   1              {
+ 322   2                      HSUR2_WakeUpEvent();
+ 323   2              }
+ 324   1      }
+ 325          
+ 326          /*
+ 327           *--------------------------------------------------------------------------------
+ 328           * void hsur2_RxDmaOccupTrigEvent(void)
+ 329           * Purpose: When the RX buffer ring has many valid datas and reachs occupying
+ 330           *          trigger level, asserting a flag to notice applications.
+ 331           * Params : None.
+ 332           * Returns: None.
+ 333           * Note   : None.
+ 334           *--------------------------------------------------------------------------------
+ 335           */
+ 336          void hsur2_RxDmaOccupTrigEvent(void)
+ 337          {
+ 338   1              U8_T    reg8b;
+ 339   1              BIT             oldEintBit = EA;
+ 340   1      
+ 341   1              EA = 0;
+ 342   1              /* turn off RDI interrupt to avoid ISR triggered without end */
+ 343   1              hsur2_IntRegRead(HSIER, &reg8b, 1);
+ 344   1              reg8b &= ~HSIER_RDI_ENB;
+ 345   1              hsur2_IntRegWrite(HSIER, &reg8b, 1);
+ 346   1      
+ 347   1              hsur2RxDataAvail = 1;
+ 348   1              
+ 349   1              EA = oldEintBit;
+ 350   1      }
+ 351          
+ 352          /*
+ 353           *--------------------------------------------------------------------------------
+ 354           * void hsur2_RxDmaCharTimeoutEvent(void)
+ 355           * Purpose: When the RX buffer ring has one byte valid data at least,
+ 356           *          asserting a flag to notice applications.
+ 357           * Params : None.
+ 358           * Returns: None.
+ 359           * Note   : None.
+ 360           *--------------------------------------------------------------------------------
+ 361           */
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 7   
+
+ 362          void hsur2_RxDmaCharTimeoutEvent(void)
+ 363          {
+ 364   1              U8_T    reg8b;
+ 365   1              BIT             oldEintBit = EA;
+ 366   1      
+ 367   1              EA = 0;
+ 368   1              /* turn off RDI interrupt to avoid ISR triggered without end */
+ 369   1              hsur2_IntRegRead(HSIER, &reg8b, 1);
+ 370   1              reg8b &= ~HSIER_RDI_ENB;
+ 371   1              hsur2_IntRegWrite(HSIER, &reg8b, 1);
+ 372   1              
+ 373   1              hsur2RxDataAvail = 1;
+ 374   1              
+ 375   1              EA = oldEintBit;
+ 376   1      }
+ 377          
+ 378          
+ 379          /* EXPORTED SUBPROGRAM BODIES */
+ 380          
+ 381          /*
+ 382           *--------------------------------------------------------------------------------
+ 383           * BOOL HSUR2_RegWrite(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 384           * Purpose: Write data bytes into a register with interrupt locked.
+ 385           * Params : addr:An index address to UART2 register.
+ 386           *          ptData:A pointer to indicate the register data.
+ 387           *          dataLen:A number of bytes to indicate how many bytes will be written.
+ 388           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+ 389           * Note   : None.
+ 390           *--------------------------------------------------------------------------------
+ 391           */
+ 392          BOOL HSUR2_RegWrite(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 393          {
+ 394   1              BIT             oldEintBit = EA;
+ 395   1      
+ 396   1              EA = 0;
+ 397   1              while (dataLen--)
+ 398   1              {
+ 399   2                      U2DR = *(ptData + dataLen);
+ 400   2              }
+ 401   1              U2CIR = addr;
+ 402   1              EA = oldEintBit;
+ 403   1      
+ 404   1              return TRUE;
+ 405   1      }
+ 406          
+ 407          /*
+ 408           *--------------------------------------------------------------------------------
+ 409           * BOOL HSUR2_RegRead(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 410           * Purpose: Read data bytes from a register with interrupt locked.
+ 411           * Params : addr:An index address to UART2 register.
+ 412           *          ptData:A pointer to indicate the register data.
+ 413           *          dataLen:A number of bytes to indicate how many bytes will be read.
+ 414           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+ 415           * Note   : None.
+ 416           *--------------------------------------------------------------------------------
+ 417           */
+ 418          BOOL HSUR2_RegRead(U8_T addr, U8_T *ptData, U8_T dataLen)
+ 419          {
+ 420   1              BIT             oldEintBit = EA;
+ 421   1      
+ 422   1              EA = 0;
+ 423   1              U2CIR = addr;
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 8   
+
+ 424   1              while (dataLen--)
+ 425   1              {
+ 426   2                      *(ptData + dataLen) = U2DR;
+ 427   2              }
+ 428   1              EA = oldEintBit;
+ 429   1      
+ 430   1              return TRUE;
+ 431   1      }
+ 432          
+ 433          /*
+ 434           *--------------------------------------------------------------------------------
+ 435           * void HSUR_Setup(U16_T divisor, U8_T lCtrl, U8_T intEnb, U8_T fCtrl, U8_T mCtrl)
+ 436           * Purpose: Use this function can initialize the UART2 basic mode. It will configure
+ 437           *          the baudrate, data bus type, interrupt source, FIFO setup and modem status.
+ 438           * Params : divisor : A 16-bit Divisor Latch value to calaulate the baudrate.
+ 439           *          lCtrl : A value to Line Control Register.
+ 440           *          intEnb : The interrupt source type of Interrupt Enable Register.
+ 441           *          fCtrl : A value to FIFO Control Register.
+ 442           *          mCtrl : A value to Modem Control Register.
+ 443           * Returns: None.
+ 444           * Note   : None.
+ 445           *--------------------------------------------------------------------------------
+ 446           */
+ 447          void HSUR2_Setup(U16_T divisor, U8_T lCtrl, U8_T intEnb, U8_T fCtrl, U8_T mCtrl)
+ 448          {
+ 449   1              U8_T    lineCtrl=0, dll=0, dlh=0;
+ 450   1              U16_T   i, j;
+ 451   1      
+ 452   1              /* Set UART2 Baudrate */
+ 453   1              lineCtrl = HSLCR_DLAB_ENB;
+ 454   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+ 455   1              dll = (U8_T)(divisor & 0x00FF);
+ 456   1              dlh = (U8_T)((divisor & 0xFF00) >> 8);
+ 457   1              HSUR2_RegWrite(HSDLLR, &dll, 1);
+ 458   1              HSUR2_RegWrite(HSDLHR , &dlh, 1);
+ 459   1              lineCtrl &= ~HSLCR_DLAB_ENB;
+ 460   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+ 461   1              /* Set Line Control Register */
+ 462   1              lCtrl &= ~HSLCR_DLAB_ENB;
+ 463   1              HSUR2_RegWrite(HSLCR, &lCtrl, 1);
+ 464   1              /* Set FIFO Control Register */
+ 465   1              hsur2FifoCtrl = fCtrl | HSFCR_RSTOP; // Enable the RSTOP bit to stop the data characters into RX FIFO.
+ 466   1              hsur2FifoCtrl &= ~(HSFCR_RFR | HSFCR_TFR);
+ 467   1              HSUR2_RegWrite(HSFCR, &fCtrl, 1);
+ 468   1              /* Set Modem Control Register */
+ 469   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 470   1              /* Disable DMA Mode */
+ 471   1              dll = 0;
+ 472   1              HSUR2_RegWrite(HSDCR, &dll, 1);
+ 473   1              /* Initial Variables */
+ 474   1              for (i=0 ; i < UR2_TX_PAGE_NUM ; i++)
+ 475   1              {
+ 476   2              hsur2TxPageInfo[i].txBusyFlag = UR2_BUF_EMPTY;
+ 477   2              hsur2TxPageInfo[i].txDataLen = 0;
+ 478   2                      for (j=0 ; j<UR2_TX_PAGE_BUF ; j++)
+ 479   2                              hsur2TxPageInfo[i].txBufArray[j] = 0;
+ 480   2              }
+ 481   1              for (i=0 ; i<UR2_RX_PAGE_BUF ; i++)
+ 482   1              {
+ 483   2                      hsur2RxBuffer[i] = 0;
+ 484   2              }
+ 485   1          HSUR2_RxDmaControlInit(hsur2RxBuffer, (hsur2RxBuffer+UR2_RX_PAGE_BUF-1), UR2_RX_TRIGGER_LEVEL, UR2_RX_
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 9   
+
+             -TIMEOUT_GAP);
+ 486   1              /*      Set FIFO Control Register with users' trig level.
+ 487   1                      Enable the RSTOP bit to stop the data characters into RX FIFO. */
+ 488   1              hsur2FifoCtrl = (fCtrl | HSFCR_HSUART_ENB | HSFCR_FIFOE | HSFCR_RFR | HSFCR_TFR);
+ 489   1              hsur2FifoCtrl &= ~HSFCR_RSTOP;
+ 490   1              HSUR2_RegWrite(HSFCR, &fCtrl, 1);
+ 491   1      
+ 492   1              hsur2ModemCtrl = mCtrl;
+ 493   1              hsur2LineStatus = 0;
+ 494   1              hsur2ErrCount = 0;
+ 495   1              hsur2IntrEnbType = intEnb;
+ 496   1      }
+ 497          
+ 498          /*
+ 499           *--------------------------------------------------------------------------------
+ 500           * BOOL HSUR2_RxDmaControlInit(U8_T *ptRxRingStart, U8_T *ptRxRingEnd,
+ 501           *      U16_T rxRingOccupancyTrigLevel, U16_T rxRingTimeoutGap)
+ 502           * Purpose: Initialize the UART2 RX buffer ring in DMA mode. It will configure the
+ 503           *          ring start/end address, receiving data trig level and receiving timeout gap.
+ 504           * Params : ptRxRingStart : A pointer to indicate the RX buffer ring start address.
+ 505           *                          The low byte of this must be 0x00.
+ 506           *          ptRxRingEnd : A pointer to indicate the RX buffer ring end address.
+ 507           *                        The low byte of this must be 0xFF.
+ 508           *          rxRingOccupancyTrigLevel : RX ring trigger level to notice driver with numbers of RX data.
+ 509           *          rxRingTimeoutGap : To tell hardware how many character times to wait before reporting timeout 
+             -in RX buffer ring.
+ 510           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+ 511           * Note   : None.
+ 512           *--------------------------------------------------------------------------------
+ 513           */
+ 514          BOOL HSUR2_RxDmaControlInit(U8_T *ptRxRingStart, U8_T *ptRxRingEnd,
+ 515                   U16_T rxRingOccupancyTrigLevel, U16_T rxRingTimeoutGap)
+ 516          {
+ 517   1              U32_T   temp32b = 0;
+ 518   1              U16_T   temp16b = 0;
+ 519   1              U8_T    temp8b = 0;
+ 520   1      
+ 521   1              if (((U8_T)ptRxRingStart != 0) || ((U8_T)ptRxRingEnd != 0xFF))
+ 522   1                      return FALSE;
+ 523   1      
+ 524   1              ptHsur2RxDmaRingStart = ptRxRingStart;
+ 525   1              temp32b = ((U32_T)ptRxRingStart - 0x010000);
+ 526   1              temp32b <<= 8;
+ 527   1              HSUR2_RegWrite(HSRBSP, (U8_T *)&temp32b, 2);
+ 528   1      
+ 529   1              ptHsur2RxDmaRingEnd = ptRxRingEnd;
+ 530   1              temp32b = ((U32_T)ptRxRingEnd - 0x010000);
+ 531   1              temp32b <<= 8;
+ 532   1              HSUR2_RegWrite(HSRBEP, (U8_T *)&temp32b, 2);
+ 533   1      
+ 534   1              ptHsur2RxDmaRingSwRead = ptRxRingStart;
+ 535   1              temp32b = ((U32_T)ptRxRingStart - 0x010000);
+ 536   1              temp32b <<= 16;
+ 537   1              temp32b &= 0xFF000000;
+ 538   1              HSUR2_RegWrite(HSRBRP, (U8_T *)&temp32b, 2);
+ 539   1      
+ 540   1              HSUR2_RegWrite(HSRBOTL, (U8_T *)&rxRingOccupancyTrigLevel, 2);
+ 541   1      
+ 542   1              HSUR2_RegWrite(HSRBRTG, (U8_T *)&rxRingTimeoutGap, 2);
+ 543   1              
+ 544   1              /* Enable Receive Buffer Ring */
+ 545   1              HSUR2_RegRead(HSDCR, &temp8b, 1);
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 10  
+
+ 546   1              temp8b |= HSDCR_RBRE_ENB;
+ 547   1              HSUR2_RegWrite(HSDCR, &temp8b, 1);
+ 548   1              
+ 549   1              return TRUE;
+ 550   1      }
+ 551          
+ 552          /*
+ 553           *--------------------------------------------------------------------------------
+ 554           * void HSUR2_Start(void)
+ 555           * Purpose: Start function will enable the interrupt sources that be configured
+ 556           *          in the setup function. This function should be closely called before
+ 557           *          running application tasks.
+ 558           * Params : None.
+ 559           * Returns: None.
+ 560           * Note   : None.
+ 561           *--------------------------------------------------------------------------------
+ 562           */
+ 563          void HSUR2_Start(void)
+ 564          {
+ 565   1              /* Enable the UART2 interrupt */
+ 566   1              HSUR2_RegWrite(HSIER, &hsur2IntrEnbType, 1);
+ 567   1      }
+ 568          
+ 569          /*
+ 570           * ----------------------------------------------------------------------------
+ 571           * void HSUR2_ErrorRecovery(void)
+ 572           * Purpose: Checking the UART2 Line Status Register value of errors and
+ 573           *          re-enable interrupts of receiving and line status.
+ 574           * Params : None.
+ 575           * Returns: None.
+ 576           * Note   : None.
+ 577           * ----------------------------------------------------------------------------
+ 578           */
+ 579          void HSUR2_ErrorRecovery(void)
+ 580          {
+ 581   1              U8_T    valLsr;
+ 582   1              U8_T    valFcr;
+ 583   1              U16_T   reg16b;
+ 584   1          U32_T   reg32b;
+ 585   1      
+ 586   1              while (hsur2ErrBlocking)
+ 587   1              {
+ 588   2                      printd("hsur2ErrBlocking = 1\n\r");
+ 589   2                      HSUR2_RegRead(HSLSR, &valLsr, 1);
+ 590   2                      if (valLsr & HSLSR_DR_DATA)
+ 591   2                      {
+ 592   3                              /* Enable the Receiver FIFO STOP (RSTOP) bit to stop data characters transfer into RX FIFO.
+ 593   3                                 And Reset Rx FIFO and TX FIFO */
+ 594   3                              valFcr = (hsur2FifoCtrl | HSFCR_RSTOP | HSFCR_RFR | HSFCR_TFR);
+ 595   3                              hsur2_IntRegWrite(HSFCR, &valFcr, 1);
+ 596   3                              /* Read the error data pointer */
+ 597   3                              hsur2_IntRegRead(HSRBDEP, (U8_T *)&reg16b, 2);
+ 598   3                              /* Flush all characters in the RX buffer ring by HSRBRP = HSRBWP when UART2 is in DMA mode */
+ 599   3                              reg16b = 0;
+ 600   3                              hsur2_IntRegRead(HSRBWP, (U8_T *)&reg16b, 2);
+ 601   3                              hsur2_IntRegWrite(HSRBRP, (U8_T *)&reg16b, 2);
+ 602   3                              reg32b = (U32_T)ptHsur2RxDmaRingStart & 0xFF0000;
+ 603   3                          reg32b += (U32_T)reg16b;
+ 604   3                          ptHsur2RxDmaRingSwRead = reg32b;
+ 605   3                              /* Disable the Receiver FIFO STOP (RSTOP) bit to re-start RX FIFO */
+ 606   3                              valFcr = (hsur2FifoCtrl | HSFCR_RFR | HSFCR_TFR);
+ 607   3                              valFcr &= ~HSFCR_RSTOP;
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 11  
+
+ 608   3                              hsur2_IntRegWrite(HSFCR, &valFcr, 1);
+ 609   3                      }
+ 610   2                      else
+ 611   2                      {
+ 612   3                              printd("clear hsur2ErrBlocking = 0\n\r");
+ 613   3                              EA = 0;
+ 614   3                              hsur2ErrBlocking = 0;
+ 615   3                              hsur2ErrCount = 0;
+ 616   3                              /* Enable the UART2 interrupt again */
+ 617   3                              HSUR2_RegWrite(HSIER, &hsur2IntrEnbType, 1);
+ 618   3                              EA = 1;
+ 619   3                      }
+ 620   2              }
+ 621   1      }
+ 622          
+ 623          /*
+ 624           *--------------------------------------------------------------------------------
+ 625           * void HSUR2_IntrEntryFunc(void)
+ 626           * Purpose: An interrupt service rounine that should be included in MCPU peripheral
+ 627           *          interface interrupt service routine within the AX220xx MCPU module.
+ 628           *          It will be trigger by interrupt events that be incicated in the HSIIR register.
+ 629           * Params : None.
+ 630           * Returns: None.
+ 631           * Note   : None.
+ 632           *--------------------------------------------------------------------------------
+ 633           */
+ 634          void HSUR2_IntrEntryFunc(void)
+ 635          {
+ 636   1              U8_T    intrStatus = 0;
+ 637   1      
+ 638   1              hsur2_IntRegRead(HSIIR, &intrStatus, 1);
+ 639   1              intrStatus &= 0x1F;
+ 640   1      
+ 641   1              if (intrStatus == HSIIR_RLS_INTR)
+ 642   1              {
+ 643   2                      hsur2_ReadLsr();
+ 644   2              }
+ 645   1              else if (intrStatus == HSIIR_DMAS_INTR)
+ 646   1              {
+ 647   2                      hsur2_DmaIntrStatusCheck();
+ 648   2              }
+ 649   1              else if (intrStatus == HSIIR_RD_TRIG_INTR)
+ 650   1              {
+ 651   2                      hsur2_RxDmaOccupTrigEvent();
+ 652   2              }
+ 653   1              else if (intrStatus == HSIIR_RD_TI_INTR)
+ 654   1              {
+ 655   2                      hsur2_RxDmaCharTimeoutEvent();
+ 656   2              }
+ 657   1              else if (intrStatus == HSIIR_TFE_INTR)
+ 658   1              {
+ 659   2                      /* This status will not be occurred in Tx DMA mode */
+ 660   2              }
+ 661   1              else if (intrStatus == HSIIR_MS_INTR)
+ 662   1              {
+ 663   2                      hsur2_ReadMsr();
+ 664   2              }
+ 665   1              else
+ 666   1              {
+ 667   2      
+ 668   2              }
+ 669   1      }
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 12  
+
+ 670          
+ 671          /*
+ 672           *--------------------------------------------------------------------------------
+ 673           * BOOL HSUR2_RxDmaSwReadPointerUpdated(U16_T lenCount)
+ 674           * Purpose: release the RX buffer ring memory that have been retrieved.
+ 675           * Params : lenCount : A length that indicates how many valid data can be retrieved.
+ 676           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+ 677           * Note   : None.
+ 678           *--------------------------------------------------------------------------------
+ 679           */
+ 680          BOOL HSUR2_RxDmaSwReadPointerUpdated(U16_T lenCount)
+ 681          {
+ 682   1              U32_T   temp32b = 0;
+ 683   1              U8_T    temp8b = 0;
+ 684   1      
+ 685   1              ptHsur2RxDmaRingSwRead = ptHsur2RxDmaRingSwRead + lenCount;
+ 686   1      
+ 687   1              if (ptHsur2RxDmaRingSwRead > ptHsur2RxDmaRingEnd)
+ 688   1                      ptHsur2RxDmaRingSwRead = ptHsur2RxDmaRingStart + (ptHsur2RxDmaRingSwRead - ptHsur2RxDmaRingEnd - 1);
+ 689   1      
+ 690   1              temp32b = ((U32_T)ptHsur2RxDmaRingSwRead - 0x010000);
+ 691   1              temp32b <<= 16;
+ 692   1      
+ 693   1              HSUR2_RegWrite(HSRBRP, (U8_T *)&temp32b, 2);
+ 694   1              
+ 695   1              /* Re-enable the RxDMA interrupt */
+ 696   1              HSUR2_RegRead(HSIER, &temp8b, 1);
+ 697   1              temp8b |= HSIER_RDI_ENB;
+ 698   1              HSUR2_RegWrite(HSIER, &temp8b, 1);
+ 699   1      
+ 700   1              return TRUE;
+ 701   1      }
+ 702          
+ 703          /*
+ 704           *--------------------------------------------------------------------------------
+ 705           * U16_T HSUR2_GetRxDmaAvailCount(void)
+ 706           * Purpose: The number of valid data bytes in Receive Buffer Ring.
+ 707           *          Check this to determine how many bytes have been received.
+ 708           *          This function will directly read a register HSRBABC (0x20) to return.
+ 709           * Params : None.
+ 710           * Returns: available bytes, HSRBABC (0x20).
+ 711           * Note   : None.
+ 712           *--------------------------------------------------------------------------------
+ 713           */
+ 714          U16_T HSUR2_GetRxDmaAvailCount(void)
+ 715          {
+ 716   1              U16_T   reg16b;
+ 717   1      
+ 718   1              if ((hsur2RxDataAvail+hsur2RingFull) == 0)
+ 719   1              {
+ 720   2                      return 0;
+ 721   2              }
+ 722   1      
+ 723   1              /* update the HSRBABC to get the available count of Rx ring*/
+ 724   1              HSUR2_RegRead(HSRBABC, (U8_T *)&reg16b, 2);
+ 725   1      
+ 726   1              return reg16b;
+ 727   1      }
+ 728          
+ 729          /*
+ 730           *--------------------------------------------------------------------------------
+ 731           * BOOL HSUR2_TxDmaTranmit(U8_T *ptTx, U16_T length)
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 13  
+
+ 732           * Purpose: This function will directly transmit characters in TX buffer memory.
+ 733           *          Give a start address of TX buffer with a length to the hardware
+ 734           *          for DMA copying and get a status to check.
+ 735           * Params : ptTx: A point to indicate the TX buffer on xDATA momory.
+ 736           *          length: The length that will be transmitted by TX DMA.
+ 737           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+ 738           * Note   : None.
+ 739           *--------------------------------------------------------------------------------
+ 740           */
+ 741          BOOL HSUR2_TxDmaTranmit(U8_T *ptTx, U16_T length)
+ 742          {
+ 743   1              U32_T   temp32b;
+ 744   1              U8_T    temp8b;
+ 745   1      
+ 746   1              /* if TxDMA still busy, give up */
+ 747   1          do
+ 748   1          {
+ 749   2              HSUR2_RegRead(HSDCR, &temp8b, 1);
+ 750   2          } while (temp8b & HSDCR_STD);
+ 751   1      
+ 752   1              temp32b = ((U32_T)ptTx - 0x010000); // for Keil C pointer convert
+ 753   1              temp32b <<= 8;
+ 754   1              HSUR2_RegWrite(HSTDAR, (U8_T *)&temp32b, 3);
+ 755   1              
+ 756   1              HSUR2_RegWrite(HSTDBCR, (U8_T *)&length, 2);
+ 757   1      
+ 758   1              temp8b |= HSDCR_STD;
+ 759   1              HSUR2_RegWrite(HSDCR, &temp8b, 1);
+ 760   1      
+ 761   1              return TRUE;
+ 762   1      }
+ 763          
+ 764          /*
+ 765           *--------------------------------------------------------------------------------
+ 766           * U8_T HSUR2_GetLineStatus(U8_T intrSynth)
+ 767           * Purpose: This function will return a variable of the UART2 Line Status Register.
+ 768           * Params : intrSynth: Set 1 to get the Line Status in the interrupt recording.
+ 769           *                     Set 0 to directly read the Line Status Register (HSLSR).
+ 770           * Returns: valLsr: A variable of the UART2 Line Status Register.
+ 771           * Note   : None.
+ 772           *--------------------------------------------------------------------------------
+ 773           */
+ 774          U8_T HSUR2_GetLineStatus(U8_T intrSynth)
+ 775          {
+ 776   1              U8_T valLsr;
+ 777   1      
+ 778   1              if (intrSynth)
+ 779   1                      valLsr = hsur2LineStatus & 0x9E;
+ 780   1              else
+ 781   1                      HSUR2_RegRead(HSLSR, &valLsr, 1);
+ 782   1      
+ 783   1              return valLsr;
+ 784   1      }
+ 785          
+ 786          /*
+ 787           * ----------------------------------------------------------------------------
+ 788           * U8_T HSUR2_GetModemStatus(U8_T intrSynth)
+ 789           * Purpose: Getting the UART2 Modem Status .
+ 790           * Params : intrSynth: 1: Get MSR according to an interrupt trigger.
+ 791           *                       0: Get MSR by directly reading the register.
+ 792           * Returns: varModemStatus: Modem status register variable.
+ 793           * Note   : None.
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 14  
+
+ 794           * ----------------------------------------------------------------------------
+ 795           */
+ 796          U8_T HSUR2_GetModemStatus(U8_T intrSynth)
+ 797          {
+ 798   1              U8_T    varModemStatus = 0;
+ 799   1      
+ 800   1              if (intrSynth)
+ 801   1                      varModemStatus = hsur2ModemStatus;
+ 802   1              else
+ 803   1                      HSUR2_RegRead(HSMSR, &varModemStatus, 1);
+ 804   1      
+ 805   1              return varModemStatus;
+ 806   1      }
+ 807          
+ 808          /*
+ 809           * ----------------------------------------------------------------------------
+ 810           * U8_T HSUR2_GetLineControl(void)
+ 811           * Purpose: Getting the UART2 Line Control register variables.
+ 812           * Params : None.
+ 813           * Returns: varLineCtrl: A variable of the UART2 Line Control Register.
+ 814           * Note   : None.
+ 815           * ----------------------------------------------------------------------------
+ 816           */
+ 817          U8_T HSUR2_GetLineControl(void)
+ 818          {
+ 819   1              U8_T    varLineCtrl = 0;
+ 820   1      
+ 821   1              HSUR2_RegRead(HSLCR, &varLineCtrl, 1);
+ 822   1      
+ 823   1              return varLineCtrl;
+ 824   1      }
+ 825          
+ 826          /*
+ 827           * ----------------------------------------------------------------------------
+ 828           * U8_T HSUR2_GetFifoControl(void)
+ 829           * Purpose: Getting the UART2 FIFO Control register variables.
+ 830           * Params : None.
+ 831           * Returns: hsur2FifoCtrl: A variable of the UART2 FIFO Control Register in initialization.
+ 832           * Note   : None.
+ 833           * ----------------------------------------------------------------------------
+ 834           */
+ 835          U8_T HSUR2_GetFifoControl(void)
+ 836          {
+ 837   1              return hsur2FifoCtrl;
+ 838   1      }
+ 839          
+ 840          /*
+ 841           * ----------------------------------------------------------------------------
+ 842           * U8_T HSUR2_GetModemControl(void)
+ 843           * Purpose: Getting the UART2 Modem Control register variables.
+ 844           * Params : None.
+ 845           * Returns: hsur2ModemCtrl:A variable of the UART2 Modem Control Register in initialization.
+ 846           * Note   : None.
+ 847           * ----------------------------------------------------------------------------
+ 848           */
+ 849          U8_T HSUR2_GetModemControl(void)
+ 850          {
+ 851   1              return hsur2ModemCtrl;
+ 852   1      }
+ 853          
+ 854          /*
+ 855           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 15  
+
+ 856           * void HSUR2_SetLineControl(U8_T value)
+ 857           * Purpose: Setting the UART2 Line control register with a new value.
+ 858           * Params : value: variable to be set.
+ 859           * Returns: None.
+ 860           * Note   : None.
+ 861           * ----------------------------------------------------------------------------
+ 862           */
+ 863          void HSUR2_SetLineControl(U8_T value)
+ 864          {
+ 865   1              U8_T    lCtrl = value;
+ 866   1              
+ 867   1              HSUR2_RegWrite(HSLCR, &lCtrl, 1);
+ 868   1      }
+ 869          
+ 870          /*
+ 871           * ----------------------------------------------------------------------------
+ 872           * void HSUR2_SetFifoControl(U8_T value)
+ 873           * Purpose: Setting the UART2 FIFO control register with a new value.
+ 874           * Params : value: variable to be set.
+ 875           * Returns: None.
+ 876           * Note   : None.
+ 877           * ----------------------------------------------------------------------------
+ 878           */
+ 879          void HSUR2_SetFifoControl(U8_T value)
+ 880          {
+ 881   1              U8_T    fCtrl = value;
+ 882   1              
+ 883   1              HSUR2_RegWrite(HSFCR, &fCtrl, 1);
+ 884   1              
+ 885   1              hsur2FifoCtrl = fCtrl;
+ 886   1      }
+ 887          
+ 888          /*
+ 889           * ----------------------------------------------------------------------------
+ 890           * void HSUR2_SetModemControl(U8_T value)
+ 891           * Purpose: Setting the UART2 Modem control register with a new value.
+ 892           * Params : value: variable to be set.
+ 893           * Returns: None.
+ 894           * Note   : None.
+ 895           * ----------------------------------------------------------------------------
+ 896           */
+ 897          void HSUR2_SetModemControl(U8_T value)
+ 898          {
+ 899   1              U8_T    mCtrl = value;
+ 900   1              
+ 901   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 902   1              
+ 903   1              hsur2ModemCtrl = mCtrl;
+ 904   1      }
+ 905          
+ 906          /*
+ 907           * ----------------------------------------------------------------------------
+ 908           * void HSUR2_SetRTS(void)
+ 909           * Purpose: Only setting the UART2 RTS bit of Modem control register.
+ 910           * Params : None.
+ 911           * Returns: None.
+ 912           * Note   : None.
+ 913           * ----------------------------------------------------------------------------
+ 914           */
+ 915          void HSUR2_SetRTS(void)
+ 916          {
+ 917   1              U8_T    mCtrl;
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 16  
+
+ 918   1      
+ 919   1              HSUR2_RegRead(HSMCR, &mCtrl, 1);
+ 920   1              mCtrl |= HSMCR_RTS;
+ 921   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 922   1              
+ 923   1              hsur2ModemCtrl = mCtrl;
+ 924   1      }
+ 925          
+ 926          /*
+ 927           * ----------------------------------------------------------------------------
+ 928           * void HSUR2_SetDTR(void)
+ 929           * Purpose: Only setting the UART2 DTR bit of Modem control register.
+ 930           * Params : None.
+ 931           * Returns: None.
+ 932           * Note   : None.
+ 933           * ----------------------------------------------------------------------------
+ 934           */
+ 935          void HSUR2_SetDTR(void)
+ 936          {
+ 937   1              U8_T    mCtrl;
+ 938   1      
+ 939   1              HSUR2_RegRead(HSMCR, &mCtrl, 1);
+ 940   1              mCtrl |= HSMCR_DTR;
+ 941   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 942   1              
+ 943   1              hsur2ModemCtrl = mCtrl;
+ 944   1      }
+ 945          
+ 946          /*
+ 947           * ----------------------------------------------------------------------------
+ 948           * void HSUR2_ClearRTS(void)
+ 949           * Purpose: Only clear the UART2 RTS bit of Modem control register.
+ 950           * Params : None.
+ 951           * Returns: None.
+ 952           * Note   : None.
+ 953           * ----------------------------------------------------------------------------
+ 954           */
+ 955          void HSUR2_ClearRTS(void)
+ 956          {
+ 957   1              U8_T    mCtrl;
+ 958   1      
+ 959   1              HSUR2_RegRead(HSMCR, &mCtrl, 1);
+ 960   1              mCtrl &= ~HSMCR_RTS;
+ 961   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 962   1              
+ 963   1              hsur2ModemCtrl = mCtrl;
+ 964   1      }
+ 965          
+ 966          /*
+ 967           * ----------------------------------------------------------------------------
+ 968           * void HSUR2_ClearDTR(void)
+ 969           * Purpose: Only clear the UART2 DTR bit of Modem control register.
+ 970           * Params : None.
+ 971           * Returns: None.
+ 972           * Note   : None.
+ 973           * ----------------------------------------------------------------------------
+ 974           */
+ 975          void HSUR2_ClearDTR(void)
+ 976          {
+ 977   1              U8_T    mCtrl;
+ 978   1      
+ 979   1              HSUR2_RegRead(HSMCR, &mCtrl, 1);
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 17  
+
+ 980   1              mCtrl &= ~HSMCR_DTR;
+ 981   1              HSUR2_RegWrite(HSMCR, &mCtrl, 1);
+ 982   1              
+ 983   1              hsur2ModemCtrl = mCtrl;
+ 984   1      }
+ 985          
+ 986          /*
+ 987           * ----------------------------------------------------------------------------
+ 988           * void HSUR2_SetupPort(U16_T divBaudRate, U8_T lCtrl)
+ 989           * Purpose: Setting the UART2 baudrate.
+ 990           * Params : divBaudRate: The divisor of the baudrate.
+ 991           *          lCtrl: A Line Control Register value.
+ 992           * Returns: None.
+ 993           * Note   : None.
+ 994           * ----------------------------------------------------------------------------
+ 995           */
+ 996          void HSUR2_SetupPort(U16_T divBaudRate, U8_T lCtrl)
+ 997          {
+ 998   1              U8_T    dll, dlh, lineCtrl;
+ 999   1      
+1000   1              /* Set UART2 Baudrate */
+1001   1              lineCtrl = HSLCR_DLAB_ENB;
+1002   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+1003   1              dll = (U8_T)(divBaudRate & 0x00FF);
+1004   1              dlh = (U8_T)((divBaudRate & 0xFF00) >> 8);
+1005   1              HSUR2_RegWrite(HSDLLR, &dll, 1);
+1006   1              HSUR2_RegWrite(HSDLHR , &dlh, 1);
+1007   1              lineCtrl &= ~HSLCR_DLAB_ENB;
+1008   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+1009   1              /* Set Line Control Register */
+1010   1              lCtrl &= ~HSLCR_DLAB_ENB;
+1011   1              HSUR2_RegWrite(HSLCR, &lCtrl, 1);
+1012   1      }
+1013          
+1014          /*
+1015           * ----------------------------------------------------------------------------
+1016           * void HSUR2_SetBaudRate(U16_T divBaudRate)
+1017           * Purpose: Setting the UART2 baudrate.
+1018           * Params : divBaudRate: The divisor of the baudrate.
+1019           * Returns: None.
+1020           * Note   : None.
+1021           * ----------------------------------------------------------------------------
+1022           */
+1023          void HSUR2_SetBaudRate(U16_T divBaudRate)
+1024          {
+1025   1              U8_T    dll, dlh, lineCtrl;
+1026   1      
+1027   1              /* Set UART2 Baudrate */
+1028   1              lineCtrl = HSLCR_DLAB_ENB;
+1029   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+1030   1              dll = (U8_T)(divBaudRate & 0x00FF);
+1031   1              dlh = (U8_T)((divBaudRate & 0xFF00) >> 8);
+1032   1              HSUR2_RegWrite(HSDLLR, &dll, 1);
+1033   1              HSUR2_RegWrite(HSDLHR , &dlh, 1);
+1034   1              lineCtrl &= ~HSLCR_DLAB_ENB;
+1035   1              HSUR2_RegWrite(HSLCR, &lineCtrl, 1);
+1036   1      }
+1037          
+1038          /*
+1039           *--------------------------------------------------------------------------------
+1040           * void HSUR2_AutoCtsRtsFlowCtrl(U8_T set)
+1041           * Purpose: To enable/disable the automatic CTS/RTS flow control executed by hardware.
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 18  
+
+1042           * Params : set: A value 1 to enable the auto-CTS/RTS flow control function.
+1043           *               A value 0 to disable.
+1044           * Returns: None.
+1045           * Note   : None.
+1046           *--------------------------------------------------------------------------------
+1047           */
+1048          void HSUR2_AutoCtsRtsFlowCtrl(U8_T set)
+1049          {
+1050   1              U8_T    reg8b;
+1051   1              
+1052   1              /* If turn HW CTS/RTS, the software flow control need not be enabled */
+1053   1              HSUR2_RegRead(HSAFCSR, &reg8b, 1);
+1054   1              if (set)
+1055   1                      reg8b = HSAFCSR_ACTSE_ENB | HSAFCSR_ARTSE_ENB; // only use HW CTS/RTS */
+1056   1              else
+1057   1                      reg8b &= ~(HSAFCSR_ACTSE_ENB | HSAFCSR_ARTSE_ENB);
+1058   1              HSUR2_RegWrite(HSAFCSR, &reg8b, 1);
+1059   1      }
+1060          
+1061          /*
+1062           *--------------------------------------------------------------------------------
+1063           * void HSUR2_AutoSoftwareFlowCtrl(U8_T setFlow, U8_T modeFlow, U16_T chXon, U16_T chXoff, U16_T chEsc)
+1064           * Purpose: To enable / disable the automatic Software Xon/Xoff flow control
+1065           *          function with Escape or Non-Eacape that is executed by hardware.
+1066           * Params : setFlow: A value 1 to enable the auto-Xon/Xoff flow control function.
+1067           *                   A value 0 to disable.
+1068           *          modeFlow: A variable of  HSAFCSR(0x08).
+1069           *                    There are 4 bit can be set for auto-software flow control mode.
+1070           *          chXon: The Xon characters. Only low byte is valid if setting one byte flow control.
+1071           *          chXoff: The Xoff characters. Only low byte is valid if setting one byte flow control.
+1072           *          chEsc: The ESC characters. Only low byte is valid if setting one byte attached.
+1073           * Returns: None.
+1074           * Note   : None.
+1075           *--------------------------------------------------------------------------------
+1076           */
+1077          void HSUR2_AutoSoftwareFlowCtrl(U8_T setFlow, U8_T modeFlow, U16_T chXon, U16_T chXoff, U16_T chEsc)
+1078          {
+1079   1              U8_T    reg8b;
+1080   1              
+1081   1              /* If turn HW CTS/RTS, the software flow control need not be enabled */
+1082   1              HSUR2_RegRead(HSAFCSR, &reg8b, 1);
+1083   1              if (setFlow)
+1084   1              {
+1085   2                      reg8b = HSAFCSR_ASFCE_ENB; // only use Automatic Software flow control Enable
+1086   2                      
+1087   2                      HSUR2_RegWrite(HSXONR, (U8_T *)&chXon, 2);
+1088   2      
+1089   2                      HSUR2_RegWrite(HSXOFFR, (U8_T *)&chXoff, 2);
+1090   2                      
+1091   2                      HSUR2_RegWrite(HSECR, (U8_T *)&chEsc, 2);
+1092   2                              
+1093   2                      if (modeFlow & HSAFCSR_DCSE_ENB) //Double Xon/Xoff Characters Select Enable
+1094   2                              reg8b |= HSAFCSR_DCSE_ENB;
+1095   2                      if (modeFlow & HSAFCSR_AECE_ENB) //Auto Escape Character Enable
+1096   2                              reg8b |= HSAFCSR_AECE_ENB;
+1097   2                      if (modeFlow & HSAFCSR_DECE_ENB) //Double Escape Character Enable
+1098   2                              reg8b |= HSAFCSR_DECE_ENB;
+1099   2              }
+1100   1              else
+1101   1              {
+1102   2                      reg8b &= ~(HSAFCSR_ASFCE_ENB | HSAFCSR_DCSE_ENB | HSAFCSR_AECE_ENB | HSAFCSR_DECE_ENB | HSAFCSR_SXON | H
+             -SAFCSR_SXOFF);
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 19  
+
+1103   2              }
+1104   1              HSUR2_RegWrite(HSAFCSR, &reg8b, 1);
+1105   1      }
+1106          
+1107          /*
+1108           *--------------------------------------------------------------------------------
+1109           * void HSUR2_WakeUpEvent(void)
+1110           * Purpose: An interrupt service rounine that should be included in MCPU
+1111           *          Wake-Up interrupt service routine within the AX220xx MCPU module.
+1112           * Params : None.
+1113           * Returns: None.
+1114           * Note   : None.
+1115           *--------------------------------------------------------------------------------
+1116           */
+1117          void HSUR2_WakeUpEvent(void)
+1118          {
+1119   1              U8_T    reg8b;
+1120   1      
+1121   1              hsur2_IntRegRead(HSDSR, &reg8b, 1);
+1122   1              // Add wakeup process from here...
+1123   1      }
+1124          
+1125          /*
+1126           *--------------------------------------------------------------------------------
+1127           * void HSUR2_ForceSendCtrlXon(void)
+1128           * Purpose: Force AX220xx UART2 to send the Xon character with single or double.
+1129           * Params : None.
+1130           * Returns: None.
+1131           * Note   : None.
+1132           *--------------------------------------------------------------------------------
+1133           */
+1134          void HSUR2_ForceSendCtrlXon(void)
+1135          {
+1136   1              U8_T    reg8b;
+1137   1              
+1138   1              HSUR2_RegRead(HSAFCSR,&reg8b, 1);
+1139   1              reg8b |= HSAFCSR_SXON;
+1140   1              HSUR2_RegWrite(HSAFCSR,&reg8b, 1);
+1141   1      }
+1142          
+1143          /*
+1144           *--------------------------------------------------------------------------------
+1145           * void HSUR2_ForceSendCtrlXoff(void)
+1146           * Purpose: Force AX220xx UART2 to send the Xoff character with single or double.
+1147           * Params : None.
+1148           * Returns: None.
+1149           * Note   : None.
+1150           *--------------------------------------------------------------------------------
+1151           */
+1152          void HSUR2_ForceSendCtrlXoff(void)
+1153          {
+1154   1              U8_T    reg8b;
+1155   1              
+1156   1              HSUR2_RegRead(HSAFCSR,&reg8b, 1);
+1157   1              reg8b |= HSAFCSR_SXOFF;
+1158   1              HSUR2_RegWrite(HSAFCSR,&reg8b, 1);
+1159   1      }
+1160          
+1161          /*
+1162           *--------------------------------------------------------------------------------
+1163           * BOOL HSUR2_XmitOutEnq(U8_T* pAppData, U16_T appLength)
+1164           * Purpose: A transmitting en-queue function is used by an application up-layer.
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 20  
+
+1165           *          When the up-layer software wants to send data on to the serial bus,
+1166           *          it can call this function to put data into a TX buffer. The en-queue
+1167           *          function will keep the data until the transmitting task is processed.
+1168           * Params : pAppData: A point to indicate the application data stream that will
+1169           *                    be transmitted by TX DMA. This pointer will be transformed
+1170           *                    to a real start address on xDATA momory.
+1171           *          appLength: The length of application transmitting data.
+1172           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+1173           * Note   : None.
+1174           *--------------------------------------------------------------------------------
+1175           */
+1176          BOOL HSUR2_XmitOutEnq(U8_T* pAppData, U16_T appLength)
+1177          {
+1178   1          U16_T txUr2Len;
+1179   1      
+1180   1          while (appLength)
+1181   1          {
+1182   2                  /* Check the transmitting buffer for free to use */
+1183   2                  if (hsur2TxPageInfo[hsur2TxEnqPage].txBusyFlag & UR2_BUF_BUSY)
+1184   2              {
+1185   3                          return FALSE;
+1186   3              }
+1187   2              txUr2Len = appLength;
+1188   2              if (txUr2Len > UR2_TX_PAGE_BUF)
+1189   2              {
+1190   3                  txUr2Len = UR2_TX_PAGE_BUF;
+1191   3              }
+1192   2              appLength -= txUr2Len;
+1193   2      
+1194   2                  hsur2TxPageInfo[hsur2TxEnqPage].txBusyFlag |= UR2_BUF_BUSY;
+1195   2                  hsur2TxPageInfo[hsur2TxEnqPage].txDataLen = txUr2Len;
+1196   2              if (txUr2Len)
+1197   2                      DMA_Grant(hsur2TxPageInfo[hsur2TxEnqPage].txBufArray, pAppData, txUr2Len);
+1198   2      
+1199   2                  pAppData += txUr2Len;
+1200   2                  hsur2TxEnqPage ++;
+1201   2                  if (hsur2TxEnqPage >= UR2_TX_PAGE_NUM)
+1202   2                          hsur2TxEnqPage = 0;
+1203   2          }
+1204   1              return TRUE;
+1205   1      }
+1206          
+1207          /*
+1208           *--------------------------------------------------------------------------------
+1209           * BOOL HSUR2_XmitOutDeq(void)
+1210           * Purpose: A transmitting de-queue function is used by an application up-layer.
+1211           *          The up-layer software can call this function to transmit data from the
+1212           *          TX buffer to FIFO. This function will use the function, HSUR2_TxDmaTranmit( ),
+1213           *          to send data stream out. An application must include this de-queue
+1214           *          function into a transmitting task that should have a responsibility
+1215           *          for sending data to serial bus.
+1216           * Params : None.
+1217           * Returns: TRUE (1) is success ; FALSE (0) is failure.
+1218           * Note   : None.
+1219           *--------------------------------------------------------------------------------
+1220           */
+1221          BOOL HSUR2_XmitOutDeq(void)
+1222          {
+1223   1              U8_T    *pTxOut;
+1224   1              U16_T   txLength;
+1225   1                      
+1226   1              /* Check the transmitting buffer for valid to send */
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 21  
+
+1227   1              if (hsur2TxPageInfo[hsur2TxDeqPage].txBusyFlag == UR2_BUF_EMPTY)
+1228   1                      return FALSE;
+1229   1      
+1230   1          pTxOut = hsur2TxPageInfo[hsur2TxDeqPage].txBufArray;
+1231   1          txLength = hsur2TxPageInfo[hsur2TxDeqPage].txDataLen;
+1232   1          HSUR2_TxDmaTranmit(pTxOut, txLength);
+1233   1          hsur2TxPageInfo[hsur2TxDeqPage].txBusyFlag = UR2_BUF_EMPTY;
+1234   1      
+1235   1          hsur2TxDeqPage ++;
+1236   1          if (hsur2TxDeqPage >= UR2_TX_PAGE_NUM)
+1237   1              hsur2TxDeqPage = 0;
+1238   1      
+1239   1              return TRUE;
+1240   1      }
+1241          
+1242          /*
+1243           *--------------------------------------------------------------------------------
+1244           * void HSUR2_CopyUartToApp(U8_T* pAppData, U16_T appGetLen)
+1245           * Purpose: If the up-layer application has a memory resource as a RX buffer,
+1246           *          this function can help to copy the received data block from the firmware
+1247           *          receiving buffer ring to up-layer buffer by a SW DMA function. After
+1248           *          completing the DMA copying, the function, HSUR2_RxDmaSwReadPointerUpdated,
+1249           *          will be called to release the RX buffer ring. This function alwaye need
+1250           *          a real memory resource at the up-layer application. But the application
+1251           *          can also use other API functions to get the RX buffer ring status
+1252           *          and can release the RX buffer ring.
+1253           * Params : pAppData : A point to indicate the up-layer application data buffer that
+1254           *                     storing received characters.
+1255           *          appFreeLen : The maximum length of the up-layer application data buffer.
+1256           * Returns: None.
+1257           * Note   : None.
+1258           *--------------------------------------------------------------------------------
+1259           */
+1260          void HSUR2_CopyUartToApp(U8_T* pAppData, U16_T appGetLen)
+1261          {
+1262   1              U8_T    *pRxStart, *pRxCur, *pRxEnd;
+1263   1              U16_T   rxCount, tempCount1, tempCount2;
+1264   1          BIT oldEintBit;
+1265   1      
+1266   1          if (!appGetLen)
+1267   1              return;
+1268   1      
+1269   1              rxCount = appGetLen;
+1270   1              pRxStart = ptHsur2RxDmaRingStart;
+1271   1              pRxCur = ptHsur2RxDmaRingSwRead;
+1272   1              pRxEnd = ptHsur2RxDmaRingEnd;
+1273   1              
+1274   1              if ((pRxCur + rxCount) > pRxEnd)
+1275   1              {
+1276   2                      /* copy data to application from pRxCur to pRxEnd */
+1277   2                      tempCount1 = (pRxEnd - pRxCur + 1);
+1278   2                      if (tempCount1)
+1279   2                  DMA_Grant(pAppData, pRxCur, tempCount1);
+1280   2                      /* copy data to application for last length from pRxStart */
+1281   2                      tempCount2 = rxCount - tempCount1;
+1282   2              if (tempCount2)
+1283   2                          DMA_Grant((pAppData + tempCount1), pRxStart, tempCount2);
+1284   2              }
+1285   1              else
+1286   1              {
+1287   2                      DMA_Grant(pAppData, pRxCur, rxCount);
+1288   2              }
+C51 COMPILER V9.01   HSUART2                                                               08/29/2011 15:28:06 PAGE 22  
+
+1289   1      
+1290   1              HSUR2_RxDmaSwReadPointerUpdated(rxCount);
+1291   1          oldEintBit = EA;
+1292   1              EA = 0;
+1293   1          hsur2RingFull=0;
+1294   1              hsur2RxDataAvail = 0;
+1295   1              EA = oldEintBit;
+1296   1      }
+1297          /* End of hsuart2.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   4864    ----
+   CONSTANT SIZE    =     52    ----
+   XDATA SIZE       =   3134     141
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       7
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

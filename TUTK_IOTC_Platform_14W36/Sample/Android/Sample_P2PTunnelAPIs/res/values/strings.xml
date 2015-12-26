@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>    
+    <string name="app_name">P2PTunnel APIs</string>
+    <string name="menu_settings">Settings</string>
+    <string name="optExit">Exit</string>
+    <string name="title_btn_start1">Start</string>
+    <string name="title_btn_start2">Connect</string>
+    <string name="title_activity_main">P2PTunnel_APIs</string>
+</resources>

@@ -1,0 +1,757 @@
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE GTCPDAT
+OBJECT MODULE PLACED IN .\gtcpdat.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mgs2wifi\gtcpdat.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INC
+                    -DIR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\
+                    -mping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\
+                    -src\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt
+                    -32KH) VARBANKING DEBUG PRINT(.\gtcpdat.lst) OBJECT(.\gtcpdat.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: gtcpdat.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: gtcpdat.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "adapter.h"
+  24          #include "gs2w.h"
+  25          #include "gconfig.h"
+  26          #include "gtcpdat.h"
+  27          #include "tcpip.h"
+  28          #include "mstimer.h"
+  29          #include "stoe.h"
+  30          #include "uart0.h"
+  31          #include "hsuart.h"
+  32          #include "hsuart2.h"
+  33          #include "printd.h"
+  34          #include <string.h>
+  35          
+  36          /* NAMING CONSTANT DECLARATIONS */
+  37          #define GTCPDAT_MAX_CONNS                               1
+  38          #define GTCPDAT_NO_NEW_CONN                             0xFF
+  39          
+  40          #define GTCPDAT_STATE_FREE                              0
+  41          #define GTCPDAT_STATE_WAIT                              1
+  42          #define GTCPDAT_STATE_CONNECTED                 2
+  43          
+  44          #define GTCPDAT_DATA_INDICATOR                  0x32
+  45          #define GTCPDAT_FLOW_CONTROL_INDICATOR  0x33
+  46          
+  47          #define GTCPDAT_MAIN_CONNECT_TIME       (3 * 60 * (1000/SWTIMER_INTERVAL))   /* 3 minutes */
+  48          
+  49          /* GLOBAL VARIABLES DECLARATIONS */
+  50          
+  51          /* LOCAL VARIABLES DECLARATIONS */
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 2   
+
+  52          static GTCPDAT_CONN gtcpdat_Conns[GTCPDAT_MAX_CONNS];
+  53          static U8_T gtcpdat_InterAppId;
+  54          static U16_T gtcpdat_EthernetTxTimer;
+  55          static U8_T gtcpdat_TcpClient;
+  56          static U32_T elapse, time;
+  57          
+  58          #if GS2W_ENABLE_FLOW_CONTROL                    
+  59          static U8_T txBuf[6];
+  60          #endif
+  61          
+  62          /* LOCAL SUBPROGRAM DECLARATIONS */
+  63          #if GS2W_ENABLE_FLOW_CONTROL                    
+  64          static void gtcpdat_HandleFlowControlPacket(U8_T XDATA* pData, U16_T length, U8_T id);
+  65          static void gtcpdat_SetFlowControl(U8_T fCtrl);
+  66          #endif
+  67          
+  68          static void gtcpdat_MaintainConnection(U8_T id);
+  69          static void gtcpdat_GetDataFromUr(U8_T id);
+  70          static void gtcpdat_SendData(U8_T);
+  71          
+  72          /*
+  73           * ----------------------------------------------------------------------------
+  74           * Function Name: GTCPDAT_GetRandomPortNum
+  75           * Purpose: 
+  76           * Params:
+  77           * Returns:
+  78           * Note:
+  79           * ----------------------------------------------------------------------------
+  80           */
+  81          U16_T GTCPDAT_GetRandomPortNum(void)
+  82          {
+  83   1          U16_T port;
+  84   1      
+  85   1          port = (U16_T)SWTIMER_Tick();
+  86   1      
+  87   1          if (port < 5000)
+  88   1              port += 5000;
+  89   1      
+  90   1          return port;
+  91   1      } /* End of GTCPDAT_GetRandomPortNum() */
+  92          
+  93          /*
+  94           * ----------------------------------------------------------------------------
+  95           * Function Name: GTCPDAT_Task
+  96           * Purpose: 
+  97           * Params:
+  98           * Returns:
+  99           * Note:
+ 100           * ----------------------------------------------------------------------------
+ 101           */
+ 102          void GTCPDAT_Task(void)
+ 103          {
+ 104   1          U8_T i;
+ 105   1      
+ 106   1          for (i = 0; i < GTCPDAT_MAX_CONNS; i++)
+ 107   1          {
+ 108   2              switch (gtcpdat_Conns[i].State)
+ 109   2              {
+ 110   3                  case GTCPDAT_STATE_FREE:
+ 111   3                      if (gtcpdat_TcpClient == 1)
+ 112   3                      {
+ 113   4                          gtcpdat_Conns[i].Ip = GCONFIG_GetClientDestIP();
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 3   
+
+ 114   4                          /* get destination ip */
+ 115   4                          if (gtcpdat_Conns[i].Ip == 0)
+ 116   4                              break;
+ 117   4                          gtcpdat_Conns[i].State = GTCPDAT_STATE_WAIT;
+ 118   4                          gtcpdat_Conns[i].Timer = SWTIMER_Tick();
+ 119   4                          gtcpdat_Conns[i].Port = GCONFIG_GetClientDestPort();
+ 120   4                          gtcpdat_Conns[i].TcpSocket = TCPIP_TcpNew(gtcpdat_InterAppId,
+ 121   4                                                                    i,
+ 122   4                                                                    gtcpdat_Conns[i].Ip,
+ 123   4                                                                    GTCPDAT_GetRandomPortNum(),
+ 124   4                                                                    gtcpdat_Conns[i].Port);
+ 125   4      
+ 126   4                          TCPIP_TcpConnect(gtcpdat_Conns[i].TcpSocket);
+ 127   4                          GS2W_SetTaskState(GS2W_STATE_TCP_DATA_PROCESS);
+ 128   4      
+ 129   4                          printd("Make a TCP connection with host ip %bu %bu %bu %bu at port %u\n\r",
+ 130   4                                (U8_T) ((gtcpdat_Conns[i].Ip >> 24) & 0x000000FF), (U8_T) ((gtcpdat_Conns[i].Ip 
+             ->> 16) & 0x000000FF), 
+ 131   4                                (U8_T) ((gtcpdat_Conns[i].Ip >> 8) & 0x000000FF), (U8_T) (gtcpdat_Conns[i].Ip & 
+             -0x000000FF),
+ 132   4                                gtcpdat_Conns[i].Port);
+ 133   4                      }
+ 134   3                      break;
+ 135   3                  case GTCPDAT_STATE_CONNECTED:
+ 136   3                      {
+ 137   4      #if GS2W_ENABLE_FLOW_CONTROL
+ 138   4      
+ 139   4                      U8_T  modemStatus, modemCtrl;
+ 140   4      
+ 141   4                      /* Flow control header: type    length   payload */
+ 142   4                      /*                      ------  -------  ------- */
+ 143   4                      /*                      1 byte  2 bytes   any    */
+ 144   4                      /* length = length of payload                    */
+ 145   4                      if (gtcpdat_Conns[i].LastTxPktAck == 1)
+ 146   4                      {
+ 147   5      
+ 148   5                          modemStatus = HSUR2_GetModemStatus(TRUE);
+ 149   5                          modemCtrl = (HSUR2_GetModemControl() & 0x3);
+ 150   5      
+ 151   5                          if (gtcpdat_Conns[i].FlowControlModemStatus != modemStatus 
+ 152   5                              || modemCtrl != gtcpdat_Conns[i].FlowControlModemCtrl)
+ 153   5                          {
+ 154   6                             gtcpdat_Conns[i].FlowControlModemStatus = modemStatus;
+ 155   6                             gtcpdat_Conns[i].FlowControlModemCtrl = modemCtrl;
+ 156   6                             txBuf[0] = GTCPDAT_FLOW_CONTROL_INDICATOR;
+ 157   6                             txBuf[1] = 0;
+ 158   6                             txBuf[2] = 3;
+ 159   6                             txBuf[3] = MODEM_STATUS_CHANGE;
+ 160   6                             txBuf[4] = modemStatus;
+ 161   6                             txBuf[5] = modemCtrl;
+ 162   6                             gtcpdat_Conns[i].LastTxPktAck = 0;
+ 163   6                             TCPIP_TcpSend(gtcpdat_Conns[i].TcpSocket, &txBuf[0], 6, TCPIP_SEND_NOT_FINAL);
+ 164   6                          }
+ 165   5                      }
+ 166   4      
+ 167   4                      if (gtcpdat_Conns[i].TxDatLen == 0)
+ 168   4                      {
+ 169   5                          gtcpdat_Conns[i].TxBuf[gtcpdat_Conns[i].TxDatLen++] = GTCPDAT_DATA_INDICATOR; // TCP d
+             -ata packet indicator
+ 170   5                          gtcpdat_Conns[i].TxDatLen += 2; /* reserved for length */
+ 171   5                      }
+ 172   4      
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 4   
+
+ 173   4                      if (gtcpdat_Conns[i].FlowControlXonRx == TRUE)
+ 174   4                      {
+ 175   5      #endif
+ 176   5                              gtcpdat_GetDataFromUr(i);
+ 177   5                          gtcpdat_SendData(i);
+ 178   5      #if GS2W_ENABLE_FLOW_CONTROL
+ 179   5                      } // FlowControlXonRx
+ 180   4      #endif
+ 181   4                      gtcpdat_MaintainConnection(i);
+ 182   4                      }
+ 183   3                      break;
+ 184   3                  default:
+ 185   3                      break;
+ 186   3              }
+ 187   2          }
+ 188   1      } /* End of GTCPDAT_Task() */
+ 189          
+ 190          /*
+ 191           * ----------------------------------------------------------------------------
+ 192           * Function Name: gtcpdat_MaintainConnection()
+ 193           * Purpose: 
+ 194           * Params:
+ 195           * Returns:
+ 196           * Note:
+ 197           * ----------------------------------------------------------------------------
+ 198           */
+ 199          static void gtcpdat_MaintainConnection(U8_T id)
+ 200          {
+ 201   1          time = SWTIMER_Tick();
+ 202   1      
+ 203   1          if (time >= gtcpdat_Conns[id].Timer)
+ 204   1              elapse = time - gtcpdat_Conns[id].Timer;
+ 205   1          else
+ 206   1              elapse = (0xFFFFFFFF - gtcpdat_Conns[id].Timer) + time;
+ 207   1      
+ 208   1          if (elapse >= GTCPDAT_MAIN_CONNECT_TIME)
+ 209   1          {
+ 210   2              if ((STOE_GetIPAddr() & STOE_GetSubnetMask()) != (gtcpdat_Conns[id].Ip & STOE_GetSubnetMask()))
+ 211   2                  ETH_SendArpRequest(STOE_GetGateway());
+ 212   2              else
+ 213   2                  ETH_SendArpRequest(gtcpdat_Conns[id].Ip);
+ 214   2              gtcpdat_Conns[id].Timer = time;
+ 215   2          }
+ 216   1      } /* End of gtcpdat_MaintainConnection() */
+ 217          
+ 218          /*
+ 219           * ----------------------------------------------------------------------------
+ 220           * Function Name: gtcpdat_SendData()
+ 221           * Purpose: 
+ 222           * Params:
+ 223           * Returns:
+ 224           * Note:
+ 225           * ----------------------------------------------------------------------------
+ 226           */
+ 227          static void gtcpdat_SendData(U8_T id)
+ 228          {
+ 229   1          GTCPDAT_CONN *tcpConn = &gtcpdat_Conns[id];
+ 230   1      
+ 231   1      #if GS2W_ENABLE_FLOW_CONTROL
+ 232   1          if (tcpConn->LastTxPktAck == 1 && tcpConn->TxDatLen > 3)
+ 233   1      #else
+                  if (tcpConn->LastTxPktAck == 1 && tcpConn->TxDatLen > 0)
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 5   
+
+              #endif
+ 236   1          {
+ 237   2              if (tcpConn->TxDatLen >= GTCPDAT_MAX_TCP_DATA_LEN)
+ 238   2              {
+ 239   3                  tcpConn->LastTxPktAck = 0;
+ 240   3      #if GS2W_ENABLE_FLOW_CONTROL
+ 241   3                  /* Fill in the length of payload */
+ 242   3                  tcpConn->TxBuf[1] = (U8_T)((GTCPDAT_MAX_TCP_DATA_LEN-3) >> 8);
+ 243   3                  tcpConn->TxBuf[2] = (U8_T)((GTCPDAT_MAX_TCP_DATA_LEN-3) & 0x00FF);
+ 244   3                  tcpConn->TxSentLen = GTCPDAT_MAX_TCP_DATA_LEN;
+ 245   3      #else
+                          tcpConn->TxSentLen = tcpConn->TxDatLen;
+              #endif
+ 248   3                  TCPIP_TcpSend(tcpConn->TcpSocket, &tcpConn->TxBuf[0], tcpConn->TxSentLen, TCPIP_SEND_NOT_FINAL
+             -);           
+ 249   3                  tcpConn->TxWaitTime = 0;
+ 250   3                  
+ 251   3              }
+ 252   2              else
+ 253   2              {
+ 254   3                  time = SWTIMER_Tick();
+ 255   3      
+ 256   3                  if (tcpConn->TxWaitTime == 0)
+ 257   3                  {
+ 258   4                      tcpConn->TxWaitTime = time;
+ 259   4                  }
+ 260   3                  else
+ 261   3                  {
+ 262   4                      if (time >= tcpConn->TxWaitTime)
+ 263   4                          elapse = time - tcpConn->TxWaitTime;
+ 264   4                      else
+ 265   4                          elapse = (0xFFFFFFFF - tcpConn->TxWaitTime) + time;
+ 266   4      
+ 267   4                      if (((elapse * SWTIMER_INTERVAL) >= gtcpdat_EthernetTxTimer))
+ 268   4                      {
+ 269   5                          tcpConn->LastTxPktAck = 0;
+ 270   5      #if GS2W_ENABLE_FLOW_CONTROL
+ 271   5                           /* Fill in the length of payload */
+ 272   5                          tcpConn->TxBuf[1] = (U8_T)((tcpConn->TxDatLen-3) >> 8);
+ 273   5                          tcpConn->TxBuf[2] = (U8_T)((tcpConn->TxDatLen-3) & 0x00FF);
+ 274   5      #endif
+ 275   5                          TCPIP_TcpSend(tcpConn->TcpSocket, &tcpConn->TxBuf[0], tcpConn->TxDatLen, TCPIP_SEND_NO
+             -T_FINAL);        
+ 276   5                          tcpConn->TxWaitTime = 0;
+ 277   5                          tcpConn->TxSentLen = tcpConn->TxDatLen;
+ 278   5                      }
+ 279   4                  }
+ 280   3              }
+ 281   2          }
+ 282   1      } /* End of gtcpdat_SendData() */
+ 283          
+ 284          /*
+ 285           * ----------------------------------------------------------------------------
+ 286           * Function Name: gtcpdat_GetDataFromUr()
+ 287           * Purpose: 
+ 288           * Params:
+ 289           * Returns:
+ 290           * Note:
+ 291           * ----------------------------------------------------------------------------
+ 292           */
+ 293          static void gtcpdat_GetDataFromUr(U8_T id)
+ 294          {
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 6   
+
+ 295   1          U8_T *pUpBuf;
+ 296   1          U16_T availCount;
+ 297   1          GTCPDAT_CONN *tcpConn = &gtcpdat_Conns[id];
+ 298   1      
+ 299   1          availCount = HSUR2_GetRxDmaAvailCount();
+ 300   1          if (availCount == 0 || tcpConn->TxDatLen >= GTCPDAT_TX_BUF_SIZE)
+ 301   1              return;
+ 302   1      
+ 303   1          pUpBuf = &tcpConn->TxBuf[tcpConn->TxDatLen];
+ 304   1      
+ 305   1          if ((availCount+tcpConn->TxDatLen) >= GTCPDAT_TX_BUF_SIZE)
+ 306   1              availCount = GTCPDAT_TX_BUF_SIZE - tcpConn->TxDatLen;
+ 307   1      
+ 308   1          HSUR2_CopyUartToApp(pUpBuf, availCount);
+ 309   1          tcpConn->TxDatLen += availCount;
+ 310   1          tcpConn->UrRxBytes += availCount;
+ 311   1      
+ 312   1      } /* End of gtcpdat_GetDataFromUr() */
+ 313          
+ 314          /*
+ 315           * ----------------------------------------------------------------------------
+ 316           * Function Name: GTCPDAT_Init()
+ 317           * Purpose: Initialization
+ 318           * Params:
+ 319           * Returns:
+ 320           * Note:
+ 321           * ----------------------------------------------------------------------------
+ 322           */
+ 323          void GTCPDAT_Init(U16_T localPort)
+ 324          {
+ 325   1              U8_T    i;
+ 326   1      
+ 327   1              gtcpdat_TcpClient = 0;
+ 328   1      
+ 329   1              for (i = 0; i < GTCPDAT_MAX_CONNS; i++)
+ 330   1          {
+ 331   2                      gtcpdat_Conns[i].State = GTCPDAT_STATE_FREE;
+ 332   2              gtcpdat_Conns[i].UrRxBytes = 0;
+ 333   2              gtcpdat_Conns[i].UrTxBytes = 0;
+ 334   2              gtcpdat_Conns[i].TxDatLen = 0;
+ 335   2              gtcpdat_Conns[i].TxSentLen = 0;
+ 336   2              gtcpdat_Conns[i].LastTxPktAck = 0;
+ 337   2      #if GS2W_ENABLE_FLOW_CONTROL                    
+ 338   2              gtcpdat_Conns[i].FlowControlXonRx = TRUE;
+ 339   2              gtcpdat_Conns[i].FlowControlModemStatus = HSUR2_GetModemStatus(TRUE);
+ 340   2              gtcpdat_Conns[i].FlowControlModemCtrl = (HSUR2_GetModemControl() & 0x3);
+ 341   2      #endif
+ 342   2          }
+ 343   1      
+ 344   1              gtcpdat_InterAppId = TCPIP_Bind(GTCPDAT_NewConn, GTCPDAT_Event, GTCPDAT_Receive);
+ 345   1              
+ 346   1              if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_CLIENT) != GCONFIG_NETWORK_CLIENT)
+ 347   1              {       
+ 348   2                      /* unicast packet */
+ 349   2                      TCPIP_TcpListen(localPort, gtcpdat_InterAppId);
+ 350   2                      
+ 351   2                      printd("TCP data server init ok.\n\r");
+ 352   2              }
+ 353   1              else
+ 354   1              {
+ 355   2                      gtcpdat_TcpClient = 1;
+ 356   2              
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 7   
+
+ 357   2                      printd("TCP data client init ok.\n\r"); 
+ 358   2              }
+ 359   1              
+ 360   1              gtcpdat_EthernetTxTimer = GCONFIG_GetEthernetTxTimer();
+ 361   1      
+ 362   1      } /* End of GTCPDAT_Init() */
+ 363          
+ 364          /*
+ 365           * ----------------------------------------------------------------------------
+ 366           * Function Name: GTCPDAT_NewConn
+ 367           * Purpose: 
+ 368           * Params:
+ 369           * Returns:
+ 370           * Note:
+ 371           * ----------------------------------------------------------------------------
+ 372           */
+ 373          U8_T GTCPDAT_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
+ 374          {
+ 375   1              U8_T    i;
+ 376   1      
+ 377   1              for (i = 0; i < GTCPDAT_MAX_CONNS; i++)
+ 378   1              {
+ 379   2                      if (gtcpdat_Conns[i].State == GTCPDAT_STATE_FREE)
+ 380   2                      {
+ 381   3                              gtcpdat_Conns[i].State = GTCPDAT_STATE_WAIT;
+ 382   3                              gtcpdat_Conns[i].Timer = SWTIMER_Tick();
+ 383   3                              gtcpdat_Conns[i].Ip = *pip;
+ 384   3                              gtcpdat_Conns[i].Port = remotePort;
+ 385   3                              gtcpdat_Conns[i].TcpSocket = socket;
+ 386   3                  gtcpdat_Conns[i].TxDatLen = 0;
+ 387   3                  gtcpdat_Conns[i].TxSentLen = 0;
+ 388   3                  gtcpdat_Conns[i].LastTxPktAck = 1;
+ 389   3                              printd("New TCP connection: id=%bu, remotePort=%u, socket=%bu\n\r", i, remotePort, socket);
+ 390   3                              return i;
+ 391   3                      }
+ 392   2              }
+ 393   1              
+ 394   1              return GTCPDAT_NO_NEW_CONN;
+ 395   1      
+ 396   1      } /* End of GTCPDAT_NewConn() */
+ 397          
+ 398          /*
+ 399           * ----------------------------------------------------------------------------
+ 400           * Function Name: GTCPDAT_Event
+ 401           * Purpose: 
+ 402           * Params:
+ 403           * Returns:
+ 404           * Note:
+ 405           * ----------------------------------------------------------------------------
+ 406           */
+ 407          void GTCPDAT_Event(U8_T id, U8_T event)
+ 408          {
+ 409   1          GTCPDAT_CONN *tcpConn = &gtcpdat_Conns[id];
+ 410   1      
+ 411   1              if (event == TCPIP_CONNECT_ACTIVE)
+ 412   1              {
+ 413   2                      if (gtcpdat_Conns[id].State == GTCPDAT_STATE_WAIT)
+ 414   2                      {
+ 415   3                              gtcpdat_Conns[id].State = GTCPDAT_STATE_CONNECTED;
+ 416   3                              GS2W_SetTaskState(GS2W_STATE_TCP_DATA_PROCESS);
+ 417   3                  /* Enable keep-alive */
+ 418   3                  TCPIP_TcpKeepAlive(gtcpdat_Conns[id].TcpSocket, TCPIP_KEEPALIVE_ON);
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 8   
+
+ 419   3                              gtcpdat_Conns[id].LastTxPktAck = 1;
+ 420   3                              gtcpdat_Conns[id].TxDatLen = 0;
+ 421   3                              gtcpdat_Conns[id].TxWaitTime = 0;
+ 422   3                              gtcpdat_Conns[id].TxSentLen = 0;
+ 423   3                      }
+ 424   2              }
+ 425   1              else if (event == TCPIP_CONNECT_CANCEL)
+ 426   1              {
+ 427   2                      if (gtcpdat_Conns[id].State == GTCPDAT_STATE_CONNECTED ||
+ 428   2                  gtcpdat_Conns[id].State == GTCPDAT_STATE_WAIT)
+ 429   2                      {
+ 430   3                              gtcpdat_Conns[id].State = GTCPDAT_STATE_FREE;
+ 431   3                              GS2W_SetTaskState(GS2W_STATE_IDLE);                     
+ 432   3                      }
+ 433   2              }
+ 434   1              else if (event == TCPIP_CONNECT_XMIT_COMPLETE)
+ 435   1              {
+ 436   2                      tcpConn->LastTxPktAck = 1;
+ 437   2              if ( tcpConn->TxSentLen > 0)
+ 438   2              {
+ 439   3                  tcpConn->TxDatLen -= tcpConn->TxSentLen;
+ 440   3      #if GS2W_ENABLE_FLOW_CONTROL
+ 441   3                  if (tcpConn->TxDatLen > 0)
+ 442   3                  {
+ 443   4                      tcpConn->TxBuf[0] = GTCPDAT_DATA_INDICATOR;
+ 444   4                      /* reserved the length field */
+ 445   4                      memcpy(&tcpConn->TxBuf[3], &tcpConn->TxBuf[tcpConn->TxSentLen], tcpConn->TxDatLen);
+ 446   4                      tcpConn->TxDatLen += 3;
+ 447   4                      gtcpdat_GetDataFromUr(id);
+ 448   4                  }
+ 449   3      #else
+                          if (tcpConn->TxDatLen > 0)
+                              memcpy(&tcpConn->TxBuf[0], &tcpConn->TxBuf[tcpConn->TxSentLen], tcpConn->TxDatLen);
+                          gtcpdat_GetDataFromUr(id);
+              #endif
+ 454   3                  tcpConn->TxSentLen = 0;
+ 455   3              }
+ 456   2              }
+ 457   1      } /* End of GTCPDAT_Event() */
+ 458          
+ 459          /*
+ 460           * ----------------------------------------------------------------------------
+ 461           * Function Name: GTCPDAT_Receive
+ 462           * Purpose: 
+ 463           * Params:
+ 464           * Returns:
+ 465           * Note:
+ 466           * ----------------------------------------------------------------------------
+ 467           */
+ 468          void GTCPDAT_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
+ 469          {
+ 470   1              if (gtcpdat_Conns[id].State == GTCPDAT_STATE_CONNECTED)
+ 471   1              {
+ 472   2                      if (length <= GTCPDAT_MAX_TCP_RCV_DATA_LEN) // Is valid length
+ 473   2                      {
+ 474   3      #if GS2W_ENABLE_FLOW_CONTROL
+ 475   3      MoreTcpData:
+ 476   3                              if (length <= 6 && *pData == GTCPDAT_FLOW_CONTROL_INDICATOR)
+ 477   3                              {
+ 478   4                                      gtcpdat_HandleFlowControlPacket(pData, length, id);
+ 479   4                              }
+ 480   3                              else if (length > 3 && *pData == GTCPDAT_DATA_INDICATOR) 
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 9   
+
+ 481   3                              {
+ 482   4                      U16_T dataLen = (*(pData+1) << 8) + *(pData+2) + 3;
+ 483   4      
+ 484   4                      if (dataLen > length) 
+ 485   4                          dataLen = length;
+ 486   4      
+ 487   4                                      HSUR2_XmitOutEnq((pData + 3), (dataLen - 3));
+ 488   4                                      gtcpdat_Conns[id].UrTxBytes += (dataLen - 3);
+ 489   4                      
+ 490   4                      length -= dataLen;
+ 491   4                      if (length > 0)
+ 492   4                      {
+ 493   5                          /* point to the next packet header */
+ 494   5                          pData += dataLen;
+ 495   5                          goto MoreTcpData;
+ 496   5                      }
+ 497   4                              }
+ 498   3      #else
+                                      HSUR2_XmitOutEnq(pData, length);
+                                      gtcpdat_Conns[id].UrTxBytes += length;
+              #endif
+ 502   3                      }
+ 503   2              }       
+ 504   1      } /* End of GTCPDAT_Receive() */
+ 505          
+ 506          #if GS2W_ENABLE_FLOW_CONTROL                    
+ 507          /*
+ 508           * ----------------------------------------------------------------------------
+ 509           * Function Name: gtcpdat_HandleFlowControlPacket
+ 510           * Purpose: 
+ 511           * Params:
+ 512           * Returns:
+ 513           * Note:
+ 514           * ----------------------------------------------------------------------------
+ 515           */
+ 516          void gtcpdat_HandleFlowControlPacket(U8_T XDATA* pData, U16_T length, U8_T id)
+ 517          {
+ 518   1              U8_T command = *(pData + 3);
+ 519   1              U8_T dat1;
+ 520   1              U8_T dat2;
+ 521   1      
+ 522   1              if (length >= 5)
+ 523   1              {
+ 524   2                      dat1 = *(pData + 4);
+ 525   2      
+ 526   2                      if (length == 6)
+ 527   2                              dat2 = *(pData + 5);
+ 528   2              }
+ 529   1      
+ 530   1              switch (command)
+ 531   1              {
+ 532   2                      case IOCTL_SERIAL_GET_DTRRTS:
+ 533   2                  if (gtcpdat_Conns[id].LastTxPktAck == 1)
+ 534   2                  {
+ 535   3                      gtcpdat_Conns[id].LastTxPktAck = 0;
+ 536   3                      txBuf[0] = GTCPDAT_FLOW_CONTROL_INDICATOR;
+ 537   3                      txBuf[1] = 0;
+ 538   3                      txBuf[2] = 2;
+ 539   3                      txBuf[3] = IOCTL_SERIAL_GET_DTRRTS_REPLY;
+ 540   3                      txBuf[4] = HSUR2_GetModemControl();
+ 541   3                      TCPIP_TcpSend(gtcpdat_Conns[id].TcpSocket, &txBuf[0], 5, TCPIP_SEND_NOT_FINAL);
+ 542   3                  }
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 10  
+
+ 543   2                              break;
+ 544   2                      case IOCTL_SERIAL_GET_MODEM_CONTROL:
+ 545   2                              if (gtcpdat_Conns[id].LastTxPktAck == 1)
+ 546   2                  {
+ 547   3                      gtcpdat_Conns[id].LastTxPktAck = 0;
+ 548   3                      txBuf[0] = GTCPDAT_FLOW_CONTROL_INDICATOR;
+ 549   3                      txBuf[1] = 0;
+ 550   3                      txBuf[2] = 2;
+ 551   3                      txBuf[3] = IOCTL_SERIAL_GET_MODEM_CONTROL_REPLY;
+ 552   3                      txBuf[4] = HSUR2_GetModemControl();
+ 553   3                      TCPIP_TcpSend(gtcpdat_Conns[id].TcpSocket, &txBuf[0], 5, TCPIP_SEND_NOT_FINAL);
+ 554   3                  }
+ 555   2                              break;
+ 556   2                      case IOCTL_SERIAL_GET_MODEM_STATUS:
+ 557   2                              if (gtcpdat_Conns[id].LastTxPktAck == 1)
+ 558   2                  {
+ 559   3                      gtcpdat_Conns[id].LastTxPktAck = 0;
+ 560   3                      txBuf[0] = GTCPDAT_FLOW_CONTROL_INDICATOR;
+ 561   3                      txBuf[1] = 0;
+ 562   3                      txBuf[2] = 2;
+ 563   3                      txBuf[3] = IOCTL_SERIAL_GET_MODEM_STATUS_REPLY;
+ 564   3                      txBuf[4] = HSUR2_GetModemStatus(TRUE);
+ 565   3                      TCPIP_TcpSend(gtcpdat_Conns[id].TcpSocket, &txBuf[0], 5, TCPIP_SEND_NOT_FINAL);
+ 566   3                  }
+ 567   2                              break;
+ 568   2                      case IOCTL_SERIAL_CLR_DTR:
+ 569   2                              HSUR2_ClearDTR();
+ 570   2                              break;
+ 571   2                      case IOCTL_SERIAL_CLR_RTS:
+ 572   2                              HSUR2_ClearRTS();               
+ 573   2                              break;
+ 574   2                      case IOCTL_SERIAL_SET_DTR:
+ 575   2                              HSUR2_SetDTR();
+ 576   2                              break;
+ 577   2                      case IOCTL_SERIAL_SET_RTS:
+ 578   2                              HSUR2_SetRTS();
+ 579   2                              break;
+ 580   2                      case IOCTL_SERIAL_SET_BAUD_RATE:                        
+ 581   2                  HSUR2_SetupPort(GCONFIG_GetBaudRate(dat1), dat2);
+ 582   2                              break;
+ 583   2                      case IOCTL_SERIAL_SET_BREAK_OFF:
+ 584   2                              dat1 = HSUR2_GetLineControl();
+ 585   2                              HSUR2_SetLineControl(dat1 & 0xBF); // bit 6 - break control bit (1:on, 0:off)
+ 586   2                              break;
+ 587   2                      case IOCTL_SERIAL_SET_BREAK_ON:
+ 588   2                              dat1 = HSUR2_GetLineControl();
+ 589   2                              HSUR2_SetLineControl(dat1 | 0x40); // bit 6 - break control bit (1:on, 0:off)
+ 590   2                              break;
+ 591   2                      case IOCTL_SERIAL_SET_FIFO_CONTROL:
+ 592   2                              HSUR2_SetFifoControl(dat1);
+ 593   2                              break;
+ 594   2                      case IOCTL_SERIAL_SET_LINE_CONTROL:
+ 595   2                              HSUR2_SetLineControl(dat1);
+ 596   2                              break;
+ 597   2                      case IOCTL_SERIAL_SET_MODEM_CONTROL:
+ 598   2                              HSUR2_SetModemControl(dat1);
+ 599   2                              break;
+ 600   2                      case IOCTL_SERIAL_SET_XOFF:
+ 601   2                              gtcpdat_Conns[id].FlowControlXonRx = FALSE;
+ 602   2                              break;
+ 603   2                      case IOCTL_SERIAL_SET_XON:
+ 604   2                              gtcpdat_Conns[id].FlowControlXonRx = TRUE;
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 11  
+
+ 605   2                              break;
+ 606   2              case IOCTL_SERIAL_SET_HANDFLOW:
+ 607   2                  gtcpdat_SetFlowControl(dat1);
+ 608   2                              break;
+ 609   2                      case IOCTL_SERIAL_XOFF_COUNTER:
+ 610   2                              //...
+ 611   2                              break;
+ 612   2      
+ 613   2                      default:
+ 614   2                              printd("Unknown flow control command!\n\r");
+ 615   2                              break;
+ 616   2              }
+ 617   1      } /* End of gtcpdat_HandleFlowControlPacket() */
+ 618          
+ 619          /*
+ 620           *--------------------------------------------------------------------------------
+ 621           * void gtcpdat_SetFlowControl(U8_T)
+ 622           * Purpose: 
+ 623           * Params : fCtrl: the flow control to be set.
+ 624           * Returns: None.
+ 625           * Note   : None.
+ 626           *--------------------------------------------------------------------------------
+ 627           */
+ 628          static void gtcpdat_SetFlowControl(U8_T fCtrl)
+ 629          {
+ 630   1          switch (fCtrl)
+ 631   1          {
+ 632   2              case SERIAL_HANDFLOW_NONE:
+ 633   2                  HSUR2_AutoCtsRtsFlowCtrl(0);
+ 634   2                  HSUR2_AutoSoftwareFlowCtrl(0, 0, 0, 0, 0);
+ 635   2                  break;
+ 636   2              case SERIAL_HANDFLOW_HW:
+ 637   2                  HSUR2_AutoCtsRtsFlowCtrl(1);
+ 638   2                  break;
+ 639   2              case SERIAL_HANDFLOW_XON_XOFF:
+ 640   2                  HSUR2_AutoSoftwareFlowCtrl(1, (HSAFCSR_ASFCE_ENB), ASCII_XON, ASCII_XOFF, 0);
+ 641   2                  break;
+ 642   2              default:
+ 643   2                  break;
+ 644   2          }
+ 645   1      }
+ 646          #endif
+ 647          
+ 648          /*
+ 649           * ----------------------------------------------------------------------------
+ 650           * Function Name: GTCPDAT_GetTxBytes
+ 651           * Purpose: 
+ 652           * Params:
+ 653           * Returns:
+ 654           * Note:
+ 655           * ----------------------------------------------------------------------------
+ 656           */
+ 657          U32_T GTCPDAT_GetTxBytes(U8_T id)
+ 658          {
+ 659   1          if (id < GTCPDAT_MAX_CONNS)
+ 660   1              return gtcpdat_Conns[id].UrTxBytes;
+ 661   1      
+ 662   1          return 0;
+ 663   1      } /* End of GTCPDAT_GetTxBytes() */
+ 664          
+ 665          /*
+ 666           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GTCPDAT                                                               03/08/2012 11:01:08 PAGE 12  
+
+ 667           * Function Name: GTCPDAT_GetRxBytes
+ 668           * Purpose: 
+ 669           * Params:
+ 670           * Returns:
+ 671           * Note:
+ 672           * ----------------------------------------------------------------------------
+ 673           */
+ 674          U32_T GTCPDAT_GetRxBytes(U8_T id)
+ 675          {
+ 676   1          if (id < GTCPDAT_MAX_CONNS)
+ 677   1              return gtcpdat_Conns[id].UrRxBytes;
+ 678   1      
+ 679   1          return 0;
+ 680   1      } /* End of GTCPDAT_GetRxBytes() */
+ 681          
+ 682          /*
+ 683           * ----------------------------------------------------------------------------
+ 684           * Function Name: GTCPDAT_GetTcpTxReady
+ 685           * Purpose: 
+ 686           * Params:
+ 687           * Returns:
+ 688           * Note:
+ 689           * ----------------------------------------------------------------------------
+ 690           */
+ 691          U8_T GTCPDAT_GetTcpTxReady(U8_T id)
+ 692          {
+ 693   1          if (id < GTCPDAT_MAX_CONNS)
+ 694   1              return gtcpdat_Conns[id].LastTxPktAck;
+ 695   1      
+ 696   1          return 0;
+ 697   1      } /* End of GTCPDAT_GetTcpTxReady() */
+ 698          
+ 699          /* End of gtcpdat.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   5958    ----
+   CONSTANT SIZE    =    206    ----
+   XDATA SIZE       =   2738      41
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

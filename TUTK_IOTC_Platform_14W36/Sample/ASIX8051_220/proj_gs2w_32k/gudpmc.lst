@@ -1,0 +1,383 @@
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE GUDPMC
+OBJECT MODULE PLACED IN .\gudpmc.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mgs2wifi\gudpmc.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCD
+                    -IR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\m
+                    -ping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\s
+                    -rc\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt3
+                    -2KH) VARBANKING DEBUG PRINT(.\gudpmc.lst) OBJECT(.\gudpmc.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: gudpmc.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: gudpmc.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "ax22000.h"
+  24          #include "mcpu.h"
+  25          #include "adapter.h"
+  26          #include "gudpmc.h"
+  27          #include "gs2w.h"
+  28          #include "tcpip.h"
+  29          #include "mstimer.h"
+  30          #include "stoe.h"
+  31          #include "uart0.h"
+  32          #include "gconfig.h"
+  33          #include "printd.h"
+  34          #include <string.h>
+  35          
+  36          /* NAMING CONSTANT DECLARATIONS */
+  37          #define GUDPMC_MAX_CONNS                        1
+  38          #define GUDPMC_NO_NEW_CONN                      0xFF
+  39          
+  40          #define GUDPMC_STATE_FREE                       0
+  41          #define GUDPMC_STATE_WAIT                       1
+  42          #define GUDPMC_STATE_CONNECTED          2
+  43          
+  44          /* GLOBAL VARIABLES DECLARATIONS */
+  45          extern GCONFIG_CFG_PKT gudpuc_ConfigRxPkt;
+  46          
+  47          /* LOCAL VARIABLES DECLARATIONS */
+  48          static GUDPMC_CONN gudpmc_Conns[GUDPMC_MAX_CONNS];
+  49          static U8_T gudpmc_InterAppId;
+  50          U8_T GUDPMC_Multicast[MAC_ADDRESS_LEN] = {1, 0, 0x5e, 1, 2, 3};
+  51          
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 2   
+
+  52          /* LOCAL SUBPROGRAM DECLARATIONS */
+  53          void gudpmc_HandleSearchReq(U8_T id);
+  54          void gudpmc_HandleSetReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  55          void gudpmc_HandleUpgradeReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  56          void gudpmc_HandleResetReq(U8_T id);
+  57          void gudpmc_HandleRebootReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  58          void gudpmc_RebootDevice(void);
+  59          
+  60          /*
+  61           * ----------------------------------------------------------------------------
+  62           * Function Name: GUDPMC_Task
+  63           * Purpose: 
+  64           * Params:
+  65           * Returns:
+  66           * Note:
+  67           * ----------------------------------------------------------------------------
+  68           */
+  69          void GUDPMC_Task(void)
+  70          {
+  71   1      
+  72   1      } /* End of GUDPMC_Task() */
+  73          
+  74          /*
+  75           * ----------------------------------------------------------------------------
+  76           * Function Name: GUDPMC_Init()
+  77           * Purpose: Initialization
+  78           * Params:
+  79           * Returns:
+  80           * Note:
+  81           * ----------------------------------------------------------------------------
+  82           */
+  83          void GUDPMC_Init(U16_T localPort)
+  84          {
+  85   1              U8_T    i;
+  86   1      
+  87   1              printd("UDP multicast init ok.\n\r");
+  88   1      
+  89   1              for (i = 0; i < GUDPMC_MAX_CONNS; i++)
+  90   1                      gudpmc_Conns[i].State = GUDPMC_STATE_FREE;
+  91   1      
+  92   1              gudpmc_InterAppId = TCPIP_Bind(GUDPMC_NewConn, GUDPMC_Event, GUDPMC_Receive);
+  93   1              
+  94   1              /* set multicase filter */
+  95   1              MAC_SetRxFilter(MAC_RCV_MULTICAST | MAC_RCV_BROADCAST);
+  96   1              MAC_MultiFilter(GUDPMC_Multicast, MAC_ADDRESS_LEN);
+  97   1      
+  98   1              /* multicast packets */
+  99   1              TCPIP_UdpListen(localPort, gudpmc_InterAppId);
+ 100   1      
+ 101   1      } /* End of GUDPMC_Init() */
+ 102          
+ 103          /*
+ 104           * ----------------------------------------------------------------------------
+ 105           * Function Name: GUDPMC_NewConn
+ 106           * Purpose: 
+ 107           * Params:
+ 108           * Returns:
+ 109           * Note:
+ 110           * ----------------------------------------------------------------------------
+ 111           */
+ 112          U8_T GUDPMC_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
+ 113          {
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 3   
+
+ 114   1              U8_T    i;
+ 115   1      
+ 116   1              for (i = 0; i < GUDPMC_MAX_CONNS; i++)
+ 117   1              {
+ 118   2                      gudpmc_Conns[i].State = GUDPMC_STATE_CONNECTED;
+ 119   2                      gudpmc_Conns[i].UdpSocket = socket;
+ 120   2      
+ 121   2                      return i;
+ 122   2              }
+ 123   1              
+ 124   1              return GUDPMC_NO_NEW_CONN;
+ 125   1      
+ 126   1      } /* End of GUDPMC_NewConn() */
+*** WARNING C280 IN LINE 112 OF ..\SRC\MGS2WIFI\GUDPMC.C: 'pip': unreferenced local variable
+*** WARNING C280 IN LINE 112 OF ..\SRC\MGS2WIFI\GUDPMC.C: 'remotePort': unreferenced local variable
+ 127          
+ 128          /*
+ 129           * ----------------------------------------------------------------------------
+ 130           * Function Name: GUDPMC_Event
+ 131           * Purpose: 
+ 132           * Params:
+ 133           * Returns:
+ 134           * Note:
+ 135           * ----------------------------------------------------------------------------
+ 136           */
+ 137          void GUDPMC_Event(U8_T id, U8_T event)
+ 138          {
+ 139   1              gudpmc_Conns[id].State = event;
+ 140   1      
+ 141   1      } /* End of GUDPMC_Event() */
+ 142          
+ 143          /*
+ 144           * ----------------------------------------------------------------------------
+ 145           * Function Name: GUDPMC_Receive
+ 146           * Purpose: 
+ 147           * Params:
+ 148           * Returns:
+ 149           * Note:
+ 150           * ----------------------------------------------------------------------------
+ 151           */
+ 152          void GUDPMC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
+ 153          {
+ 154   1              BOOL bValidReq = FALSE;
+ 155   1              GCONFIG_MAC_ADDR macAddr;
+ 156   1      
+ 157   1              if (length == 9 || length == sizeof(gudpuc_ConfigRxPkt)) // 9: search request packet
+ 158   1              {
+ 159   2                      if (length == 9)
+ 160   2                              memcpy(&gudpuc_ConfigRxPkt, pData, 9);
+ 161   2                      else
+ 162   2                              memcpy(&gudpuc_ConfigRxPkt, pData, sizeof(gudpuc_ConfigRxPkt));
+ 163   2      
+ 164   2                      if (memcmp(&GCONFIG_Gid, pData, sizeof(GCONFIG_GID)) == 0) // Valid data
+ 165   2                      {
+ 166   3                              macAddr = GCONFIG_GetMacAddress();      
+ 167   3      
+ 168   3                              if (length == sizeof(gudpuc_ConfigRxPkt))
+ 169   3                              {
+ 170   4                                      if (memcmp(&gudpuc_ConfigRxPkt.MacAddr, &macAddr, sizeof(macAddr)) == 0)
+ 171   4                                              bValidReq = TRUE;
+ 172   4                              }
+ 173   3      
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 4   
+
+ 174   3                              switch (gudpuc_ConfigRxPkt.Opcode)
+ 175   3                              {
+ 176   4                              case GCONFIG_OPCODE_SEARCH_REQ:
+ 177   4                              case GCONFIG_OPCODE_SEARCH_REQ1:
+ 178   4                                      {
+ 179   5                                              gudpmc_HandleSearchReq(id);
+ 180   5                                      }
+ 181   4                                      break;
+ 182   4      
+ 183   4                              case GCONFIG_OPCODE_SET_REQ:
+ 184   4                                      {                                       
+ 185   5                                              if (bValidReq)
+ 186   5                                                      gudpmc_HandleSetReq(pData, length, id);
+ 187   5                                      }
+ 188   4                                      break;
+ 189   4      
+ 190   4                              case GCONFIG_OPCODE_UPGRADE_REQ:
+ 191   4                                      {
+ 192   5                                              if (bValidReq)
+ 193   5                                                      gudpmc_HandleUpgradeReq(pData, length, id);
+ 194   5                                      }
+ 195   4                                      break;
+ 196   4      
+ 197   4                              case GCONFIG_OPCODE_RESET_REQ:
+ 198   4                                      {
+ 199   5                                              if (bValidReq)
+ 200   5                                                      gudpmc_HandleResetReq(id);
+ 201   5                                      }
+ 202   4                                      break;
+ 203   4                              case GCONFIG_OPCODE_REBOOT_REQ:
+ 204   4                                      {
+ 205   5                                              if (bValidReq)
+ 206   5                                                      gudpmc_HandleRebootReq(pData, length, id);
+ 207   5                                      }
+ 208   4                                      break;
+ 209   4      
+ 210   4                              default:
+ 211   4                                      break;  
+ 212   4                              }
+ 213   3                      }
+ 214   2              }
+ 215   1      
+ 216   1          TCPIP_UdpClose(gudpmc_Conns[id].UdpSocket);
+ 217   1      } /* End of GUDPMC_Receive() */
+ 218          
+ 219          /*
+ 220           * ----------------------------------------------------------------------------
+ 221           * Function Name: gudpmc_HandleSearchReq
+ 222           * Purpose: 
+ 223           * Params:
+ 224           * Returns:
+ 225           * Note:
+ 226           * ----------------------------------------------------------------------------
+ 227           */
+ 228          void gudpmc_HandleSearchReq(U8_T id)
+ 229          {       
+ 230   1              GCONFIG_GetConfigPacket(&gudpuc_ConfigRxPkt);
+ 231   1              gudpuc_ConfigRxPkt.Opcode = GCONFIG_OPCODE_SEARCH_ACK;
+ 232   1              TCPIP_UdpSend(gudpmc_Conns[id].UdpSocket, 0, 0, (U8_T*) &gudpuc_ConfigRxPkt, sizeof(gudpuc_ConfigRxPkt));
+ 233   1      } /* End of gudpmc_HandleSearchReq() */
+ 234          
+ 235          /*
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 5   
+
+ 236           * ----------------------------------------------------------------------------
+ 237           * Function Name: gudpmc_HandleSetReq
+ 238           * Purpose: 
+ 239           * Params:
+ 240           * Returns:
+ 241           * Note:
+ 242           * ----------------------------------------------------------------------------
+ 243           */
+ 244          void gudpmc_HandleSetReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 245          {
+ 246   1              U8_T reboot = (gudpuc_ConfigRxPkt.Option & GCONFIG_OPTION_ENABLE_REBOOT);
+ 247   1      
+ 248   1              GCONFIG_SetConfigPacket(&gudpuc_ConfigRxPkt);
+ 249   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_SET_ACK;
+ 250   1              TCPIP_UdpSend(gudpmc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 251   1      
+ 252   1              if (reboot == GCONFIG_OPTION_ENABLE_REBOOT)
+ 253   1              {
+ 254   2                      gudpmc_RebootDevice();
+ 255   2              }       
+ 256   1      } /* End of gudpmc_HandleSetReq() */
+ 257          
+ 258          /*
+ 259           * ----------------------------------------------------------------------------
+ 260           * Function Name: gudpmc_HandleUpgradeReq
+ 261           * Purpose: 
+ 262           * Params:
+ 263           * Returns:
+ 264           * Note:
+ 265           * ----------------------------------------------------------------------------
+ 266           */
+ 267          void gudpmc_HandleUpgradeReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 268          {       
+ 269   1              GCONFIG_EnableFirmwareUpgrade();
+ 270   1              GCONFIG_WriteConfigData();              
+ 271   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_UPGRADE_ACK;          
+ 272   1              TCPIP_UdpSend(gudpmc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 273   1              gudpmc_RebootDevice();
+ 274   1      } /* End of gudpmc_HandleUpgradeReq() */
+ 275          
+ 276          /*
+ 277           * ----------------------------------------------------------------------------
+ 278           * Function Name: gudpmc_HandleResetReq
+ 279           * Purpose: 
+ 280           * Params:
+ 281           * Returns:
+ 282           * Note:
+ 283           * ----------------------------------------------------------------------------
+ 284           */
+ 285          void gudpmc_HandleResetReq(U8_T id)
+ 286          {
+ 287   1              U8_T reboot = (gudpuc_ConfigRxPkt.Option & GCONFIG_OPTION_ENABLE_REBOOT);
+ 288   1      
+ 289   1              GCONFIG_ReadDefaultConfigData();
+ 290   1              GCONFIG_WriteConfigData();
+ 291   1              GCONFIG_GetConfigPacket(&gudpuc_ConfigRxPkt);
+ 292   1              gudpuc_ConfigRxPkt.Opcode = GCONFIG_OPCODE_RESET_ACK;
+ 293   1              TCPIP_UdpSend(gudpmc_Conns[id].UdpSocket, 0, 0, (U8_T*) &gudpuc_ConfigRxPkt, sizeof(gudpuc_ConfigRxPkt));
+ 294   1      
+ 295   1              if (reboot == GCONFIG_OPTION_ENABLE_REBOOT)
+ 296   1              {
+ 297   2                      gudpmc_RebootDevice();
+C51 COMPILER V9.01   GUDPMC                                                                03/08/2012 11:01:10 PAGE 6   
+
+ 298   2              }
+ 299   1      } /* End of gudpmc_HandleResetReq() */
+ 300          
+ 301          /*
+ 302           * ----------------------------------------------------------------------------
+ 303           * Function Name: gudpmc_HandleRebootReq
+ 304           * Purpose: 
+ 305           * Params:
+ 306           * Returns:
+ 307           * Note:
+ 308           * ----------------------------------------------------------------------------
+ 309           */
+ 310          void gudpmc_HandleRebootReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 311          {
+ 312   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_REBOOT_ACK;   
+ 313   1              TCPIP_UdpSend(gudpmc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 314   1              // May store current status/setting here before restart
+ 315   1              gudpmc_RebootDevice();
+ 316   1      } /* End of gudpmc_HandleRebootReq() */
+ 317          
+ 318          /*
+ 319           * ----------------------------------------------------------------------------
+ 320           * Function Name: gudpmc_RebootDevice
+ 321           * Purpose: Delay 10 ms before reboot
+ 322           * Params:
+ 323           * Returns:
+ 324           * Note:
+ 325           * ----------------------------------------------------------------------------
+ 326           */
+ 327          void gudpmc_RebootDevice(void)
+ 328          {
+ 329   1              U32_T timeStart = SWTIMER_Tick();
+ 330   1              U32_T timeEnd = timeStart;      
+ 331   1      
+ 332   1              while ((timeEnd == timeStart))
+ 333   1              {
+ 334   2                      timeEnd = SWTIMER_Tick();
+ 335   2              }
+ 336   1      
+ 337   1              MCPU_SoftReboot();
+ 338   1      } /* End of gudpmc_RebootDevice() */
+ 339          
+ 340          /* End of gudpmc.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1279    ----
+   CONSTANT SIZE    =     25    ----
+   XDATA SIZE       =      9      45
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

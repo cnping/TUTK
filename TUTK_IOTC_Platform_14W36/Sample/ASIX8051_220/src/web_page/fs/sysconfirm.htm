@@ -1,0 +1,81 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>sysmsg</title>
+<head>
+<style type="text/css">
+<!--
+.title_0 {
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: italic;
+	color: #FFF;
+	font-weight: bold;
+}
+.title_1 {
+	font-family: "Courier New", Courier, monospace;
+	color: #F00;
+}
+.title_2 {
+	font-family: "Courier New", Courier, monospace;
+	color: #0000FF;
+}
+-->
+</style>
+</head>
+<body bgcolor="#333">
+<table border="0" align="center" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF">
+  <tr>
+    <td><table width="800" border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" bgcolor="#0088F7"><h2 class="title_0">AX220xx RS-232 to WiFi : status message</h2></td>
+      </tr>
+      <tr>
+        <td bgcolor="#EDEFEF">&nbsp;</td>
+      </tr>
+      <tr>
+        <td align="center" bgcolor="#EDEFEF"><h3 id="dst"></h3></td>
+      </tr>
+      <tr>
+        <td bgcolor="#EDEFEF">&nbsp;</td>
+      </tr>
+      <tr>
+		<td bgcolor="#EDEFEF" align="center"><input name="confirm" id="confirm_btn" type="button" style="WIDTH: 100px; HEIGHT: 24px;" onclick="push_ok()"/></td>
+      </tr>
+      <tr>
+        <td bgcolor="#EDEFEF">&nbsp;</td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<script language="JavaScript" type="text/javascript">
+<!--
+var dst = document.getElementById("dst");
+var msg = document.getElementById("msg");
+var button_value = document.getElementById("button_value");
+var redirect = document.getElementById("redirect");
+var dst_style = document.getElementById("style");
+var btn = document.getElementById("confirm_btn");
+	if (button_value==null)
+		btn.value = "OK";
+	else
+		btn.value = button_value.value;
+
+	if (dst_style==null)
+		dst.className = "title_2";
+	else
+		dst.className = dst_style.value;
+
+	if (msg!=null)
+		dst.innerHTML = msg.value;
+
+function push_ok() {
+	if (redirect==null)
+	    location="./";
+	else
+		location=redirect.value;
+}
+
+//-->
+</script>
+</body>
+</html>

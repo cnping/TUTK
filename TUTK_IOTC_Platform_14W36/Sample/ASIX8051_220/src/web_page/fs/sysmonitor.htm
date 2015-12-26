@@ -1,0 +1,115 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Monitor</title>
+<link href="axcss0.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<table width="800" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+    <td colspan="2" align="right" bgcolor="#0088F7"><a href="http://www.asix.com.tw" target="mainFrame" style="text-decoration:none"><font face="Arial, Helvetica, sans-serif"><strong><font color="#FFFFFF" size="2"><em>http://www.asix.com.tw</em></font></strong></font></a>&nbsp;</td>
+	</tr>
+<tr>
+    <td colspan="2" bgcolor="#FFFFFF"><table border="0" cellpadding="0" cellspacing="0">
+		<tr>
+        <td width="20">&nbsp;</td>
+        <td><img src="img/Logo.jpg" alt="" width="67" height="62" /></td>
+        <td>&nbsp;&nbsp;<img src="img/asix.gif" alt="" width="95" height="24" /></td>
+        <td width="20">&nbsp;</td>
+        <td class="txtstyle_2">ELECTRONICS CORPORATION</td>
+        <td width="20">&nbsp;</td>
+        <td class="txtstyle_1">AX220xx RS-232 to WiFi</td>
+      </tr>
+    </table></td>
+		</tr>
+		<tr> 
+    <td colspan="2" align="right" bgcolor="#60B7FF"><table border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="100" align="center"><a href="index.htm"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif">Logout</font></a></td>
+		</tr>
+    </table></td>
+</tr>
+	<tr>
+    <td colspan="2" align="left" bgcolor="#C0C0C0"><table width="20" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td><div class="menuitem_1"><a href="bscsetting.htm">Basic</a></div></td>
+          <td><div class="menuitem_1"><a href="advsetting.htm">Advance</a></div></td>
+          <td><div class="menuitem_1"><a href="security.htm">Security</a></div></td>
+          <td><div class="menuitem_1"><a href="wifisetting.htm">WiFi</a></div></td>
+          <td bgcolor="#EDEFEF"><div class="menuitem_1"><a href="sysmonitor.htm">Status</a></div></td>
+        </tr>
+    </table></td>
+	</tr>
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF"><div class="subitem_1">System Status</div></td>
+</tr>
+  <tr>
+    <td width="260" bgcolor="#EDEFEF"><div class="item_1">Device Name:</div></td>
+    <td width="530" bgcolor="#EDEFEF"><div id="display_item0" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Device IP Address:</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item1" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">MCPU Firmware Version:</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item2" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">WCPU Firmware Version:</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item3" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">WiFi MAC address(Hex):</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item4" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Modem Status(HEX):</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item5" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Protocol Type:</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item6" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Connection Status:</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item7" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Serial Port TX Count(Byte):</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item8" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Serial Port RX Count(Byte):</div></td>
+    <td bgcolor="#EDEFEF"><div id="display_item9" class="item_1" style="width: 400px" /></div></td>
+</tr>
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF">&nbsp;</td>
+</tr>
+  <tr>
+	<td bgcolor="#EDEFEF"><div class="item_1"></div></td>
+    <td bgcolor="#EDEFEF" align="center">
+	<input name="Refresh" type="button" class="item_2" id="refreshbtn" style="WIDTH: 60px; HEIGHT: 24px;" value="Refresh" onclick="sysmonRefresh()" />
+	</td>
+</tr>
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF">&nbsp;</td>
+</tr>
+  <tr>
+    <td colspan="2" bgcolor="#C0C0C0">&nbsp;</td>
+</tr>
+</table>
+<script src="axjs0.js" type="text/javascript"></script>
+<script language="JavaScript" type="text/javascript">
+<!--
+var device_all_status = document.getElementById("device_all_status");
+var display_item, i;
+if (device_all_status != null) {var status_item = device_all_status.value.split("&");
+for (i = 0; status_item[i] != null && (display_item = document.getElementById("display_item"+i)) != null; i++) {
+display_item.innerHTML = status_item[i];}}
+function sysmonRefresh() {location="./sysmonitor.htm";}
+//-->
+</script>
+</body>
+</html>

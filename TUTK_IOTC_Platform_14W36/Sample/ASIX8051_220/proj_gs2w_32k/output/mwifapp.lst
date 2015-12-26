@@ -1,0 +1,437 @@
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MWIFAPP
+OBJECT MODULE PLACED IN .\mwifapp.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mwif\mwifapp.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(
+                    -..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mpin
+                    -g;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\
+                    -mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\..
+                    -\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\mwifapp.lst) OBJECT(.\mwifapp.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*=============================================================================
+  12           * Module Name: mwifapp.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: mwifapp.c,v $
+  18           * no message
+  19           *
+  20           *=============================================================================
+  21           */
+  22          
+  23          /* INCLUDE FILE DECLARATIONS */
+  24          #include "ax22000.h"
+  25          #include "mcpu.h"
+  26          #include "mwioctl.h"
+  27          #include "mwifapp.h"
+  28          #include "stoe_cfg.h"
+  29          #include "adapter.h"
+  30          #include "dhcpc.h"
+  31          #if MWIF_TASK_HOOKUP
+  32          #include "mstimer.h"
+  33          #include <string.h>
+  34          #endif
+  35          
+  36          #if IO_CPU_TYPE
+  37          #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+  38          
+  39          #if MWIF_TASK_HOOKUP
+  40          /* GLOBAL VARIABLE DECLARATIONS */
+  41          MWIFAPP_WiFi_INFO MWIFAPP_WiFiInfo;
+  42          MWIFAPP_SITE_SURVEY_REPORT MWIFAPP_SiteSurveyTable[MWIFAPP_MAX_SITESURVEY_TABLE_MEMBER];
+  43          
+  44          /* STATIC VARIABLE DECLARATIONS */
+  45          static MWIFAPP_LINKLIST mwifapp_cmdFifo, mwifapp_waitFifo;
+  46          static U32_T mwifapp_Tp = 0, mwifapp_Ts = 0;
+  47          
+  48          /* LOCAL SUBPROGRAM DECLARATIONS */
+  49          static U8_T mwifapp_TaskChkQueueEmpty(MWIFAPP_LINKLIST XDATA *pFIFO);
+  50          static void mwifapp_TaskEnQueue(MWIFAPP_LINKLIST *pFIFO, MWIFAPP_LINK *pEntity);
+  51          static MWIFAPP_LINK *mwifapp_TaskDeQueue(MWIFAPP_LINKLIST *pFIFO);
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 2   
+
+  52          static MWIFAPP_LINK *mwifapp_TaskDeQueueByOption(MWIFAPP_LINKLIST *pFIFO, MWIFAPP_LINK *pEntity);
+  53          #endif
+  54          /* LOCAL SUBPROGRAM BODIES */
+  55          /*
+  56           * ----------------------------------------------------------------------------
+  57           * Function Name: MWIFAPP_TaskIOJoinBss()
+  58           * Purpose:
+  59           * Params:
+  60           * Returns:
+  61           * Note:
+  62           * ----------------------------------------------------------------------------
+  63           */
+  64          void MWIFAPP_TaskIOJoinBss(U8_T value)
+  65          {
+  66   1      
+  67   1      } /* End of MWIFAPP_TaskIOJoinBss() */
+*** WARNING C280 IN LINE 64 OF ..\SRC\MWIF\MWIFAPP.C: 'value': unreferenced local variable
+  68          
+  69          /*
+  70           * ----------------------------------------------------------------------------
+  71           * Function Name: MWIFAPP_TaskIOReadBeaconInterval()
+  72           * Purpose:
+  73           * Params:
+  74           * Returns:
+  75           * Note:
+  76           * ----------------------------------------------------------------------------
+  77           */
+  78          void MWIFAPP_TaskIOReadBeaconInterval(void)
+  79          {
+  80   1      
+  81   1      } /* End of MWIFAPP_TaskIOReadBeaconInterval() */
+  82          
+  83          /*
+  84           * ----------------------------------------------------------------------------
+  85           * Function Name: MWIFAPP_TaskIOReadEncryptType()
+  86           * Purpose:
+  87           * Params:
+  88           * Returns:
+  89           * Note:
+  90           * ----------------------------------------------------------------------------
+  91           */
+  92          void MWIFAPP_TaskIOReadEncryptType(void)
+  93          {
+  94   1      
+  95   1      } /* End of MWIFAPP_TaskIOReadEncryptType() */
+  96          
+  97          /*
+  98           * ----------------------------------------------------------------------------
+  99           * Function Name: MWIFAPP_TaskIOReadChannel()
+ 100           * Purpose:
+ 101           * Params:
+ 102           * Returns:
+ 103           * Note:
+ 104           * ----------------------------------------------------------------------------
+ 105           */
+ 106          void MWIFAPP_TaskIOReadChannel(U8_T* pbuf)
+ 107          {
+ 108   1      
+ 109   1      } /* End of MWIFAPP_TaskIOReadChannel() */
+*** WARNING C280 IN LINE 106 OF ..\SRC\MWIF\MWIFAPP.C: 'pbuf': unreferenced local variable
+ 110          
+ 111          /*
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 3   
+
+ 112           * ----------------------------------------------------------------------------
+ 113           * Function Name: MWIFAPP_TaskIOWiFiConnect()
+ 114           * Purpose:
+ 115           * Params:
+ 116           * Returns:
+ 117           * Note:
+ 118           * ----------------------------------------------------------------------------
+ 119           */
+ 120          void MWIFAPP_TaskIOWiFiConnect(void)
+ 121          {
+ 122   1      
+ 123   1      } /* End of MWIFAPP_TaskIOWiFiConnect() */
+ 124          
+ 125          /*
+ 126           * ----------------------------------------------------------------------------
+ 127           * Function Name: MWIFAPP_TaskIOWiFiMacAddrSet()
+ 128           * Purpose:
+ 129           * Params:
+ 130           * Returns:
+ 131           * Note:
+ 132           * ----------------------------------------------------------------------------
+ 133           */
+ 134          void MWIFAPP_TaskIOWiFiMacAddrSet(U8_T XDATA *pbuf)
+ 135          {
+ 136   1          memcpy(MWIFAPP_WiFiInfo.WcpuMAC, &pbuf[4], 6);
+ 137   1      } /* End of MWIFAPP_TaskIOWiFiMacAddrSet() */
+ 138          
+ 139          /*
+ 140           * ----------------------------------------------------------------------------
+ 141           * Function Name: MWIFAPP_TaskIOWiFiDriverVer()
+ 142           * Purpose:
+ 143           * Params:
+ 144           * Returns:
+ 145           * Note:
+ 146           * ----------------------------------------------------------------------------
+ 147           */
+ 148          void MWIFAPP_TaskIOWiFiDriverVer(U8_T XDATA *pbuf)
+ 149          {
+ 150   1              U8_T len;
+ 151   1         
+ 152   1              len = pbuf[2];
+ 153   1              if (len > 29)
+ 154   1              len = 29;
+ 155   1          memcpy(MWIFAPP_WiFiInfo.WcpuFwVersion, &pbuf[3], len);
+ 156   1          MWIFAPP_WiFiInfo.WcpuFwVersion[len] = '\0';
+ 157   1      } /* End of MWIFAPP_TaskIOWiFiDriverVer() */
+ 158          
+ 159          #if MWIF_TASK_HOOKUP
+ 160          
+ 161          /*
+ 162           * ----------------------------------------------------------------------------
+ 163           * Function Name: mwifapp_TaskChkQueueEmpty()
+ 164           * Purpose:
+ 165           * Params:
+ 166           * Returns:
+ 167           * Note:
+ 168           * ----------------------------------------------------------------------------
+ 169           */
+ 170          U8_T mwifapp_TaskChkQueueEmpty(MWIFAPP_LINKLIST XDATA *pFIFO)
+ 171          {
+ 172   1              return ((pFIFO->pHead == 0 && pFIFO->pTail == 0) ? 1:0);
+ 173   1      } // End of mwifapp_TaskChkQueueEmpty() // 
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 4   
+
+ 174          
+ 175          /*
+ 176           * ----------------------------------------------------------------------------
+ 177           * Function Name: mwifapp_TaskEnQueue()
+ 178           * Purpose:
+ 179           * Params:
+ 180           * Returns:
+ 181           * Note:
+ 182           * ----------------------------------------------------------------------------
+ 183           */
+ 184          void mwifapp_TaskEnQueue(MWIFAPP_LINKLIST *pFIFO, MWIFAPP_LINK *pEntity)
+ 185          {
+ 186   1              if (mwifapp_TaskChkQueueEmpty(pFIFO))
+ 187   1              {
+ 188   2                      pFIFO->pHead = pEntity;
+ 189   2                      pFIFO->pTail = pEntity;
+ 190   2              }
+ 191   1              else
+ 192   1              {
+ 193   2                      pEntity->pPre = pFIFO->pTail;
+ 194   2                      pFIFO->pTail->pNext = pEntity;
+ 195   2                      pFIFO->pTail = pEntity;         
+ 196   2              }
+ 197   1      } // End of mwifapp_TaskEnQueue() // 
+ 198          
+ 199          /*
+ 200           * ----------------------------------------------------------------------------
+ 201           * Function Name: mwifapp_TaskDeQueue()
+ 202           * Purpose:
+ 203           * Params:
+ 204           * Returns:
+ 205           * Note:
+ 206           * ----------------------------------------------------------------------------
+ 207           */
+ 208          MWIFAPP_LINK *mwifapp_TaskDeQueue(MWIFAPP_LINKLIST *pFIFO)
+ 209          {
+ 210   1              MWIFAPP_LINK *pTmp;
+ 211   1              
+ 212   1              if (mwifapp_TaskChkQueueEmpty(pFIFO))
+ 213   1                      return 0;
+ 214   1                      
+ 215   1              pTmp = pFIFO->pHead;
+ 216   1              if (pFIFO->pHead == pFIFO->pTail)
+ 217   1              {
+ 218   2                      pFIFO->pHead = 0;               
+ 219   2                      pFIFO->pTail = 0;
+ 220   2              }
+ 221   1              else
+ 222   1              {
+ 223   2                      pFIFO->pHead = pFIFO->pHead->pNext;
+ 224   2              }
+ 225   1              return pTmp;
+ 226   1      } // End of mwifapp_TaskDeQueue() //
+ 227          
+ 228          /*
+ 229           * ----------------------------------------------------------------------------
+ 230           * Function Name: mwifapp_TaskDeQueueByOption()
+ 231           * Purpose:
+ 232           * Params:
+ 233           * Returns:
+ 234           * Note:
+ 235           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 5   
+
+ 236           */
+ 237          MWIFAPP_LINK *mwifapp_TaskDeQueueByOption(MWIFAPP_LINKLIST *pFIFO, MWIFAPP_LINK *pEntity)
+ 238          {
+ 239   1              MWIFAPP_LINK *pTmp;
+ 240   1              U8_T i;
+ 241   1              
+ 242   1              if (mwifapp_TaskChkQueueEmpty(pFIFO))
+ 243   1                      return 0;
+ 244   1                      
+ 245   1              pTmp = pFIFO->pHead;
+ 246   1              for (i = 0; i < 100; i ++)
+ 247   1              {               
+ 248   2                      if (pTmp == pEntity)
+ 249   2                      {
+ 250   3                              if (pFIFO->pHead == pFIFO->pTail)
+ 251   3                              {
+ 252   4                                      pFIFO->pHead = 0;               
+ 253   4                                      pFIFO->pTail = 0;
+ 254   4                                      return pTmp;
+ 255   4                              }
+ 256   3                              else if (pTmp == pFIFO->pHead)
+ 257   3                              {
+ 258   4                                      pFIFO->pHead = pFIFO->pHead->pNext;
+ 259   4                                      return pTmp;
+ 260   4                              }
+ 261   3                              else if (pTmp == pFIFO->pTail)
+ 262   3                              {
+ 263   4                                      pFIFO->pTail = pFIFO->pTail->pPre;
+ 264   4                                      return pTmp;
+ 265   4                              }
+ 266   3                              else
+ 267   3                              {
+ 268   4                                      pTmp->pPre->pNext = pTmp->pNext;
+ 269   4                                      pTmp->pNext->pPre = pTmp->pPre;
+ 270   4                                      return pTmp;                    
+ 271   4                              }
+ 272   3                      }
+ 273   2                      if (pTmp != pFIFO->pTail)
+ 274   2                              pTmp = pTmp->pNext;             
+ 275   2                      else
+ 276   2                              break;
+ 277   2              }
+ 278   1              return 0;
+ 279   1      } // End of mwifapp_TaskDeQueueByOption() //
+ 280          
+ 281          /*
+ 282           * ----------------------------------------------------------------------------
+ 283           * Function Name: MWIFAPP_TaskCmdEnQueue()
+ 284           * Purpose:
+ 285           * Params:
+ 286           * Returns:
+ 287           * Note:
+ 288           * ----------------------------------------------------------------------------
+ 289           */
+ 290          S8_T MWIFAPP_TaskCmdEnQueue(MWIFAPP_LINK *pEntity)
+ 291          {
+ 292   1              pEntity->WaitTime = MWIFAPP_MAX_IO_CMD_TIMEOUT;
+ 293   1              pEntity->ReplyLen = 0;
+ 294   1      
+ 295   1              mwifapp_TaskEnQueue(&mwifapp_cmdFifo, pEntity);
+ 296   1              return 0;
+ 297   1      } // End of MWIFAPP_TaskCmdEnQueue() //
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 6   
+
+ 298          
+ 299          /*
+ 300           * ----------------------------------------------------------------------------
+ 301           * Function Name: MWIFAPP_TaskCmdDeQueue()
+ 302           * Purpose:
+ 303           * Params:
+ 304           * Returns:
+ 305           * Note:
+ 306           * ----------------------------------------------------------------------------
+ 307           */
+ 308          S8_T MWIFAPP_TaskCmdDeQueue(MWIFAPP_LINK *pEntity)
+ 309          {
+ 310   1              if (mwifapp_TaskDeQueueByOption(&mwifapp_waitFifo, pEntity))
+ 311   1                      return 0;
+ 312   1              else
+ 313   1                      return -1;
+ 314   1      } // End of MWIFAPP_TaskCmdDeQueue() //
+ 315          
+ 316          /*
+ 317           * ----------------------------------------------------------------------------
+ 318           * Function Name: MWIFAPP_TaskCmdRcv()
+ 319           * Purpose:
+ 320           * Params:
+ 321           * Returns:
+ 322           * Note:
+ 323           * ----------------------------------------------------------------------------
+ 324           */
+ 325          U8_T MWIFAPP_TaskCmdRcv(U8_T XDATA *pBuf)
+ 326          {
+ 327   1              if (mwifapp_TaskChkQueueEmpty(&mwifapp_waitFifo))
+ 328   1              {
+ 329   2                      return MWIFAPP_UPLAYER_NO_WAIT;
+ 330   2              }
+ 331   1              else if (!(mwifapp_waitFifo.pHead->ReplyLen))
+ 332   1              {
+ 333   2                      mwifapp_waitFifo.pHead->ReplyLen = pBuf[2]+3;
+ 334   2                      memcpy(mwifapp_waitFifo.pHead->Buf, pBuf, mwifapp_waitFifo.pHead->ReplyLen);
+ 335   2                      return MWIFAPP_UPLAYER_WAIT;
+ 336   2              }
+ 337   1              return MWIFAPP_UPLAYER_BUSY;
+ 338   1      } // End of MWIFAPP_TaskCmdRcv() // 
+ 339          
+ 340          /*
+ 341           * ----------------------------------------------------------------------------
+ 342           * Function Name: MWIFAPP_Task()
+ 343           * Purpose:
+ 344           * Params:
+ 345           * Returns:
+ 346           * Note:
+ 347           * ----------------------------------------------------------------------------
+ 348           */
+ 349          void MWIFAPP_Task(void)
+ 350          {
+ 351   1              // Check command queue //       
+ 352   1              if (!mwifapp_TaskChkQueueEmpty(&mwifapp_cmdFifo) && mwifapp_TaskChkQueueEmpty(&mwifapp_waitFifo))
+ 353   1              {
+ 354   2                      MWIF_Send(mwifapp_cmdFifo.pHead->Buf[0], (U8_T*)&(mwifapp_cmdFifo.pHead->Buf[3]), mwifapp_cmdFifo.pHead-
+             ->Buf[2]);
+ 355   2                      mwifapp_TaskEnQueue(&mwifapp_waitFifo, mwifapp_TaskDeQueue(&mwifapp_cmdFifo));
+ 356   2              }
+ 357   1              
+ 358   1              mwifapp_Tp = SWTIMER_Tick();
+C51 COMPILER V9.01   MWIFAPP                                                               08/29/2011 15:27:54 PAGE 7   
+
+ 359   1              if (mwifapp_Ts != mwifapp_Tp)
+ 360   1              {
+ 361   2                      mwifapp_Ts = mwifapp_Tp;        
+ 362   2                      if (!mwifapp_TaskChkQueueEmpty(&mwifapp_waitFifo))
+ 363   2                      {
+ 364   3                              if (mwifapp_waitFifo.pHead->WaitTime)
+ 365   3                                      mwifapp_waitFifo.pHead->WaitTime --;
+ 366   3                              if (!(mwifapp_waitFifo.pHead->WaitTime))
+ 367   3                                      mwifapp_TaskDeQueue(&mwifapp_waitFifo);         
+ 368   3                      }
+ 369   2              }
+ 370   1      } /* End of MWIFAPP_Task() */
+ 371          
+ 372          /*
+ 373           * ----------------------------------------------------------------------------
+ 374           * Function Name: MWIFAPP_TaskInit()
+ 375           * Purpose:
+ 376           * Params:
+ 377           * Returns:
+ 378           * Note:
+ 379           * ----------------------------------------------------------------------------
+ 380           */
+ 381          void MWIFAPP_TaskInit(void)
+ 382          {
+ 383   1              memset((U8_T*)&mwifapp_cmdFifo, 0, sizeof(MWIFAPP_LINKLIST));
+ 384   1              memset((U8_T*)&mwifapp_waitFifo, 0, sizeof(MWIFAPP_LINKLIST));
+ 385   1              memset((U8_T*)&MWIFAPP_WiFiInfo, 0, sizeof(MWIFAPP_WiFi_INFO)); 
+ 386   1      } /* End of MWIFAPP_TaskInit() */
+ 387          
+ 388          #endif /* End of #if (MWIFAPP_TASK_FUNC_ENABLE) */
+ 389          #endif /* End of #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI) */
+ 390          #endif /* End of #if (IO_CPU_TYPE) */
+ 391          /* End of mwifapp.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1819    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    956      32
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

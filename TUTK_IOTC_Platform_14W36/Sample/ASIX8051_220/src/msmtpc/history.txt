@@ -1,0 +1,11 @@
+//======================================================================
+// AX220xx Firmware Revision History
+// Module Name: MCPU SMTP Client Module (msmtpc)
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the AX220xx Firmware between released versions. 
+//======================================================================
+
+Version 1.0.0  (2010-12-06)
+1. Initial release
+

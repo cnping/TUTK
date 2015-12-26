@@ -1,0 +1,355 @@
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE UART0
+OBJECT MODULE PLACED IN .\uart0.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\uart0\uart0.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(.
+                    -.\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mping
+                    -;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\m
+                    -http;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32KH)
+                    - VARBANKING DEBUG PRINT(.\uart0.lst) OBJECT(.\uart0.obj)
+
+line level    source
+
+   1          /*
+   2          ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : uart0.c
+  13           * Purpose     : The UART0 module driver. It manages the character
+  14           *               buffer and handles the ISR. This driver includes UART0 and UART1.
+  15           * Author      : Robin Lee
+  16           * Date        :
+  17           * Notes       : None.
+  18           * $Log: uart.c,v $
+  19           * no message
+  20           *
+  21           *================================================================================
+  22           */
+  23          
+  24          /* INCLUDE FILE DECLARATIONS */
+  25          #include        "ax22000.h"
+  26          #include        "types.h"
+  27          #include        "uart0.h"
+  28          
+  29          /* GLOBAL VARIABLES DECLARATIONS */
+  30          U16_T XDATA     UART0_RxCount = 0;
+  31          
+  32          /* STATIC VARIABLE DECLARATIONS */
+  33          static U8_T             far uart0_TxBuf[MAX_TX_UART0_BUF_SIZE];
+  34          static U16_T    uart0_TxHead = 0;
+  35          static U16_T    uart0_TxTail = 0;
+  36          static U16_T    uart0_TxCount = 0;
+  37          static U8_T             uart0_TxFlag = 0;
+  38          static U8_T             far uart0_RxBuf[MAX_RX_UART0_BUF_SIZE];
+  39          static U16_T    uart0_RxHead = 0;
+  40          static U16_T    uart0_RxTail = 0;
+  41          
+  42          /* LOCAL SUBPROGRAM DECLARATIONS */
+  43          static void             uart0_Init(void);
+  44          
+  45          
+  46          /* LOCAL SUBPROGRAM BODIES */
+  47          
+  48          /*
+  49           * ----------------------------------------------------------------------------
+  50           * static void UART0_ISR(void)
+  51           * Purpose : UART0 interrupt service routine. For sending out, it puts data
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 2   
+
+  52           *           from software buffer into hardware serial buffer register (SBUF0).
+  53           *           For receiving, it gets data from hardware serial buffer register
+  54           *           (SBUF0) and stores into software buffer.
+  55           * Params  : none
+  56           * Returns : none
+  57           * Note    : none
+  58           * ----------------------------------------------------------------------------
+  59           */
+  60          static void UART0_ISR(void) interrupt 4
+  61          {
+  62   1              if (RI0)
+  63   1              {
+  64   2                      if (UART0_RxCount != MAX_RX_UART0_BUF_SIZE) 
+  65   2                      {
+  66   3                              uart0_RxBuf[uart0_RxHead] = SBUF0;
+  67   3                              UART0_RxCount++;
+  68   3                              uart0_RxHead++;
+  69   3                              uart0_RxHead &= MAX_RX_UART0_MASK;
+  70   3                  }
+  71   2                      RI0 = 0;
+  72   2              } /* End of if(RI0) */
+  73   1      
+  74   1              if (TI0)
+  75   1              {
+  76   2                      uart0_TxTail++;
+  77   2                      uart0_TxTail &= MAX_TX_UART0_MASK;
+  78   2                      uart0_TxCount--;
+  79   2                      if (uart0_TxCount > 0)
+  80   2                      {
+  81   3                              SBUF0 = uart0_TxBuf[uart0_TxTail];
+  82   3                      }
+  83   2                      else
+  84   2                              uart0_TxFlag = 0;
+  85   2      
+  86   2                      TI0 = 0;
+  87   2      
+  88   2              } /* End of if(TI0) */
+  89   1      
+  90   1              if (PCON & PMMS_)
+  91   1              {
+  92   2                      if (OCGCR & BIT3)
+  93   2                      {
+  94   3                              PCON |= (PMM_ | PMMS_ | SWB_);
+  95   3                      }
+  96   2              }
+  97   1      
+  98   1      } /* End of UART_Int */
+  99          
+ 100          /*
+ 101           * ----------------------------------------------------------------------------
+ 102           * static void uart0_Init(void)
+ 103           * Purpose : Setting operation mode of UART0 and initiating the global values.
+ 104           * Params  : none
+ 105           * Returns : none
+ 106           * Note    : TI0 must be 0 in interrupt mode
+ 107           * ----------------------------------------------------------------------------
+ 108           */
+ 109          static void uart0_Init(void)
+ 110          {
+ 111   1              U16_T   i;
+ 112   1      
+ 113   1              uart0_TxHead = 0;
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 3   
+
+ 114   1              uart0_TxTail = 0;
+ 115   1              uart0_TxCount = 0;
+ 116   1              uart0_TxFlag = 0;
+ 117   1              uart0_RxHead = 0;
+ 118   1              uart0_RxTail = 0;
+ 119   1              UART0_RxCount = 0;
+ 120   1              for (i=0 ; i<MAX_TX_UART0_BUF_SIZE ; i++)
+ 121   1                      uart0_TxBuf[i] = 0;
+ 122   1              for (i=0 ; i<MAX_RX_UART0_BUF_SIZE ; i++)
+ 123   1                      uart0_RxBuf[i] = 0;
+ 124   1      
+ 125   1              // Initialize TIMER1 for standard 8051 UART clock
+ 126   1              PCON  = 0;                      // Disable BaudRate doubler.
+ 127   1              SM01  = 1;                      // Use serial port 0 in mode 1 with 8-bits data.
+ 128   1              REN0  = 1;                      // Enable UART0 receiver.
+ 129   1              TMOD  = 0x20;           // Use timer 1 in mode 2, 8-bit counter with auto-reload.
+ 130   1      
+ 131   1              switch (CSREPR & SCS_80M)
+ 132   1              {
+ 133   2                      case SCS_80M :
+ 134   2                              TH1 = 0xEA;             // Baud rate = 9600 @ 80MHz.
+ 135   2                              break;
+ 136   2                      default :
+ 137   2                              TH1 = 0xF5;             // Baud rate = 9600 @ 40MHz.
+ 138   2                              break;
+ 139   2              }
+ 140   1      
+ 141   1              ES0     = 1;                            // Enable serial port Interrupt request
+ 142   1              TR1 = 1;                                // Run Timer 1
+ 143   1              TI0 = 0;
+ 144   1      
+ 145   1      } /* End of UART_Init */
+ 146          
+ 147          /*
+ 148           * ----------------------------------------------------------------------------
+ 149           * S8_T UART0_PutChar(S8_T c)
+ 150           * Purpose : UART0 output function. This function puts one byte data into the
+ 151           *           software character buffer.
+ 152           * Params  : c - one byte character.
+ 153           * Returns : c - one byte character.
+ 154           * Note    : none
+ 155           * ----------------------------------------------------------------------------
+ 156           */
+ 157          S8_T UART0_PutChar(S8_T c)
+ 158          {
+ 159   1              U16_T   count = 0;
+ 160   1      
+ 161   1              if (c == 0xa)
+ 162   1              {
+ 163   2                      do
+ 164   2                      {
+ 165   3                              EA = 0;
+ 166   3                              count = uart0_TxCount; 
+ 167   3                              EA = 1;
+ 168   3                      } while (count == MAX_TX_UART0_BUF_SIZE);
+ 169   2                      uart0_TxBuf[uart0_TxHead] = 0xd;
+ 170   2                      EA = 0;
+ 171   2                      uart0_TxCount++;
+ 172   2                      EA = 1;
+ 173   2                      uart0_TxHead++;
+ 174   2                      uart0_TxHead &= MAX_TX_UART0_MASK;
+ 175   2              }
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 4   
+
+ 176   1              do
+ 177   1              {
+ 178   2                      EA = 0;
+ 179   2                      count = uart0_TxCount; 
+ 180   2                      EA = 1;
+ 181   2              } while (count == MAX_TX_UART0_BUF_SIZE);
+ 182   1              uart0_TxBuf[uart0_TxHead] = c;
+ 183   1              EA = 0;
+ 184   1              uart0_TxCount++;
+ 185   1              EA = 1;
+ 186   1              uart0_TxHead++;
+ 187   1              uart0_TxHead &= MAX_TX_UART0_MASK;
+ 188   1      
+ 189   1              if (!uart0_TxFlag)
+ 190   1              {
+ 191   2                      uart0_TxFlag = 1;
+ 192   2                      SBUF0 = uart0_TxBuf[uart0_TxTail];
+ 193   2              }
+ 194   1      
+ 195   1              return c;
+ 196   1      } /* End of UART0_PutChar() */
+ 197          
+ 198          /*
+ 199           * ----------------------------------------------------------------------------
+ 200           * S8_T UART0_GetKey(void)
+ 201           * Purpose : UART0 input function. This function replies one byte data from the
+ 202           *           software character buffer.
+ 203           * Params  : none
+ 204           * Returns : c - one byte character.
+ 205           * Note    : none
+ 206           * ----------------------------------------------------------------------------
+ 207           */
+ 208          S8_T UART0_GetKey (void)
+ 209          {
+ 210   1          S8_T        c = 0;
+ 211   1      
+ 212   1              while(UART0_RxCount == 0);
+ 213   1              EA = 0;
+ 214   1              UART0_RxCount--;
+ 215   1              EA = 1;
+ 216   1              c = uart0_RxBuf[uart0_RxTail];
+ 217   1              uart0_RxTail++;
+ 218   1              uart0_RxTail &= MAX_RX_UART0_MASK;
+ 219   1      
+ 220   1              return c;
+ 221   1      } /* End of UART0_GetKey() */
+ 222          
+ 223          /*
+ 224           * ----------------------------------------------------------------------------
+ 225           * S8_T UART0_NoBlockGetkey(void)
+ 226           * Purpose : UART0 input function. This function replies one byte data from the
+ 227           *           software character buffer. But it only check the buffer one time.
+ 228           *           If no data, it will reply a FALSE condition.
+ 229           * Params  : none
+ 230           * Returns : c - one byte character.
+ 231           * Note    : none
+ 232           * ----------------------------------------------------------------------------
+ 233           */
+ 234          S8_T UART0_NoBlockGetkey (void)
+ 235          {
+ 236   1          char c = 0;
+ 237   1      
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 5   
+
+ 238   1              if (UART0_RxCount != 0)
+ 239   1              {
+ 240   2                      ES0 = 0;
+ 241   2                      UART0_RxCount--;
+ 242   2                      ES0 = 1;
+ 243   2                      c = uart0_RxBuf[uart0_RxTail];
+ 244   2                      uart0_RxTail++;
+ 245   2                      uart0_RxTail &= MAX_RX_UART0_MASK;
+ 246   2      
+ 247   2                      return c;
+ 248   2              }
+ 249   1              else
+ 250   1              {
+ 251   2                      return FALSE;
+ 252   2              }
+ 253   1      }
+ 254          
+ 255          
+ 256          /* EXPORTED SUBPROGRAM BODIES */
+ 257          
+ 258          /*
+ 259           * ----------------------------------------------------------------------------
+ 260           * S8_T _getkey (void)
+ 261           * Purpose : UART getkey function. This function is the entry of getting
+ 262           *           characters from software buffer of system's UART ports,
+ 263           *           UART0, UART1 and HSUR. 
+ 264           * Params  : none
+ 265           * Returns : ch - one byte character.
+ 266           * Note    : The default UART port is UART0.
+ 267           * ----------------------------------------------------------------------------
+ 268           */
+ 269          S8_T _getkey (void)
+ 270          {
+ 271   1              S8_T    ch = 0;
+ 272   1      
+ 273   1              ch = UART0_GetKey();
+ 274   1      
+ 275   1              return ch;
+ 276   1      } /* End of _getkey */
+ 277          
+ 278          /*
+ 279           * ----------------------------------------------------------------------------
+ 280           * S8_T putchar(S8_T c)
+ 281           * Purpose : UART putchar function. This function is the entry of putting
+ 282           *           characters into software buffer of system's UART ports,
+ 283           *           UART0, UART1 and HSUR. 
+ 284           * Params  : c - one byte character to be put.
+ 285           * Returns : ch - the same character to be replied.
+ 286           * Note    : The default UART port is UART0.
+ 287           * ----------------------------------------------------------------------------
+ 288           */
+ 289          S8_T putchar(S8_T c)
+ 290          {
+ 291   1              S8_T    ch = 0;
+ 292   1      
+ 293   1              ch = UART0_PutChar(c);
+ 294   1      
+ 295   1              return ch;
+ 296   1      } /* End of putchar */
+ 297          
+ 298          /*
+ 299           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   UART0                                                                 03/08/2012 11:01:03 PAGE 6   
+
+ 300           * void UART_Init(U8_T port)
+ 301           * Purpose : UART initial function. It will call a real initial function
+ 302           *           corresponding to the used UART port.
+ 303           * Params  : none
+ 304           * Returns : none
+ 305           * Note    : none
+ 306           * ----------------------------------------------------------------------------
+ 307           */
+ 308          void UART_Init(void)
+ 309          {
+ 310   1              uart0_Init();
+ 311   1      } /* End of UART_Init() */
+ 312          
+ 313          
+ 314          /* End of uart0.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    782    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     13       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   1024    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

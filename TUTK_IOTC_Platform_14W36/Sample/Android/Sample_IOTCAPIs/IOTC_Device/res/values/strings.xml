@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>    
+    <string name="app_name">IOTC_Dev</string>
+    <string name="title_btn_start1">Listen</string>
+    <string name="title_btn_start2">Connect</string>
+    <string name="menu_settings">menu_settings</string>
+    <string name="hello_world">hello_world</string>    
+    <string name="title_btn_stop">Stop</string>
+</resources>

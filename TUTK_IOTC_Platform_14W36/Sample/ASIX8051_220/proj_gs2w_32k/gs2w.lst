@@ -1,0 +1,270 @@
+C51 COMPILER V9.01   GS2W                                                                  03/08/2012 11:01:11 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE GS2W
+OBJECT MODULE PLACED IN .\gs2w.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mgs2wifi\gs2w.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR
+                    -(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mpi
+                    -ng;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src
+                    -\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32K
+                    -H) VARBANKING DEBUG PRINT(.\gs2w.lst) OBJECT(.\gs2w.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: gs2w.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: gs2w.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "main.h"
+  24          #include "adapter.h"
+  25          #include "gs2w.h"
+  26          #include "gtcpdat.h"
+  27          #include "gudpdat.h"
+  28          #include "gudpbc.h"
+  29          #include "gudpmc.h"
+  30          #include "gudpuc.h"
+  31          #include "httpd.h"
+  32          #include "gconfig.h"
+  33          #include "printd.h"
+  34          #include "mac.h"
+  35          #include "console.h"
+  36          #if (INCLUDE_TELNET_SERVER)
+  37          #include "telnet.h"
+  38          #endif
+  39          #if (INCLUDE_EVENT_DETECT)
+              #include "gevent.h"
+              #endif
+  42          #if (INCLUDE_DNS_CLIENT)
+  43            #include "dnsc.h"
+  44          #endif
+  45          
+  46          #if (INCLUDE_DHCP_SERVER)
+  47          #include "dhcps.h"
+  48          #endif
+  49          
+  50          #include "at24c02.h"
+  51          #include "ping.h"
+C51 COMPILER V9.01   GS2W                                                                  03/08/2012 11:01:11 PAGE 2   
+
+  52          
+  53          #if (INCLUDE_HTTP_SERVER)
+  54          #include "httpdap.h"
+  55          #endif
+  56          /* NAMING CONSTANT DECLARATIONS */
+  57          
+  58          /* MACRO DECLARATIONS */
+  59          
+  60          /* GLOBAL VARIABLES DECLARATIONS */
+  61          
+  62          /* LOCAL VARIABLES DECLARATIONS */
+  63          static U8_T XDATA gs2w_State;
+  64          static U8_T XDATA gs2w_ConnType;
+  65          
+  66          /* LOCAL SUBPROGRAM DECLARATIONS */
+  67          
+  68          /*
+  69           * ----------------------------------------------------------------------------
+  70           * Function Name: GS2W_Task
+  71           * Purpose: 
+  72           * Params:
+  73           * Returns:
+  74           * Note:
+  75           * ----------------------------------------------------------------------------
+  76           */
+  77          void GS2W_Task(void)
+  78          {
+  79   1              GCONFIG_Task();
+  80   1          if (gs2w_ConnType == GS2W_CONN_UDP)
+  81   1                  GUDPDAT_Task();
+  82   1          else if (gs2w_ConnType == GS2W_CONN_TCP)
+  83   1                  GTCPDAT_Task();
+  84   1              GUDPMC_Task();
+  85   1              GUDPBC_Task();
+  86   1              GUDPUC_Task();
+  87   1      #if (INCLUDE_HTTP_SERVER)
+  88   1              HTTPAP_Task();
+  89   1      #endif
+  90   1          
+  91   1      #if (INCLUDE_TELNET_SERVER)
+  92   1              CONSOLE_Task();
+  93   1          TELNET_Task();
+  94   1      #endif
+  95   1      
+  96   1      #if (INCLUDE_EVENT_DETECT)
+                      GEVENT_Task();
+              #endif
+  99   1      
+ 100   1      #if (INCLUDE_DNS_CLIENT)
+ 101   1              DNSC_Task();
+ 102   1      #endif  
+ 103   1      
+ 104   1              PING_Task();
+ 105   1      
+ 106   1      #if (INCLUDE_DHCP_SERVER)
+ 107   1          if (GCONFIG_GetDhcpSrvStatus())
+ 108   1              DHCPS_ConnsCheck();
+ 109   1      #endif
+ 110   1      } /* End of GS2W_Task() */
+ 111          
+ 112          /*
+ 113           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GS2W                                                                  03/08/2012 11:01:11 PAGE 3   
+
+ 114           * Function Name: GS2W_Init()
+ 115           * Purpose: Initialization
+ 116           * Params:
+ 117           * Returns:
+ 118           * Note:
+ 119           * ----------------------------------------------------------------------------
+ 120           */
+ 121          void GS2W_Init(void)
+ 122          {
+ 123   1          U8_T state;
+ 124   1      
+ 125   1              gs2w_State = GS2W_STATE_IDLE; 
+ 126   1      
+ 127   1              if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP_MCAST) == GCONFIG_NETWORK_PROTO_UDP_MCAST)
+ 128   1                      GUDPMC_Init(GCONFIG_UDP_MCAST_SERVER_PORT);
+ 129   1      
+ 130   1              if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP_BCAST) == GCONFIG_NETWORK_PROTO_UDP_BCAST ||
+ 131   1                      (GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP_MCAST) != GCONFIG_NETWORK_PROTO_UDP_MCAST
+ 132   1                 )
+ 133   1              {
+ 134   2                      if((GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP_MCAST) != GCONFIG_NETWORK_PROTO_UDP_MCAST)
+ 135   2                      {
+ 136   3                              MAC_SetRxFilter(MAC_RCV_BROADCAST);
+ 137   3                      }
+ 138   2                      GUDPBC_Init(GCONFIG_UDP_BCAST_SERVER_PORT);
+ 139   2              }
+ 140   1      
+ 141   1              GUDPUC_Init(GCONFIG_UDP_UCAST_SERVER_PORT);
+ 142   1      
+ 143   1      #if (INCLUDE_HTTP_SERVER)
+ 144   1              HTTP_Init();
+ 145   1      #endif
+ 146   1      
+ 147   1              if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP) == GCONFIG_NETWORK_PROTO_UDP)
+ 148   1              {
+ 149   2              gs2w_ConnType = GS2W_CONN_UDP;
+ 150   2                      GUDPDAT_Init(GCONFIG_GetServerDataPktListenPort());
+ 151   2              }
+ 152   1              else
+ 153   1              {
+ 154   2              gs2w_ConnType = GS2W_CONN_TCP;
+ 155   2                      GTCPDAT_Init(GCONFIG_GetServerDataPktListenPort());
+ 156   2              }
+ 157   1      
+ 158   1          
+ 159   1      #if (INCLUDE_TELNET_SERVER)
+ 160   1              CONSOLE_Init();
+ 161   1          TELNET_Init();
+ 162   1      #endif
+ 163   1      
+ 164   1      #if (INCLUDE_EVENT_DETECT)
+                      GEVENT_Init();
+              #endif
+ 167   1      
+ 168   1      #if (INCLUDE_DNS_CLIENT)
+ 169   1              DNSC_Init();
+ 170   1              DNSC_SetServerIP(GCONFIG_GetDNS());
+ 171   1              //DNSC_SetServerIP(0xc0a80201);
+ 172   1      #endif  
+ 173   1      
+ 174   1              PING_Init();
+ 175   1      
+C51 COMPILER V9.01   GS2W                                                                  03/08/2012 11:01:11 PAGE 4   
+
+ 176   1      #if (INCLUDE_DHCP_SERVER)
+ 177   1          if (GCONFIG_GetDhcpSrvStatus())
+ 178   1          {
+ 179   2              state = DHCPS_GetServerStatus();
+ 180   2              DHCPS_Init(GCONFIG_GetDhcpSrvStartIp(), GCONFIG_GetDhcpSrvEndIp(),
+ 181   2                         GCONFIG_GetDhcpSrvNetmask(), GCONFIG_GetDhcpSrvDefGateway(),
+ 182   2                         GCONFIG_GetDhcpSrvLeaseTime(), GCONFIG_GetDhcpSrvStatus());
+ 183   2              if (state != 0xFF)
+ 184   2                  DHCPS_SetServerStatus(state);
+ 185   2          }
+ 186   1      #endif
+ 187   1      } /* End of GS2W_Init() */
+ 188          
+ 189          /*
+ 190           * ----------------------------------------------------------------------------
+ 191           * Function Name: GS2W_GetTaskState
+ 192           * Purpose: 
+ 193           * Params:
+ 194           * Returns:
+ 195           * Note:
+ 196           * ----------------------------------------------------------------------------
+ 197           */
+ 198          U8_T GS2W_GetTaskState(void)
+ 199          {
+ 200   1              return gs2w_State;
+ 201   1      } /* End of GS2W_GetTaskState() */
+ 202          /*
+ 203           * ----------------------------------------------------------------------------
+ 204           * Function Name: GS2W_SetTaskState
+ 205           * Purpose: 
+ 206           * Params:
+ 207           * Returns:
+ 208           * Note:
+ 209           * ----------------------------------------------------------------------------
+ 210           */
+ 211          void GS2W_SetTaskState(U8_T state)
+ 212          {
+ 213   1              gs2w_State = state;
+ 214   1      } /* End of GS2W_SetTaskState() */
+ 215          
+ 216          /*
+ 217           * ----------------------------------------------------------------------------
+ 218           * Function Name: GS2W_GetConnType
+ 219           * Purpose: 
+ 220           * Params:
+ 221           * Returns:
+ 222           * Note:
+ 223           * ----------------------------------------------------------------------------
+ 224           */
+ 225          U8_T GS2W_GetConnType(void)
+ 226          {
+ 227   1              return gs2w_ConnType;
+ 228   1      } /* End of GS2W_GetConnType() */
+ 229          
+ 230          
+ 231          /* End of gs2w.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    398    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      2       1
+C51 COMPILER V9.01   GS2W                                                                  03/08/2012 11:01:11 PAGE 5   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

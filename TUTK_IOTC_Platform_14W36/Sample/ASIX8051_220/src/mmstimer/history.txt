@@ -1,0 +1,11 @@
+//======================================================================
+// AX220xx Firmware Revision History
+// Module Name: MCPU MSTIMER Module (mmstimer)
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the AX220xx Firmware between released versions. 
+//======================================================================
+
+Version 1.0.0  (2011-02-24)
+1. Initial release
+

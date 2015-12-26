@@ -1,0 +1,151 @@
+C51 COMPILER V9.01   DELAY                                                                 08/29/2011 15:28:06 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE DELAY
+OBJECT MODULE PLACED IN .\delay.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mmstimer\delay.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDI
+                    -R(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mp
+                    -ing;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\sr
+                    -c\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\
+                    -..\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\delay.lst) OBJECT(.\delay.obj)
+
+line level    source
+
+   1          /*
+   2           *********************************************************************************
+   3           *     Copyright (c) 2010   ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           *********************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : delay.c
+  13           * Purpose     : A time delay function.
+  14           *               Depend on the system clock, firmware calculates some cycle of the
+  15           *               instruction to delay with an time interval.
+  16           * Author      : Robin Lee
+  17           * Date        :
+  18           * Notes       :
+  19           * $Log: delay.c,v $
+  20           * no message
+  21           *
+  22           *================================================================================
+  23           */
+  24          
+  25          /* INCLUDE FILE DECLARATIONS */
+  26          #include "ax22000.h"
+  27          #include "mcpu.h"
+  28          #include "delay.h"
+  29          
+  30          
+  31          /* NAMING CONSTANT DECLARATIONS */
+  32          #define CLK_80M         80
+  33          #define CLK_40M         40
+  34          
+  35          /* LOCAL VARIABLES DECLARATIONS */
+  36          static U16_T    delay_MsLoop = 1;
+  37          static U8_T             delay_SysClk = CLK_40M;
+  38          static U8_T             delay_ProgWst = 1;
+  39          
+  40          /*
+  41           * ----------------------------------------------------------------------------
+  42           * Function Name: DELAY_Init
+  43           * Purpose: Get system clock and program wait state to decide delay loop count.
+  44           * Params:
+  45           * Returns:
+  46           * Note:
+  47           * ----------------------------------------------------------------------------
+  48           */
+  49          void DELAY_Init(void)
+  50          {
+  51   1              /* get system clock */
+C51 COMPILER V9.01   DELAY                                                                 08/29/2011 15:28:06 PAGE 2   
+
+  52   1              switch (MCPU_GetSysClk())
+  53   1              {
+  54   2                      case SCS_80M :
+  55   2                              delay_SysClk = CLK_80M;
+  56   2                              break;
+  57   2                      case SCS_40M :
+  58   2                              delay_SysClk = CLK_40M;
+  59   2                              break;
+  60   2                      default:
+  61   2                              break;
+  62   2              }
+  63   1      
+  64   1              /* get program wait state */
+  65   1              delay_ProgWst = MCPU_GetProgWst() + 1;
+  66   1      
+  67   1              /* calculate driver loop count for per ms */
+  68   1              delay_MsLoop = ((U32_T)delay_SysClk * 1000) / ((U32_T)delay_ProgWst * 40);
+  69   1      
+  70   1      } /* End of DELAY_Init */
+  71          
+  72          /*
+  73           * ----------------------------------------------------------------------------
+  74           * Function Name: DELAY_Us
+  75           * Purpose : Delay XXX us.
+  76           * Params  : loop: A time value of us.
+  77           * Returns :
+  78           * Note    :
+  79           * ----------------------------------------------------------------------------
+  80           */
+  81          void DELAY_Us(U16_T loop)
+  82          {
+  83   1              U32_T   count;
+  84   1      
+  85   1              count = ((U32_T)delay_SysClk * loop) / ((U32_T)delay_ProgWst * 20);
+  86   1              if (count > 7)
+  87   1                      count -= 7;
+  88   1              else
+  89   1                      return;
+  90   1                      
+  91   1              while (count--);
+  92   1      
+  93   1      } /* End of DELAY_Us */
+  94          
+  95          /*
+  96           *--------------------------------------------------------------------------------
+  97           * Function Name: DELAY_Ms
+  98           * Purpose : Delay XXX ms
+  99           * Params  : loop: A time value of ms
+ 100           * Returns :
+ 101           * Note    :
+ 102           *--------------------------------------------------------------------------------
+ 103           */
+ 104          void DELAY_Ms(U16_T loop)
+ 105          {
+ 106   1              U16_T   x, y;
+ 107   1      
+ 108   1              for (y = 0; y < loop; y++)
+ 109   1              {
+ 110   2                      x = delay_MsLoop;
+ 111   2                      while (x--);
+ 112   2              }
+ 113   1      } /* End of ms_delay*/
+C51 COMPILER V9.01   DELAY                                                                 08/29/2011 15:28:06 PAGE 3   
+
+ 114          
+ 115          
+ 116          /* End of delay.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    283    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      4       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

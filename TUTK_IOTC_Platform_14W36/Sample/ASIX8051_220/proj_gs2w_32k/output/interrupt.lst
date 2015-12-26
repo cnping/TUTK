@@ -1,0 +1,717 @@
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE INTERRUPT
+OBJECT MODULE PLACED IN .\interrupt.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mcpu\interrupt.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDI
+                    -R(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mp
+                    -ing;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\sr
+                    -c\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\
+                    -..\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\interrupt.lst) OBJECT(.\interrupt.obj)
+
+line level    source
+
+   1          /*
+   2           *********************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           *********************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : interrupt.c
+  13           * Purpose     : This file include peripheral interrupt service routine and
+  14           *               the wake up interrupt service routine.
+  15           * Author      : Robin Lee
+  16           * Date        :
+  17           * Notes       :
+  18           * $Log: interrupt.c,v $
+  19           * no message
+  20           *
+  21           *================================================================================
+  22           */
+  23          
+  24          /* INCLUDE FILE DECLARATIONS */
+  25          #include        "ax22000.h"
+  26          #include        "types.h"
+  27          #include        "mcpu_cfg.h"
+  28          #include        "mcpu.h"
+  29          #include        "interrupt.h"
+  30          #include        "mpsave.h"
+  31          #include        "mstimer.h"
+  32          #include        "mwif.h"
+  33          
+  34          #if AX_LBI_INT_ENABLE
+              #include        "lbi.h"
+              #endif
+  37          
+  38          #if AX_ETH_INT_ENABLE
+  39          #include        "stoe.h"
+  40          #include        "mac.h"
+  41          #endif
+  42          
+  43          #if AX_I2C_INT_ENABLE
+  44          #include        "i2c.h"
+  45          #endif
+  46          
+  47          #if AX_SPI_INT_ENABLE
+              #include        "spi.h"
+              #endif
+  50          
+  51          #if AX_ONEWIRE_INT_ENABLE
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 2   
+
+              #include        "onewire.h"
+              #endif
+  54          
+  55          #if (AX_HSUART2_INT_ENABLE || AX_HSUART3_INT_ENABLE)
+  56          #include        "hsuart.h"
+  57          #endif
+  58          
+  59          #if AX_HSUART2_INT_ENABLE
+  60          #include        "hsuart2.h"
+  61          #endif
+  62          
+  63          #if AX_HSUART3_INT_ENABLE
+              #include        "hsuart3.h"
+              #endif
+  66          
+  67          #if AX_I2S_INT_ENABLE
+              #include        "i2s.h"
+              #endif
+  70          
+  71          #if AX_RTC_INT_ENABLE
+              #include        "rtc.h"
+              #endif
+  74          
+  75          /* NAMING CONSTANT DECLARATIONS */
+  76          
+  77          
+  78          /* GLOBAL VARIABLE DECLARATIONS */
+  79          
+  80          
+  81          /* STATIC VARIABLE DECLARATIONS */
+  82          static U8_T     intr_WcpuWatchDogReset = 0;
+  83          
+  84          
+  85          /* LOCAL SUBPROGRAM DECLARATIONS */
+  86          static void intr_PeripherialISR(void);
+  87          static void intr_ExternalIntr5ISR(void);
+  88          static void intr_PmmWakeUpISR(void);
+  89          #if AX_WATCHDOG_INT_ENB
+              static void intr_WatchDogISR(void);
+              static void intr_WatchDogByWcpuInterruptService(void);
+              #endif //AX_WATCHDOG_INT_ENB
+  93          
+  94          
+  95          /* LOCAL SUBPROGRAM BODIES */
+  96          
+  97          /*
+  98           *--------------------------------------------------------------------------------
+  99           * static void intr_PeripherialISR(void)
+ 100           * Purpose : The peripheral interface interrupt service routine of AX220xx MCPU.
+ 101           * Params  : None.
+ 102           * Returns : None.
+ 103           * Note    : None.
+ 104           *--------------------------------------------------------------------------------
+ 105           */
+ 106          static void INTR_PeripherialISR(void) interrupt 9 //use external interrupt 4 (0x4B)
+ 107          {
+ 108   1              U8_T    intrStt1 = 0;
+ 109   1              U8_T    intrStt2 = 0;
+ 110   1      
+ 111   1              /* Interrupt type check */
+ 112   1              while (1)
+ 113   1              {
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 3   
+
+ 114   2                      intrStt1 = PISSR1;
+ 115   2                      intrStt2 = PISSR2;
+ 116   2      
+ 117   2                      if ((intrStt1 == 0) && (intrStt2 == 0))
+ 118   2                              break;
+ 119   2      
+ 120   2      #if AX_LBI_INT_ENABLE
+                              if (intrStt1 & LB_INT_STU)
+                              {
+                                      LBI_IntrEntryFunc();
+                      }
+              #endif
+ 126   2      
+ 127   2      #if AX_LBI_INT_ENABLE
+                              if (intrStt1 & LB_EXT_INT_STU)
+                              {
+                                      LBI_ExtIntrEntryFunc();
+                              }
+              #endif
+ 133   2      
+ 134   2      #if AX_ETH_INT_ENABLE
+ 135   2        #if (MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+                  #if (MAC_GET_INTSTATUS_MODE == MAC_INTERRUPT_MODE)
+                              if (intrStt1 & ETH_INT_STU)
+                              {
+                                      MAC_SetInterruptFlag();
+                              }
+                  #endif /* #if (MAC_GET_INTSTATUS_MODE == MAC_INTERRUPT_MODE) */
+                #endif /* #if (MAC_ARBIT_MODE & MAC_ARBIT_ETH) */
+ 143   2        #if (STOE_GET_INTSTATUS_MODE == STOE_INTERRUPT_MODE)
+                              if (intrStt1 & TOE_INT_STU)
+                              {
+                                      STOE_SetInterruptFlag();
+                              }
+                #endif /*#if (STOE_GET_INTSTATUS_MODE == STOE_INTERRUPT_MODE) */
+ 149   2      #endif /* #if AX_ETH_INT_ENABLE */
+ 150   2      
+ 151   2      #if AX_I2C_INT_ENABLE
+ 152   2                      if (intrStt1 & I2C_INT_STU)
+ 153   2                      {
+ 154   3                              I2C_IntrEntryFunc();
+ 155   3                      }
+ 156   2      #endif
+ 157   2      
+ 158   2      #if AX_SPI_INT_ENABLE
+                              if (intrStt1 & SPI_INT_STU)
+                              {
+                                      SPI_IntrEntryFunc();
+                              }
+              #endif
+ 164   2      
+ 165   2      #if AX_HSUART2_INT_ENABLE
+ 166   2                      if (intrStt2 & UART2_INT_STU)
+ 167   2                      {
+ 168   3                              HSUR2_IntrEntryFunc();
+ 169   3                      }
+ 170   2      #endif
+ 171   2      
+ 172   2      #if AX_HSUART3_INT_ENABLE
+                              if (intrStt2 & UART3_INT_STU)
+                              {
+                                      HSUR3_IntrEntryFunc();
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 4   
+
+                              }
+              #endif
+ 178   2      
+ 179   2      #if AX_I2S_INT_ENABLE
+                #if (I2SPCM_SUPPORT_TXRX_TYPE == I2SPCM_SUPPORT_TX)
+                              if (intrStt2 & I2STX_INT_STU)
+                              {
+                                      I2S_TxIntr();
+                              }
+                #endif /*#if (I2SPCM_SUPPORT_TXRX_TYPE == I2SPCM_SUPPORT_TX) */
+                #if (I2SPCM_SUPPORT_TXRX_TYPE == I2SPCM_SUPPORT_RX)
+                              if (intrStt2 & I2SRX_INT_STU)
+                              {
+                                      I2S_RxIntr();
+                              }
+                #endif /* (I2SPCM_SUPPORT_TXRX_TYPE == I2SPCM_SUPPORT_RX) */
+              #endif
+ 193   2      
+ 194   2      #if AX_ONEWIRE_INT_ENABLE
+                              if (intrStt1 & OW_INT_STU)
+                              {
+                                      ONEWIRE_IntrEntryFunc();
+                              }
+              #endif
+ 200   2              }
+ 201   1              
+ 202   1              if (PCON & PMMS_)
+ 203   1              {
+ 204   2                      if (OCGCR & BIT3)
+ 205   2                      {
+ 206   3                              PCON = (PMM_ | PMMS_ | SWB_);
+ 207   3                      }
+ 208   2              }
+ 209   1      } /* End of INTR_PeripherialISR() */
+ 210          
+ 211          /*
+ 212           *--------------------------------------------------------------------------------
+ 213           * static void INTR_ExternalIntr5ISR(void)
+ 214           * Purpose : The interface interrupt service routine of AX220xx MCPU interrupt 5.
+ 215           * Params  : None.
+ 216           * Returns : None.
+ 217           * Note    : None.
+ 218           *--------------------------------------------------------------------------------
+ 219           */
+ 220          static void INTR_ExternalIntr5ISR(void) interrupt 10 //use external interrupt pin 5 (0x53)
+ 221          {
+ 222   1              U8_T    intr5Stt = 0;
+ 223   1      
+ 224   1              EIF = INT5F;
+ 225   1      
+ 226   1              /* Interrupt type check */
+ 227   1              while (1)
+ 228   1              {
+ 229   2                      intr5Stt = SDSTSR;
+ 230   2                      if (intr5Stt == 0)
+ 231   2                              break;
+ 232   2                      
+ 233   2                      if (intr5Stt & STT)
+ 234   2                      {
+ 235   3                              SWTIMER_Counter++;
+ 236   3                      }
+ 237   2      #if AX_RTC_INT_ENABLE
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 5   
+
+                              if (intr5Stt & RTCT)
+                              {
+                                      RTC_InterruptService();
+                              }
+              #endif
+ 243   2      #if AX_WATCHDOG_INT_ENB
+                              if (intr5Stt & WWDT)
+                              {
+                                      intr_WatchDogByWcpuInterruptService();
+                              }
+              #endif          
+ 249   2      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 250   2                      if (intr5Stt & WDRST)
+ 251   2                      {
+ 252   3                              MWIF_DocdReset();
+ 253   3                      }
+ 254   2      #endif
+ 255   2              }
+ 256   1      
+ 257   1              if (PCON & PMMS_)
+ 258   1              {
+ 259   2                      if (OCGCR & BIT3)
+ 260   2                      {
+ 261   3                              PCON = (PMM_ | PMMS_ | SWB_);
+ 262   3                      }
+ 263   2              }
+ 264   1      } /* End of intr_ExternalIntr5ISR() */
+ 265          
+ 266          /*
+ 267           *--------------------------------------------------------------------------------
+ 268           * static void INTR_PmmWakeUpISR(void)
+ 269           * Purpose : The interrupt service routine of the
+ 270           *           wake up event in power management mode.
+ 271           * Params  : None.
+ 272           * Returns : None.
+ 273           * Note    : None.
+ 274           *--------------------------------------------------------------------------------
+ 275           */
+ 276          static void INTR_PmmWakeUpISR(void) interrupt 11 //use external interrupt 6 (0x5B)
+ 277          {
+ 278   1              U8_T    wakeStatus = 0;
+ 279   1              U8_T    tempStatus = 0;
+ 280   1              U8_T    macIntEnbBitMap = 0, macWakeupFrameCmdBitMap = 0;
+ 281   1      
+ 282   1              EXTINT6(OFF);
+ 283   1      
+ 284   1              EIF = INT6F;    // Clear the flag of interrupt 6.
+ 285   1      
+ 286   1              wakeStatus = PCON;
+ 287   1              if (!(wakeStatus & SWB_))
+ 288   1              {
+ 289   2                      PCON &= ~ (PMM_ | STOP_);
+ 290   2              }
+ 291   1      
+ 292   1              wakeStatus = WKUPSR;
+ 293   1      
+ 294   1      #if POWER_SAVING
+ 295   1              /* to avoid the first timer, wcpu enter the sleep state in disable,
+ 296   1              fast and maximum power saving mode. */
+ 297   1              if (PS_Mode)
+ 298   1                      MCPU_SleepFlag = 1;
+ 299   1      
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 6   
+
+ 300   1              while (wakeStatus)
+ 301   1              {
+ 302   2      #if AX_ETH_INT_ENABLE
+ 303   2                      if (wakeStatus & MCPU_WAKEUP_BY_ETHERNET) // External wakeup, Ethernet Link-up, Wakeup Frame, Magic Pack
+             -et.
+ 304   2                      {
+ 305   3                              /* record the SPWIE (MAC_STOP_PMM_INT_ENABLE_REG) */
+ 306   3                              MCIR = MAC_WAKEUP_INT_ENABLE_REG;
+ 307   3                              macIntEnbBitMap = MDR;
+ 308   3                              
+ 309   3                              /* record wakeup frame command */
+ 310   3                              MCIR = MAC_WAKEUP_FRAME_COMMAND;
+ 311   3                              macWakeupFrameCmdBitMap = MDR;
+ 312   3      
+ 313   3                              /* clear SPWIE (MAC_STOP_PMM_INT_ENABLE_REG) */
+ 314   3                              MDR = 0;
+ 315   3                              MCIR = MAC_WAKEUP_INT_ENABLE_REG;
+ 316   3                              
+ 317   3                              /* clear wakeup frame command */
+ 318   3                              MDR = macWakeupFrameCmdBitMap & ~(BIT0|BIT1|BIT2|BIT3);
+ 319   3                              MCIR = MAC_WAKEUP_FRAME_COMMAND;
+ 320   3      
+ 321   3                              /* read MAC status register for clear status */
+ 322   3                              MCIR = MAC_WAKEUP_LINK_INT_STATUS_REG;
+ 323   3                              tempStatus = MDR;
+ 324   3                              tempStatus |= MCPU_WakeUpByMacFlag;
+ 325   3      
+ 326   3                              if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_ETHERNET)
+ 327   3                              {
+ 328   4                                      if (tempStatus & MCPU_MacWakeUpEventTable)
+ 329   4                                      {
+ 330   5                                              /* clear PMMS mode */
+ 331   5                                              PCON &= ~(PMM_ | STOP_ | SWB_ | PMMS_);
+ 332   5                                              MCPU_SleepFlag = 0;
+ 333   5                                      }
+ 334   4                              }
+ 335   3                              
+ 336   3                              if (tempStatus & STATUS_PRIMARY_LINK_CHANGE)
+ 337   3                              {
+ 338   4                                      MCPU_WakeUpByMacFlag = 0;
+ 339   4                                      MAC_InterruptStatus |= STATUS_PRIMARY_LINK_CHANGE;
+ 340   4                              }
+ 341   3                              else if (tempStatus & STATUS_SECOND_LINK_CHANGE)
+ 342   3                              {
+ 343   4                                      MCPU_WakeUpByMacFlag = 0;
+ 344   4                                      MAC_InterruptStatus |= STATUS_SECOND_LINK_CHANGE;
+ 345   4                              }
+ 346   3                              else
+ 347   3                              {
+ 348   4                                      MAC_InterruptStatus = 0;
+ 349   4                              }
+ 350   3                              
+ 351   3                              /* re-enable MAC wakeup interrupt */
+ 352   3                              MDR = macIntEnbBitMap;
+ 353   3                              MCIR = MAC_WAKEUP_INT_ENABLE_REG;
+ 354   3      
+ 355   3                              /* re-enable wakeup frame command */
+ 356   3                              MDR = macWakeupFrameCmdBitMap;
+ 357   3                              MCIR = MAC_WAKEUP_FRAME_COMMAND;
+ 358   3      
+ 359   3                              if (PS_State) /* deep sleep mode */
+ 360   3                              {
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 7   
+
+ 361   4                                      if (PS_State == PS_STATE_IN_DEEP_SLEEP)
+ 362   4                                      {
+ 363   5                                              PS_State = PS_STATE_EXIT_DEEP_SLEEP_REQ;
+ 364   5                                              P2 = 0x01;
+ 365   5                                      }
+ 366   4                              }
+ 367   3                      }
+ 368   2      
+ 369   2                      if (wakeStatus & REVMII_WK)
+ 370   2                      {
+ 371   3                              if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_REVMII)
+ 372   3                              {
+ 373   4                                      /* clear MAC status register */
+ 374   4                                      MCIR = MAC_WAKEUP_LINK_INT_STATUS_REG;
+ 375   4                                      tempStatus = MDR;
+ 376   4                                      if (tempStatus & STATUS_TRIG_BY_REV_MII)
+ 377   4                                      {
+ 378   5                                              PCON &= ~ PMMS_;
+ 379   5                                              MCPU_SleepFlag = 0;
+ 380   5                                      }
+ 381   4                              }
+ 382   3                      }
+ 383   2      #endif //AX_ETH_INT_ENABLE
+ 384   2      
+ 385   2      #if AX_LBI_INT_ENABLE
+                              if (wakeStatus & LBS_WK)
+                              {
+                                      if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_LBS)
+                                      {
+                                              PCON &= ~ PMMS_;
+                                              MCPU_SleepFlag = 0;
+                                              LBI_WakeUpFunc();
+                                      }
+                              }
+              #endif
+ 396   2      
+ 397   2      #if AX_RTC_INT_ENABLE
+                              if (wakeStatus & RTC_WK)
+                              {
+                                      if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_RTC)
+                                      {
+                                              PCON &= ~ PMMS_;
+                                              MCPU_SleepFlag = 0;
+                                              RTC_WakeUpService();
+                                      }
+                              }
+              #endif
+ 408   2      
+ 409   2      #if AX_HSUART2_INT_ENABLE
+ 410   2                      if (wakeStatus & UART2_WK)
+ 411   2                      {
+ 412   3                              HSUR2_WakeUpEvent();
+ 413   3                              if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_UART2)
+ 414   3                              {
+ 415   4                                      PCON &= ~ PMMS_;
+ 416   4                                      MCPU_SleepFlag = 0;
+ 417   4                              }
+ 418   3                      }
+ 419   2      #endif
+ 420   2      
+ 421   2      #if AX_HSUART3_INT_ENABLE
+                              if (wakeStatus & UART3_WK)
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 8   
+
+                              {
+                                      HSUR3_WakeUpEvent();
+                                      if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_UART3)
+                                      {
+                                              PCON &= ~ PMMS_;
+                                              MCPU_SleepFlag = 0;
+                                      }
+                              }
+              #endif
+ 432   2      
+ 433   2      #if AX_SPI_INT_ENABLE
+                              if (wakeStatus & SPI_WK) // For STOP mode, need to be cleared by software.
+                              {
+                                      if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_SPI)
+                                      {
+                                              PCON &= ~ PMMS_;
+                                              MCPU_SleepFlag = 0;
+                                              SPI_WakeUpEvent();
+                                      }
+                              }
+              #endif          
+ 444   2      
+ 445   2                      if (wakeStatus & MCPU_WAKEUP_BY_WIFI_PS_CHANGED)
+ 446   2                      {
+ 447   3      #if POWER_SAVING
+ 448   3                              if (PS_Mode & 3)/* PS_Mode = 1, 2, 3 */
+ 449   3                              {
+ 450   4                                      if (OCGCR & BIT3)
+ 451   4                                      {
+ 452   5                                              if (MCPU_WakeUpEventTable & MCPU_WAKEUP_BY_LBS)
+ 453   5                                              {
+ 454   6                                                      PCON &= ~ PMMS_;
+ 455   6                                                      MCPU_SleepFlag = 0;
+ 456   6                                              }
+ 457   5                                              else
+ 458   5                                              {
+ 459   6                                                      /* continuous to sleep */
+ 460   6                                              }
+ 461   5                                      }
+ 462   4                                      else
+ 463   4                                      {
+ 464   5                                              MCPU_SleepFlag = 0;
+ 465   5                                      }
+ 466   4                              }
+ 467   3                              else
+ 468   3      #endif //POWER_SAVING
+ 469   3                              {
+ 470   4                                      PCON &= ~(PMM_ | STOP_ | SWB_ | PMMS_);
+ 471   4                                      MCPU_SleepFlag = 0;
+ 472   4                              }
+ 473   3                      }
+ 474   2      
+ 475   2                      /* check the EIF for INTF6 again */
+ 476   2                      if (EIF & INT6F)
+ 477   2                      {
+ 478   3                              EIF = INT6F;    // Clear the flag of interrupt 6.
+ 479   3                              wakeStatus = WKUPSR;
+ 480   3                      }
+ 481   2                      else
+ 482   2                      {
+ 483   3                              break;
+ 484   3                      }
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 9   
+
+ 485   2              }
+ 486   1      
+ 487   1              if (MCPU_McpuNotSleepFlag)
+ 488   1              {
+ 489   2                      PCON &= ~(PMM_ | STOP_ | SWB_ | PMMS_);
+ 490   2                      MCPU_SleepFlag = 0;
+ 491   2              }
+ 492   1      
+ 493   1              if (MCPU_SleepFlag)
+ 494   1              {
+ 495   2                      if (!PS_Mode || (PS_Mode && (OCGCR & BIT3)))
+ 496   2                      {
+ 497   3      #if (MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+                                      if ((MCPU_GetPowerSavingMode() & STOP_) || PS_State) /* stop mode or deep sleep */
+                                      {
+                                              /* disable mac receive */
+                                              MCIR = MAC_MEDIUM_STATUS_MODE_REG;
+                                              status = MDR;
+                                              status &= 0xfb;
+                                              MDR = status;
+                                              MCIR = MAC_MEDIUM_STATUS_MODE_REG;
+                                      }
+              #endif //(MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+ 508   3      
+ 509   3                              PCON &= ~(PMM_ | STOP_ | SWB_ | PMMS_);
+ 510   3                              if (MCPU_GetPowerSavingMode() & STOP_)
+ 511   3                                      PCON |= STOP_;
+ 512   3                              else
+ 513   3                                      PCON |= (MCPU_GetPowerSavingMode() | PMMS_);
+ 514   3      
+ 515   3                              MCPU_SleepFlag = 1;
+ 516   3      
+ 517   3      #if (MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+                                      if ((MCPU_GetPowerSavingMode() & STOP_) || PS_State) /* stop mode or deep sleep */
+                                      {
+                                              /* enable mac receive */
+                                              MCIR = MAC_MEDIUM_STATUS_MODE_REG;
+                                              status = MDR;
+                                              status |= 4;
+                                              MDR = status;
+                                              MCIR = MAC_MEDIUM_STATUS_MODE_REG;
+                                      }
+              #endif //(MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+ 528   3                      }
+ 529   2                      else
+ 530   2                      {
+ 531   3                              MCPU_SleepFlag = 0;
+ 532   3                      }
+ 533   2              }
+ 534   1      #endif
+ 535   1              EXTINT6(ON);
+ 536   1      } /* End of INTR_PmmWakeUpISR() */
+ 537          
+ 538          #if AX_WATCHDOG_INT_ENB
+              /*
+               *--------------------------------------------------------------------------------
+               * void INTR_WatchDogISR(void)
+               * Purpose : Service the watchdog interrupt. Clear the interrupt status by watchdog timeout.
+               * Params  : None
+               * Returns : None
+               * Note    : None
+               *--------------------------------------------------------------------------------
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 10  
+
+               */
+              void INTR_WatchDogISR(void) interrupt 12
+              {
+                      if (EWDI)
+                      {
+                              if (EWT)
+                              {
+                                      TA = 0xAA;
+                                      TA = 0x55;
+                                      WDIF = 0; // clear WatchDog Interrupt Flag.
+                                      TA = 0xAA;
+                                      TA = 0x55;
+                                      WTRF = 0; // clear the Watchdog Timer Reset Flag.
+                              }
+                              else
+                              {
+                                      TA = 0xAA;
+                                      TA = 0x55;
+                                      WDIF = 0; // clear WatchDog Interrupt Flag.
+                              }
+                      }
+              } /* End of INTR_WatchDogISR() */
+              
+              /*
+               *--------------------------------------------------------------------------------
+               * void intr_WatchDogByWcpuInterruptService(void)
+               * Purpose : When a watchdog timeout from WCPU, this function can service this event.
+               * Params  : None.
+               * Returns : None.
+               * Note    : None.
+               *--------------------------------------------------------------------------------
+               */
+              static void intr_WatchDogByWcpuInterruptService(void)
+              {
+                      U8_T    rstTime = 33;
+                      
+                      if (intr_WcpuWatchDogReset)
+                      {
+                              CSREPR |= WF_RST;
+                              while (rstTime --)
+                              {
+                              }
+                              CSREPR &= ~WF_RST;
+                      }
+                      else // just show a notice
+                      {
+                      }
+              
+              } /* End of intr_WatchDogByWcpuInterruptService() */
+              #endif //AX_WATCHDOG_INT_ENB
+ 597          
+ 598          /* EXPORTED SUBPROGRAM BODIES */
+ 599          
+ 600          /*
+ 601           *--------------------------------------------------------------------------------
+ 602           * void INTR_PmmAutoSet(void)
+ 603           * Purpose : Check the power management mode and configure the AX220xx into 
+ 604           *           the previous power management mode. If the wake-up event doesn't match
+ 605           *           with applications setting, this function should enter the PMM again.
+ 606           * Params  : None.
+ 607           * Returns : None.
+ 608           * Note    : None.
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 11  
+
+ 609           *--------------------------------------------------------------------------------
+ 610           */
+ 611          void INTR_PmmAutoSet(void)
+ 612          {
+ 613   1              U8_T    bitEa;
+ 614   1      
+ 615   1              bitEa = EA;
+ 616   1              EA = 0;
+ 617   1              if ((PCON & PMMS_) || (MCPU_SleepFlag == 1))
+ 618   1              {
+ 619   2                      if (MCPU_PowerSavingMode == (PMM_ | SWB_))
+ 620   2                      {
+ 621   3                              PCON &= ~STOP_;
+ 622   3                              PCON |= (PMM_ | SWB_ | PMMS_);
+ 623   3                      }
+ 624   2                      else if (MCPU_PowerSavingMode == PMM_)
+ 625   2                      {
+ 626   3                              PCON &= ~(STOP_ | SWB_);
+ 627   3                              PCON |= (PMM_ | PMMS_);
+ 628   3                      }
+ 629   2                      else if (MCPU_PowerSavingMode == STOP_)
+ 630   2                      {
+ 631   3                              PCON &= ~(PMM_ | SWB_ | PMMS_);
+ 632   3                              PCON |= STOP_;
+ 633   3                      }
+ 634   2              }
+ 635   1              EA = bitEa;
+ 636   1      }
+ 637          
+ 638          #if AX_WATCHDOG_INT_ENB
+              /*
+               *--------------------------------------------------------------------------------
+               * void INTR_SetWatchDogFromWcpu(U8_T mode)
+               * Purpose : Configure the behavior when get a WCPU watchdog event
+               * Params  : mode: Set 1 to do a reset function when WCPU watchdog happening
+               * Returns : None.
+               * Note    : None.
+               *--------------------------------------------------------------------------------
+               */
+              void INTR_SetWatchDogFromWcpu(U8_T mode)
+              {
+                      if (mode == BIT0) // need MCPU issue a "reset" to WCPU
+                      {
+                              intr_WcpuWatchDogReset = BIT0;
+                      }
+                      else // just show a notice
+                      {
+                              intr_WcpuWatchDogReset = 0;
+                      }
+              
+              } /* End of INTR_SetWatchDogFromWcpu() */
+              #endif //AX_WATCHDOG_INT_ENB
+ 661          
+ 662          
+ 663          /* End of interrupt.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    857    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1       7
+   PDATA SIZE       =   ----    ----
+C51 COMPILER V9.01   INTERRUPT                                                             08/29/2011 15:27:50 PAGE 12  
+
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

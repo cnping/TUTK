@@ -1,0 +1,2771 @@
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE GCONFIG
+OBJECT MODULE PLACED IN .\gconfig.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mgs2wifi\gconfig.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INC
+                    -DIR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\
+                    -mping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\
+                    -src\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\.
+                    -.\..\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\gconfig.lst) OBJECT(.\gconfig.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: gconfig.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: gconfig.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "adapter.h"
+  24          #include "gconfig.h"
+  25          #include "gs2w.h"
+  26          #include "tcpip.h"
+  27          #include "mstimer.h"
+  28          #include "stoe.h"
+  29          #include "uart0.h"
+  30          #include "ax22000.h"
+  31          #include "mcpu.h"
+  32          #include "printd.h"
+  33          #include "hsuart.h"
+  34          #include "hsuart2.h"
+  35          #include "filesys.h"
+  36          #include "mwioctl.h"
+  37          #include <absacc.h>
+  38          #include <string.h>
+  39          
+  40          #include "main.h"
+  41          #if (INCLUDE_DNS_CLIENT)
+  42          #include "dnsc.h"
+  43          #endif
+  44          /* NAMING CONSTANT DECLARATIONS */
+  45          #define DEVICE_STATUS_IDLE                      0
+  46          #define DEVICE_STATUS_CONNECTED         1
+  47          
+  48          /* MACRO DECLARATIONS */
+  49          
+  50          /* TYPE DECLARATIONS */
+  51          typedef U8_T (*pFlashParaData)(U8_T * addr, U16_T len);
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 2   
+
+  52          
+  53          /* GLOBAL VARIABLES DECLARATIONS */
+  54          GCONFIG_GID XDATA GCONFIG_Gid = {'A','S','I','X','X','I','S','A'};
+  55          static const U8_T default_Wep64Key[4][5] = {0x12,0x34,0x56,0x78,0x90, 0x09,0x87,0x65,0x43,0x21,
+  56                                                      0xA1,0xB2,0xC3,0xD4,0xE5, 0x01,0x23,0x45,0x67,0x89};
+  57          static const U8_T default_Wep128Key[4][13] = {
+  58          0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+  59          0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a,
+  60          0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+  61          0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34};
+  62          
+  63          /* LOCAL VARIABLES DECLARATIONS */
+  64          U8_T XDATA gconfig_SysClock;
+  65          GCONFIG_CFG_DATA XDATA gconfig_ConfigData;
+  66          U8_T IDATA FirmwareUpgradeFlag[4] _at_ 0x31;
+  67          static GCONFIG_MAC_ADDR macAddr;
+  68          
+  69          /* LOCAL SUBPROGRAM DECLARATIONS */
+  70          static BOOL     gconfig_ReStoreParameter(U32_T addr, GCONFIG_CFG_DATA *pConfig, U16_T len);
+  71          static BOOL gconfig_StoreParameter(GCONFIG_CFG_DATA *pSramBase, U16_T len);
+  72          static U16_T gconfig_Checksum(U16_T *pBuf, U32_T length);
+  73          static void     gconfig_DisplayConfigData(GCONFIG_CFG_DATA *pConfig);
+  74          
+  75          /*
+  76           * ----------------------------------------------------------------------------
+  77           * Function Name: GCONFIG_Task
+  78           * Purpose: Main function
+  79           * Params:
+  80           * Returns:
+  81           * Note:
+  82           * ----------------------------------------------------------------------------
+  83           */
+  84          void GCONFIG_Task(void)
+  85          {
+  86   1      
+  87   1      } /* End of GCONFIG_Task() */
+  88          
+  89          /*
+  90           * ----------------------------------------------------------------------------
+  91           * Function Name: GCONFIG_Init
+  92           * Purpose: Initialization
+  93           * Params:
+  94           * Returns:
+  95           * Note:
+  96           * ----------------------------------------------------------------------------
+  97           */
+  98          void GCONFIG_Init(void)
+  99          {
+ 100   1              U16_T portCfg;
+ 101   1              U16_T baudRateDiv;
+ 102   1              U8_T  dataStopParityBits = 0;
+ 103   1              U16_T val;
+ 104   1              U8_T  flowCtrl, rs485;
+ 105   1              
+ 106   1              // Restore last-saved configuration if applicable       
+ 107   1              GS2W_SetTaskState(GS2W_STATE_IDLE);
+ 108   1          memcpy((char *)&macAddr, (char *)MAC_GetMacAddr(), MAC_ADDRESS_LEN);
+ 109   1              GCONFIG_ReadConfigData();
+ 110   1          
+ 111   1              // UART 2 parameters setting
+ 112   1              portCfg = GCONFIG_GetSerialPort();
+ 113   1              
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 3   
+
+ 114   1              gconfig_SysClock = MCPU_GetSysClk();
+ 115   1              
+ 116   1              val = (portCfg >> 11) & 0x001F;
+ 117   1       
+ 118   1              baudRateDiv = GCONFIG_GetBaudRate(val);
+ 119   1      
+ 120   1              val = (portCfg >> 8) & 0x0007; 
+ 121   1              if (val == 0)           dataStopParityBits |= HSLCR_CHAR_5;
+ 122   1              else if (val == 1)      dataStopParityBits |= HSLCR_CHAR_6;
+ 123   1              else if (val == 2)      dataStopParityBits |= HSLCR_CHAR_7;
+ 124   1              else                            dataStopParityBits |= HSLCR_CHAR_8;
+ 125   1      
+ 126   1              val = (portCfg >> 5) & 0x0007; 
+ 127   1              if (val == 0 || val == 1) dataStopParityBits |= HSLCR_PE_ENB;
+ 128   1              if (val == 1)                     dataStopParityBits |= HSLCR_EPS_EVEN;
+ 129   1      
+ 130   1              val = portCfg & 0x0003; 
+ 131   1              if (val == 0)   dataStopParityBits |= HSLCR_STOP_10;
+ 132   1              else                    dataStopParityBits |= HSLCR_STOP_15;
+ 133   1              
+ 134   1              val = (portCfg >> 2) & 0x0007; 
+ 135   1              if (val == 0)           flowCtrl = UR2_FLOW_CTRL_X;
+ 136   1              else if (val == 1)      flowCtrl = UR2_FLOW_CTRL_HW;
+ 137   1              else                            flowCtrl = UR2_FLOW_CTRL_NO;
+ 138   1      
+ 139   1          rs485 = (HSMCR_DTR | HSMCR_RTS);
+ 140   1          val = GCONFIG_GetRs485Mode();
+ 141   1      
+ 142   1          if (val == 1)
+ 143   1              rs485 |= UR2_RS485_RECEIVE;
+ 144   1          else if (val == 2)
+ 145   1              rs485 |= UR2_RS485_DRIVE;
+ 146   1          else if (val == 3)
+ 147   1              rs485 |= (UR2_RS485_DRIVE | UR2_RS485_RECEIVE);
+ 148   1      
+ 149   1              HSUR2_Setup((baudRateDiv),
+ 150   1                                      (dataStopParityBits),
+ 151   1                                      (HSIER_RDI_ENB|HSIER_RLSI_ENB|HSIER_RBRFI_ENB|HSIER_DOEI_ENB|HSIER_FCCRI_ENB|HSIER_TDCI_ENB),
+ 152   1                                      (HSFCR_HSUART_ENB|HSFCR_FIFOE|HSFCR_RFR|HSFCR_TFR|HSFCR_TRIG_08),
+ 153   1                                      (rs485));
+ 154   1       
+ 155   1              /* Config the Flow Control Mode */
+ 156   1              if (flowCtrl == UR2_FLOW_CTRL_HW)
+ 157   1                      HSUR2_AutoCtsRtsFlowCtrl(1);
+ 158   1          else if (flowCtrl == UR2_FLOW_CTRL_X)
+ 159   1                      HSUR2_AutoSoftwareFlowCtrl(1, (HSAFCSR_ASFCE_ENB), ASCII_XON, ASCII_XOFF, 0);
+ 160   1          else
+ 161   1          {
+ 162   2                      HSUR2_AutoCtsRtsFlowCtrl(0);
+ 163   2              HSUR2_AutoSoftwareFlowCtrl(0, 0, 0, 0, 0);
+ 164   2          }
+ 165   1      
+ 166   1      } /* End of GCONFIG_Init() */
+ 167          
+ 168          /////////////////////////////////////////////////////////////////////////////////
+ 169          
+ 170          /*
+ 171           * ----------------------------------------------------------------------------
+ 172           * Function Name: GCONFIG_SetConfigPacket
+ 173           * Purpose: 
+ 174           * Params:
+ 175           * Returns:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 4   
+
+ 176           * Note:
+ 177           * ----------------------------------------------------------------------------
+ 178           */
+ 179          void GCONFIG_SetConfigPacket(GCONFIG_CFG_PKT* pCfgPkt)
+ 180          {
+ 181   1              gconfig_ConfigData.Option = pCfgPkt->Option;
+ 182   1              gconfig_ConfigData.DevName = pCfgPkt->DevName;
+ 183   1              gconfig_ConfigData.Network = pCfgPkt->Network;
+ 184   1              gconfig_ConfigData.ServerStaticIP = pCfgPkt->ServerStaticIP;
+ 185   1              gconfig_ConfigData.ServerDataPktListenPort = pCfgPkt->ServerDataPktListenPort;
+ 186   1              gconfig_ConfigData.ServerMulticastListenPort = pCfgPkt->ServerMulticastListenPort;
+ 187   1              gconfig_ConfigData.ServerBroadcastListenPort = pCfgPkt->ServerBroadcastListenPort;
+ 188   1              gconfig_ConfigData.ClientDestIP = pCfgPkt->ClientDestIP;
+ 189   1              gconfig_ConfigData.ClientDestPort = pCfgPkt->ClientDestPort; 
+ 190   1              gconfig_ConfigData.Netmask = pCfgPkt->Netmask;
+ 191   1              gconfig_ConfigData.Gateway = pCfgPkt->Gateway;
+ 192   1              gconfig_ConfigData.Dns = pCfgPkt->Dns;
+ 193   1              gconfig_ConfigData.SerialPort = pCfgPkt->SerialPort;            
+ 194   1              gconfig_ConfigData.EthernetTxTimer = pCfgPkt->EthernetTxTimer;
+ 195   1      
+ 196   1          gconfig_ConfigData.Rs485Mode = pCfgPkt->Rs485Mode;
+ 197   1          memcpy((char *)&gconfig_ConfigData.AccessibleIP[0], (char *)&pCfgPkt->AccessibleIP[0], (GCONFIG_ACCESS
+             -IBLE_IP_NUM*4));
+ 198   1          memcpy((char *)&gconfig_ConfigData.Smtp, (char *)&pCfgPkt->Smtp, sizeof(GCONFIG_SMTP_CONFIG));
+ 199   1          memcpy((char *)gconfig_ConfigData.DestHostName, (char *)pCfgPkt->DestHostName, 36);
+ 200   1              
+ 201   1          gconfig_ConfigData.UpgradeCfg.TftpServerIpForMcpu = pCfgPkt->TftpServerIp;
+ 202   1          memcpy((char *)gconfig_ConfigData.UpgradeCfg.FileNameMcpu, (char *)pCfgPkt->Filename, 63);
+ 203   1          gconfig_ConfigData.UpgradeCfg.FileNameMcpu[63] = 0;
+ 204   1          gconfig_ConfigData.UpgradeCfg.FileNameLenMcpu = strlen(gconfig_ConfigData.UpgradeCfg.FileNameMcpu);
+ 205   1      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 206   1          gconfig_ConfigData.WifiConfig.WifiBasebandMode = pCfgPkt->WifiConfig.WifiBasebandMode;
+ 207   1          gconfig_ConfigData.WifiConfig.WifiNetworkMode = pCfgPkt->WifiConfig.WifiNetworkMode;
+ 208   1          gconfig_ConfigData.WifiConfig.WifiChannel = pCfgPkt->WifiConfig.WifiChannel;
+ 209   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiSsid, (char *)pCfgPkt->WifiConfig.WifiSsid, 32);
+ 210   1          gconfig_ConfigData.WifiConfig.WifiSsidLen = pCfgPkt->WifiConfig.WifiSsidLen;
+ 211   1          gconfig_ConfigData.WifiConfig.WifiTxRate = pCfgPkt->WifiConfig.WifiTxRate;
+ 212   1          gconfig_ConfigData.WifiConfig.WifiTxPowerLevel = pCfgPkt->WifiConfig.WifiTxPowerLevel;
+ 213   1          gconfig_ConfigData.WifiConfig.WifiPreambleMode = pCfgPkt->WifiConfig.WifiPreambleMode;
+ 214   1          gconfig_ConfigData.WifiConfig.WifiBcnInterval = pCfgPkt->WifiConfig.WifiBcnInterval;
+ 215   1          gconfig_ConfigData.WifiConfig.WifiRtsThreshold = pCfgPkt->WifiConfig.WifiRtsThreshold;
+ 216   1          gconfig_ConfigData.WifiConfig.WifiAutoPowerCtrl = pCfgPkt->WifiConfig.WifiAutoPowerCtrl;
+ 217   1          gconfig_ConfigData.WifiConfig.WifiEncryptMode = pCfgPkt->WifiConfig.WifiEncryptMode;
+ 218   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep64Key[0], (char *)pCfgPkt->WifiConfig.WifiWep64Key
+             -[0],  5);
+ 219   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep64Key[1], (char *)pCfgPkt->WifiConfig.WifiWep64Key
+             -[1], 5);
+ 220   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep64Key[2], (char *)pCfgPkt->WifiConfig.WifiWep64Key
+             -[2], 5);
+ 221   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep64Key[3], (char *)pCfgPkt->WifiConfig.WifiWep64Key
+             -[3], 5);
+ 222   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep128Key[0], (char *)pCfgPkt->WifiConfig.WifiWep128K
+             -ey[0], 13);
+ 223   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep128Key[1], (char *)pCfgPkt->WifiConfig.WifiWep128K
+             -ey[1], 13);
+ 224   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep128Key[2], (char *)pCfgPkt->WifiConfig.WifiWep128K
+             -ey[2], 13);
+ 225   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiWep128Key[3], (char *)pCfgPkt->WifiConfig.WifiWep128K
+             -ey[3], 13);
+ 226   1          gconfig_ConfigData.WifiConfig.WifiWepKeyIndex = pCfgPkt->WifiConfig.WifiWepKeyIndex;
+ 227   1          gconfig_ConfigData.WifiConfig.WifiWepKeyLength = pCfgPkt->WifiConfig.WifiWepKeyLength;
+ 228   1          memcpy((char *)gconfig_ConfigData.WifiConfig.WifiPreShareKey, (char *)pCfgPkt->WifiConfig.WifiPreShare
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 5   
+
+             -Key, 64);
+ 229   1          gconfig_ConfigData.WifiConfig.WifiPreShareKeyLen = pCfgPkt->WifiConfig.WifiPreShareKeyLen;
+ 230   1      
+ 231   1      #endif
+ 232   1          gconfig_ConfigData.DhcpSrv.IpPoolAddrStart = pCfgPkt->DhcpSrv.IpPoolAddrStart;
+ 233   1          gconfig_ConfigData.DhcpSrv.IpPoolAddrEnd = pCfgPkt->DhcpSrv.IpPoolAddrEnd;
+ 234   1          gconfig_ConfigData.DhcpSrv.Netmask = pCfgPkt->DhcpSrv.Netmask;
+ 235   1          gconfig_ConfigData.DhcpSrv.DefaultGateway = pCfgPkt->DhcpSrv.DefaultGateway;
+ 236   1          gconfig_ConfigData.DhcpSrv.LeaseTime = pCfgPkt->DhcpSrv.LeaseTime;
+ 237   1          gconfig_ConfigData.DhcpSrv.Status = pCfgPkt->DhcpSrv.Status;
+ 238   1      
+ 239   1              GCONFIG_WriteConfigData();
+ 240   1      } /* End of GCONFIG_SetConfigPacket() */
+ 241          
+ 242          /*
+ 243           * ----------------------------------------------------------------------------
+ 244           * Function Name: GCONFIG_GetConfigPacket
+ 245           * Purpose: 
+ 246           * Params:
+ 247           * Returns:
+ 248           * Note:
+ 249           * ----------------------------------------------------------------------------
+ 250           */
+ 251          void GCONFIG_GetConfigPacket(GCONFIG_CFG_PKT* pCfgPkt)
+ 252          {
+ 253   1          memcpy((char *)&pCfgPkt->Gid, (char *)&GCONFIG_Gid, sizeof(GCONFIG_Gid));
+ 254   1              pCfgPkt->Option = gconfig_ConfigData.Option;
+ 255   1          pCfgPkt->DevName = gconfig_ConfigData.DevName;
+ 256   1          pCfgPkt->MacAddr = macAddr;
+ 257   1              pCfgPkt->Network = gconfig_ConfigData.Network;
+ 258   1          pCfgPkt->ServerDynamicIP = STOE_GetIPAddr();
+ 259   1              pCfgPkt->ServerStaticIP = gconfig_ConfigData.ServerStaticIP;
+ 260   1              pCfgPkt->ServerDataPktListenPort = gconfig_ConfigData.ServerDataPktListenPort;
+ 261   1              pCfgPkt->ServerMulticastListenPort = gconfig_ConfigData.ServerMulticastListenPort;
+ 262   1              pCfgPkt->ServerBroadcastListenPort = gconfig_ConfigData.ServerBroadcastListenPort;
+ 263   1              pCfgPkt->ClientDestIP = gconfig_ConfigData.ClientDestIP;
+ 264   1              pCfgPkt->ClientDestPort = gconfig_ConfigData.ClientDestPort; 
+ 265   1              pCfgPkt->Netmask = gconfig_ConfigData.Netmask;
+ 266   1              pCfgPkt->Gateway = gconfig_ConfigData.Gateway;
+ 267   1              pCfgPkt->Dns = gconfig_ConfigData.Dns;
+ 268   1              pCfgPkt->SerialPort = gconfig_ConfigData.SerialPort;            
+ 269   1              pCfgPkt->EthernetTxTimer = gconfig_ConfigData.EthernetTxTimer;
+ 270   1      
+ 271   1          pCfgPkt->Rs485Mode = gconfig_ConfigData.Rs485Mode;
+ 272   1          memcpy((char *)&pCfgPkt->AccessibleIP[0], (char *)&gconfig_ConfigData.AccessibleIP[0], (GCONFIG_ACCESS
+             -IBLE_IP_NUM*4));
+ 273   1          memcpy((char *)&pCfgPkt->Smtp, (char *)&gconfig_ConfigData.Smtp, sizeof(GCONFIG_SMTP_CONFIG));
+ 274   1          memcpy((char *)pCfgPkt->DestHostName, (char *)gconfig_ConfigData.DestHostName, 36);
+ 275   1              
+ 276   1          pCfgPkt->TftpServerIp = gconfig_ConfigData.UpgradeCfg.TftpServerIpForMcpu;
+ 277   1          memcpy((char *)&pCfgPkt->Filename[0], (char *)&gconfig_ConfigData.UpgradeCfg.FileNameMcpu[0], 64);
+ 278   1      
+ 279   1              if (GS2W_GetTaskState() == GS2W_STATE_IDLE)
+ 280   1                      pCfgPkt->DeviceStatus = DEVICE_STATUS_IDLE;
+ 281   1              else
+ 282   1                      pCfgPkt->DeviceStatus = DEVICE_STATUS_CONNECTED;
+ 283   1      
+ 284   1      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 285   1          pCfgPkt->WifiConfig.WifiBasebandMode = gconfig_ConfigData.WifiConfig.WifiBasebandMode;
+ 286   1          pCfgPkt->WifiConfig.WifiNetworkMode = gconfig_ConfigData.WifiConfig.WifiNetworkMode;
+ 287   1          pCfgPkt->WifiConfig.WifiChannel = gconfig_ConfigData.WifiConfig.WifiChannel;
+ 288   1          memcpy((char *)pCfgPkt->WifiConfig.WifiSsid, (char *)gconfig_ConfigData.WifiConfig.WifiSsid, 32);
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 6   
+
+ 289   1          pCfgPkt->WifiConfig.WifiSsidLen = gconfig_ConfigData.WifiConfig.WifiSsidLen;
+ 290   1          pCfgPkt->WifiConfig.WifiTxRate = gconfig_ConfigData.WifiConfig.WifiTxRate;
+ 291   1          pCfgPkt->WifiConfig.WifiTxPowerLevel = gconfig_ConfigData.WifiConfig.WifiTxPowerLevel;
+ 292   1          pCfgPkt->WifiConfig.WifiPreambleMode = gconfig_ConfigData.WifiConfig.WifiPreambleMode;
+ 293   1          pCfgPkt->WifiConfig.WifiBcnInterval = gconfig_ConfigData.WifiConfig.WifiBcnInterval;
+ 294   1          pCfgPkt->WifiConfig.WifiRtsThreshold = gconfig_ConfigData.WifiConfig.WifiRtsThreshold;
+ 295   1          pCfgPkt->WifiConfig.WifiAutoPowerCtrl = gconfig_ConfigData.WifiConfig.WifiAutoPowerCtrl;
+ 296   1          pCfgPkt->WifiConfig.WifiEncryptMode = gconfig_ConfigData.WifiConfig.WifiEncryptMode;
+ 297   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep64Key[0], (char *)gconfig_ConfigData.WifiConfig.WifiWep64Key
+             -[0], 5);
+ 298   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep64Key[1], (char *)gconfig_ConfigData.WifiConfig.WifiWep64Key
+             -[1], 5);
+ 299   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep64Key[2], (char *)gconfig_ConfigData.WifiConfig.WifiWep64Key
+             -[2], 5);
+ 300   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep64Key[3], (char *)gconfig_ConfigData.WifiConfig.WifiWep64Key
+             -[3], 5);
+ 301   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep128Key[0], (char *)gconfig_ConfigData.WifiConfig.WifiWep128K
+             -ey[0], 13);
+ 302   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep128Key[1], (char *)gconfig_ConfigData.WifiConfig.WifiWep128K
+             -ey[1], 13);
+ 303   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep128Key[2], (char *)gconfig_ConfigData.WifiConfig.WifiWep128K
+             -ey[2], 13);
+ 304   1          memcpy((char *)pCfgPkt->WifiConfig.WifiWep128Key[3], (char *)gconfig_ConfigData.WifiConfig.WifiWep128K
+             -ey[3], 13);
+ 305   1          pCfgPkt->WifiConfig.WifiWepKeyIndex = gconfig_ConfigData.WifiConfig.WifiWepKeyIndex;
+ 306   1          pCfgPkt->WifiConfig.WifiWepKeyLength = gconfig_ConfigData.WifiConfig.WifiWepKeyLength;
+ 307   1          memcpy((char *)pCfgPkt->WifiConfig.WifiPreShareKey, (char *)gconfig_ConfigData.WifiConfig.WifiPreShare
+             -Key, 64);
+ 308   1          pCfgPkt->WifiConfig.WifiPreShareKeyLen = gconfig_ConfigData.WifiConfig.WifiPreShareKeyLen;
+ 309   1      
+ 310   1      #endif
+ 311   1          pCfgPkt->DhcpSrv.IpPoolAddrStart = gconfig_ConfigData.DhcpSrv.IpPoolAddrStart;
+ 312   1          pCfgPkt->DhcpSrv.IpPoolAddrEnd = gconfig_ConfigData.DhcpSrv.IpPoolAddrEnd;
+ 313   1          pCfgPkt->DhcpSrv.Netmask = gconfig_ConfigData.DhcpSrv.Netmask;
+ 314   1          pCfgPkt->DhcpSrv.DefaultGateway = gconfig_ConfigData.DhcpSrv.DefaultGateway;
+ 315   1          pCfgPkt->DhcpSrv.LeaseTime = gconfig_ConfigData.DhcpSrv.LeaseTime;
+ 316   1          pCfgPkt->DhcpSrv.Status = gconfig_ConfigData.DhcpSrv.Status;
+ 317   1      
+ 318   1      } /* End of GCONFIG_GetConfigPacket() */
+ 319          
+ 320          /*
+ 321           * ----------------------------------------------------------------------------
+ 322           * Function Name: GCONFIG_ReadConfigData
+ 323           * Purpose: 
+ 324           * Params:
+ 325           * Returns:
+ 326           * Note:
+ 327           * ----------------------------------------------------------------------------
+ 328           */
+ 329          void GCONFIG_ReadConfigData(void)
+ 330          {
+ 331   1      #ifdef RuntimeCodeAt32KH
+ 332   1              BOOL bRet;
+ 333   1      
+ 334   1              printd("Read configuration data");
+ 335   1              bRet = gconfig_ReStoreParameter(0, &gconfig_ConfigData, sizeof(gconfig_ConfigData));
+ 336   1      
+ 337   1              if (bRet == FALSE || (gconfig_ConfigData.ServerStaticIP & 0x000000FF) == 0)
+ 338   1              {
+ 339   2                      GCONFIG_ReadDefaultConfigData();
+ 340   2                      GCONFIG_WriteConfigData();
+ 341   2                      gconfig_DisplayConfigData(&gconfig_ConfigData);
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 7   
+
+ 342   2              }
+ 343   1      
+ 344   1      #else
+                              GCONFIG_ReadDefaultConfigData();
+                              gconfig_DisplayConfigData(&gconfig_ConfigData);
+              #endif
+ 348   1      
+ 349   1      } /* End of GCONFIG_ReadConfigData() */
+ 350          
+ 351          /*
+ 352           * ----------------------------------------------------------------------------
+ 353           * Function Name: GCONFIG_WriteConfigData
+ 354           * Purpose: 
+ 355           * Params:
+ 356           * Returns:
+ 357           * Note:
+ 358           * ----------------------------------------------------------------------------
+ 359           */
+ 360          void GCONFIG_WriteConfigData(void)
+ 361          {
+ 362   1      #ifdef RuntimeCodeAt32KH
+ 363   1              gconfig_StoreParameter(&gconfig_ConfigData, (U16_T)sizeof(gconfig_ConfigData));
+ 364   1      #endif  
+ 365   1      } /* End of GCONFIG_WriteConfigData() */
+ 366          
+ 367          /*
+ 368           * ----------------------------------------------------------------------------
+ 369           * Function Name: GCONFIG_ReadDefaultConfigData
+ 370           * Purpose: 
+ 371           * Params:
+ 372           * Returns:
+ 373           * Note:
+ 374           * ----------------------------------------------------------------------------
+ 375           */
+ 376          void GCONFIG_ReadDefaultConfigData(void)
+ 377          {
+ 378   1          U8_T i;
+ 379   1      
+ 380   1              printd("Read default configuration data. \n\r");
+ 381   1      
+ 382   1              gconfig_ConfigData.Signature[0] = 'A';
+ 383   1              gconfig_ConfigData.Signature[1] = 'S';
+ 384   1              gconfig_ConfigData.Signature[2] = 'I';
+ 385   1              gconfig_ConfigData.Signature[3] = 'X';
+ 386   1          memset((char *)&gconfig_ConfigData.UpgradeCfg, 0, sizeof(GCONFIG_UPGRADE));
+ 387   1      
+ 388   1      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 389   1          gconfig_ConfigData.WifiConfig.WifiBasebandMode = 1;       /* mixed mode, 802.11b+g mode, 802.11a mode 
+             -*/
+ 390   1          gconfig_ConfigData.WifiConfig.WifiNetworkMode = 1;        /* ad hoc mode, infrastructure mode */
+ 391   1          gconfig_ConfigData.WifiConfig.WifiChannel = 11;
+ 392   1          strcpy(gconfig_ConfigData.WifiConfig.WifiSsid, "R2WiFi");
+ 393   1          gconfig_ConfigData.WifiConfig.WifiSsidLen = 6;
+ 394   1          gconfig_ConfigData.WifiConfig.WifiTxRate = 0;             /* auto, 1, 2, .... 48, 54M */
+ 395   1          gconfig_ConfigData.WifiConfig.WifiTxPowerLevel = 0;
+ 396   1          gconfig_ConfigData.WifiConfig.WifiPreambleMode = 1;       /* auto, long preamble, short preamble */
+ 397   1          gconfig_ConfigData.WifiConfig.WifiBcnInterval = 100;      /* beacon interval, only for IBSS mode */
+ 398   1          gconfig_ConfigData.WifiConfig.WifiRtsThreshold = 2432;
+ 399   1          gconfig_ConfigData.WifiConfig.WifiAutoPowerCtrl = 1;      /* auto power control enable or disable*/
+ 400   1          gconfig_ConfigData.WifiConfig.WifiEncryptMode = 0;        /* 0:disable, 1:wep64, 2:wep128, 3:tkip, 4:a
+             -es */
+ 401   1          gconfig_ConfigData.WifiConfig.WifiWepKeyIndex = 0;
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 8   
+
+ 402   1          gconfig_ConfigData.WifiConfig.WifiWepKeyLength = 0;       /* wep key length, 0:64 bits, 1:128 bits*/
+ 403   1      
+ 404   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep64Key[0][0], (char *)&default_Wep64Key[0][0], 5);
+ 405   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep64Key[1][0], (char *)&default_Wep64Key[1][0], 5);
+ 406   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep64Key[2][0], (char *)&default_Wep64Key[2][0], 5);
+ 407   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep64Key[3][0], (char *)&default_Wep64Key[3][0], 5);
+ 408   1      
+ 409   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep128Key[0][0], (char *)&default_Wep128Key[0][0], 1
+             -3);
+ 410   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep128Key[1][0], (char *)&default_Wep128Key[1][0], 1
+             -3);
+ 411   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep128Key[2][0], (char *)&default_Wep128Key[2][0], 1
+             -3);
+ 412   1          memcpy((char *)&gconfig_ConfigData.WifiConfig.WifiWep128Key[3][0], (char *)&default_Wep128Key[3][0], 1
+             -3);
+ 413   1      
+ 414   1          strcpy((char *)gconfig_ConfigData.WifiConfig.WifiPreShareKey,"12345678");
+ 415   1          gconfig_ConfigData.WifiConfig.WifiPreShareKeyLen = strlen(gconfig_ConfigData.WifiConfig.WifiPreShareKe
+             -y);
+ 416   1      #endif
+ 417   1      
+ 418   1              gconfig_ConfigData.Checksum = 0x00;
+ 419   1          gconfig_ConfigData.SwCfgLength = sizeof(gconfig_ConfigData);
+ 420   1              gconfig_ConfigData.UdpAutoConnectClientIp = 0x00000000;
+ 421   1              gconfig_ConfigData.UdpAutoConnectClientPort = 0x0000;
+ 422   1      
+ 423   1              gconfig_ConfigData.Option = 0;
+ 424   1              memset(&gconfig_ConfigData.DevName, 0, sizeof(GCONFIG_DEV_NAME));
+ 425   1      
+ 426   1              gconfig_ConfigData.Network = (GCONFIG_NETWORK_SERVER | GCONFIG_NETWORK_DHCP_ENABLE |
+ 427   1                                        GCONFIG_NETWORK_PROTO_TCP | GCONFIG_NETWORK_PROTO_UDP_BCAST);
+ 428   1      
+ 429   1              gconfig_ConfigData.ServerStaticIP = 0xc0a80203; // 192.168.2.3
+ 430   1              gconfig_ConfigData.ServerDataPktListenPort = GCONFIG_DEFAULT_DATA_PORT;
+ 431   1              gconfig_ConfigData.ServerMulticastListenPort = GCONFIG_UDP_MCAST_SERVER_PORT;
+ 432   1              gconfig_ConfigData.ServerBroadcastListenPort = GCONFIG_UDP_BCAST_SERVER_PORT;
+ 433   1              gconfig_ConfigData.ClientDestIP = 0xc0a80202;   // 192.168.2.2
+ 434   1              gconfig_ConfigData.ClientDestPort = GCONFIG_DEFAULT_DATA_PORT; 
+ 435   1              gconfig_ConfigData.Netmask = 0xffffff00;                // 255.255.255.0
+ 436   1              gconfig_ConfigData.Gateway = 0xc0a80201;                // 192.168.2.1
+ 437   1              gconfig_ConfigData.Dns = 0x08080808;                    // 8.8.8.8
+ 438   1              //gconfig_ConfigData.Dns = 0xa85f0101;                  // 168.95.1.1
+ 439   1      
+ 440   1              gconfig_ConfigData.SerialPort = (GCONFIG_SPORT_BRATE_115200 |
+ 441   1                                                         GCONFIG_SPORT_DATABIT_8 |
+ 442   1                                                                         GCONFIG_SPORT_PARITY_NONE |
+ 443   1                                                                         GCONFIG_SPORT_FLOWC_NONE |
+ 444   1                                                                         GCONFIG_SPORT_STOPBIT_1
+ 445   1                                                                        );
+ 446   1      
+ 447   1              gconfig_ConfigData.EthernetTxTimer = 100; // 100 ms
+ 448   1      
+ 449   1          strcpy(gconfig_ConfigData.Admin.Username, "admin");
+ 450   1          strcpy(gconfig_ConfigData.Admin.Passwd, "admin");
+ 451   1          gconfig_ConfigData.Admin.Level = 5;
+ 452   1      
+ 453   1          for (i = 0; i < GCONFIG_ACCESSIBLE_IP_NUM; i++)
+ 454   1          {
+ 455   2              gconfig_ConfigData.AccessibleIP[i] = 0;
+ 456   2          }
+ 457   1      
+ 458   1          strcpy(gconfig_ConfigData.Smtp.DomainName, "asix.com.tw");
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 9   
+
+ 459   1          strcpy(gconfig_ConfigData.Smtp.FromAddr, "ds@asix.com.tw");
+ 460   1          strcpy(gconfig_ConfigData.Smtp.ToAddr1, "to1@asix.com.tw"); 
+ 461   1          strcpy(gconfig_ConfigData.Smtp.ToAddr2, "to2@asix.com.tw"); 
+ 462   1          strcpy(gconfig_ConfigData.Smtp.ToAddr3, "to3@asix.com.tw");
+ 463   1              
+ 464   1          gconfig_ConfigData.Smtp.EventEnableBits = 0x0000;
+ 465   1      
+ 466   1          gconfig_ConfigData.Rs485Mode = 0;
+ 467   1      
+ 468   1          strcpy(gconfig_ConfigData.DestHostName, "192.168.2.2"); /* 192.168.2.2 */
+ 469   1      
+ 470   1          /* DHCP server configuration */
+ 471   1          gconfig_ConfigData.DhcpSrv.IpPoolAddrStart = 0xc0a80204; /* 192.168.2.4  */
+ 472   1          gconfig_ConfigData.DhcpSrv.IpPoolAddrEnd = 0xc0a8020a;   /* 192.168.2.10 */
+ 473   1          gconfig_ConfigData.DhcpSrv.Netmask = 0xFFFFFF00;
+ 474   1          gconfig_ConfigData.DhcpSrv.DefaultGateway = 0x0;  /* 0.0.0.0  */
+ 475   1          gconfig_ConfigData.DhcpSrv.LeaseTime = 1440;
+ 476   1          gconfig_ConfigData.DhcpSrv.Status = 1;                   /* 0: disable  1: enable */
+ 477   1      
+ 478   1      } /* End of GCONFIG_ReadDefaultConfigData */
+ 479          
+ 480          /////////////////////////////////////////////////////////////////////////////////
+ 481          
+ 482          /*
+ 483           * ----------------------------------------------------------------------------
+ 484           * Function Name: GCONFIG_EnableUdpAutoConnectAfterReboot
+ 485           * Purpose: 
+ 486           * Params:
+ 487           * Returns:
+ 488           * Note:
+ 489           * ----------------------------------------------------------------------------
+ 490           */
+ 491          U8_T GCONFIG_EnableUdpAutoConnectAfterReboot(void)
+ 492          {
+ 493   1              if ((gconfig_ConfigData.Option & GCONFIG_OPTION_ENABLE_UDP_AUTO_CONNECT) 
+ 494   1                   == GCONFIG_OPTION_ENABLE_UDP_AUTO_CONNECT)
+ 495   1                      return TRUE;
+ 496   1              
+ 497   1              return FALSE;
+ 498   1      } /* End of GCONFIG_EnableUdpAutoConnectAfterReboot() */
+ 499          
+ 500          /*
+ 501           * ----------------------------------------------------------------------------
+ 502           * Function Name: GCONFIG_EnableFirmwareUpgrade
+ 503           * Purpose: 
+ 504           * Params:
+ 505           * Returns:
+ 506           * Note:
+ 507           * ----------------------------------------------------------------------------
+ 508           */
+ 509          void GCONFIG_EnableFirmwareUpgrade(void)
+ 510          {
+ 511   1              FirmwareUpgradeFlag[0] = 'a';
+ 512   1              FirmwareUpgradeFlag[1] = 'x';
+ 513   1              FirmwareUpgradeFlag[2] = '_';
+ 514   1              FirmwareUpgradeFlag[3] = 'm';
+ 515   1      
+ 516   1          /* save the network configuration for boot loader */
+ 517   1          gconfig_ConfigData.UpgradeCfg.DeviceIp = STOE_GetIPAddr();
+ 518   1          gconfig_ConfigData.UpgradeCfg.DeviceNetmask = STOE_GetSubnetMask();
+ 519   1          gconfig_ConfigData.UpgradeCfg.DeviceGateway = STOE_GetGateway();
+ 520   1      
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 10  
+
+ 521   1      } /* End of GCONFIG_EnableFirmwareUpgrade() */
+ 522          
+ 523          /*
+ 524           * ----------------------------------------------------------------------------
+ 525           * Function Name: GCONFIG_IpAddr2Ulong()
+ 526           * Purpose:
+ 527           * Params:
+ 528           * Returns:
+ 529           * Note:
+ 530           * ----------------------------------------------------------------------------
+ 531           */
+ 532          U32_T GCONFIG_IpAddr2Ulong(U8_T* pBuf, U8_T len)
+ 533          {
+ 534   1              U32_T   ip = 0;
+ 535   1              U8_T*   point = (U8_T*)&ip;
+ 536   1              U8_T    count = 0;
+ 537   1              U8_T    count2 = 0;
+ 538   1      
+ 539   1              while (1)
+ 540   1              {
+ 541   2                      count2 = 0;
+ 542   2                      while ((*pBuf != '.') && len)
+ 543   2                      {
+ 544   3                              count2++;
+ 545   3                              if (count2 > 3) return 0xffffffff;
+ 546   3      
+ 547   3                              *point *= 10;
+ 548   3        
+ 549   3                              if ((*pBuf < 0x3a) && (*pBuf > 0x2f))
+ 550   3                                      *point += (*pBuf - 0x30);
+ 551   3                              else
+ 552   3                                      return 0xffffffff;
+ 553   3      
+ 554   3                              pBuf++;
+ 555   3                              len--;
+ 556   3                      }
+ 557   2        
+ 558   2                      if (len == 0) break;
+ 559   2      
+ 560   2                      pBuf++;
+ 561   2                      len--;
+ 562   2                      count++;
+ 563   2                      point++;
+ 564   2      
+ 565   2                      if (count > 3) return 0xffffffff;
+ 566   2              }
+ 567   1      
+ 568   1              if (count != 3) return 0xffffffff;
+ 569   1      
+ 570   1              return ip;
+ 571   1      } /* End of GCONFIG_IpAddr2Ulong() */
+ 572          /////////////////////////////////////////////////////////////////////////////////
+ 573          // Get Functions
+ 574          
+ 575          /*
+ 576           * ----------------------------------------------------------------------------
+ 577           * Function Name: GCONFIG_GetDeviceName
+ 578           * Purpose: 
+ 579           * Params:
+ 580           * Returns:
+ 581           * Note:
+ 582           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 11  
+
+ 583           */
+ 584          void GCONFIG_SetDeviceName(GCONFIG_DEV_NAME* pDevName)
+ 585          {
+ 586   1              memcpy(&gconfig_ConfigData.DevName, pDevName, sizeof(GCONFIG_DEV_NAME)); 
+ 587   1      } /* End of GCONFIG_GetDeviceName() */
+ 588          
+ 589          /*
+ 590           * ----------------------------------------------------------------------------
+ 591           * Function Name: GCONFIG_SetNetwork
+ 592           * Purpose: 
+ 593           * Params:
+ 594           * Returns:
+ 595           * Note:
+ 596           * ----------------------------------------------------------------------------
+ 597           */
+ 598          void GCONFIG_SetNetwork(U16_T val)
+ 599          {
+ 600   1              gconfig_ConfigData.Network = val;       
+ 601   1      } /* End of GCONFIG_SetNetwork() */
+ 602          
+ 603          /*
+ 604           * ----------------------------------------------------------------------------
+ 605           * Function Name: GCONFIG_SetServerStaticIP
+ 606           * Purpose: 
+ 607           * Params:
+ 608           * Returns:
+ 609           * Note:
+ 610           * ----------------------------------------------------------------------------
+ 611           */
+ 612          void GCONFIG_SetServerStaticIP(U32_T ip)
+ 613          {
+ 614   1              gconfig_ConfigData.ServerStaticIP = ip; 
+ 615   1      } /* End of GCONFIG_SetServerStaticIP() */
+ 616          
+ 617          /*
+ 618           * ----------------------------------------------------------------------------
+ 619           * Function Name: GCONFIG_SetServerDataPktListenPort
+ 620           * Purpose: 
+ 621           * Params:
+ 622           * Returns:
+ 623           * Note:
+ 624           * ----------------------------------------------------------------------------
+ 625           */
+ 626          void GCONFIG_SetServerDataPktListenPort(U16_T port)
+ 627          {
+ 628   1              gconfig_ConfigData.ServerDataPktListenPort = port;
+ 629   1      } /* End of GCONFIG_SetServerDataPktListenPort() */
+ 630          
+ 631          /*
+ 632           * ----------------------------------------------------------------------------
+ 633           * Function Name: GCONFIG_SetServerMulticastListenPort
+ 634           * Purpose: 
+ 635           * Params:
+ 636           * Returns:
+ 637           * Note:
+ 638           * ----------------------------------------------------------------------------
+ 639           */
+ 640          void GCONFIG_SetServerMulticastListenPort(U16_T port)
+ 641          {
+ 642   1              gconfig_ConfigData.ServerMulticastListenPort = port;
+ 643   1      } /* End of GCONFIG_SetServerMulticastListenPort() */
+ 644          
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 12  
+
+ 645          /*
+ 646           * ----------------------------------------------------------------------------
+ 647           * Function Name: GCONFIG_SetServerBroadcastListenPort
+ 648           * Purpose: 
+ 649           * Params:
+ 650           * Returns:
+ 651           * Note:
+ 652           * ----------------------------------------------------------------------------
+ 653           */
+ 654          void GCONFIG_SetServerBroadcastListenPort(U16_T port)
+ 655          {
+ 656   1              gconfig_ConfigData.ServerBroadcastListenPort = port;
+ 657   1      } /* End of GCONFIG_SetServerBroadcastListenPort() */
+ 658          
+ 659          /*
+ 660           * ----------------------------------------------------------------------------
+ 661           * Function Name: GCONFIG_SetClientDestIP
+ 662           * Purpose: 
+ 663           * Params:
+ 664           * Returns:
+ 665           * Note:
+ 666           * ----------------------------------------------------------------------------
+ 667           */
+ 668          void GCONFIG_SetClientDestIP(U32_T ip)
+ 669          {
+ 670   1              gconfig_ConfigData.ClientDestIP = ip;
+ 671   1      } /* End of GCONFIG_SetClientDestIP() */
+ 672          
+ 673          /*
+ 674           * ----------------------------------------------------------------------------
+ 675           * Function Name: GCONFIG_SetClientDestPort
+ 676           * Purpose: 
+ 677           * Params:
+ 678           * Returns:
+ 679           * Note:
+ 680           * ----------------------------------------------------------------------------
+ 681           */
+ 682          void GCONFIG_SetClientDestPort(U16_T port)
+ 683          {
+ 684   1              gconfig_ConfigData.ClientDestPort = port;
+ 685   1      } /* End of GCONFIG_SetClientDestPort() */
+ 686          
+ 687          /*
+ 688           * ----------------------------------------------------------------------------
+ 689           * Function Name: GCONFIG_SetNetmask
+ 690           * Purpose: 
+ 691           * Params:
+ 692           * Returns:
+ 693           * Note:
+ 694           * ----------------------------------------------------------------------------
+ 695           */
+ 696          void GCONFIG_SetNetmask(U32_T netmask)
+ 697          {
+ 698   1              gconfig_ConfigData.Netmask = netmask;
+ 699   1      } /* End of GCONFIG_SetNetmask() */
+ 700          
+ 701          /*
+ 702           * ----------------------------------------------------------------------------
+ 703           * Function Name: GCONFIG_SetGateway
+ 704           * Purpose: 
+ 705           * Params:
+ 706           * Returns:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 13  
+
+ 707           * Note:
+ 708           * ----------------------------------------------------------------------------
+ 709           */
+ 710          void GCONFIG_SetGateway(U32_T gateway)
+ 711          {
+ 712   1              gconfig_ConfigData.Gateway = gateway;
+ 713   1      } /* End of GCONFIG_SetGateway() */
+ 714          
+ 715          /*
+ 716           * ----------------------------------------------------------------------------
+ 717           * Function Name: GCONFIG_SetDNS
+ 718           * Purpose: 
+ 719           * Params:
+ 720           * Returns:
+ 721           * Note:
+ 722           * ----------------------------------------------------------------------------
+ 723           */
+ 724          void GCONFIG_SetDNS(U32_T dns)
+ 725          {
+ 726   1              gconfig_ConfigData.Dns = dns;
+ 727   1      } /* End of GCONFIG_SetDNS() */
+ 728          
+ 729          /*
+ 730           * ----------------------------------------------------------------------------
+ 731           * Function Name: GCONFIG_SetSerialPort
+ 732           * Purpose: 
+ 733           * Params:
+ 734           * Returns:
+ 735           * Note:
+ 736           * ----------------------------------------------------------------------------
+ 737           */
+ 738          void GCONFIG_SetSerialPort(U16_T sPort)
+ 739          {
+ 740   1              gconfig_ConfigData.SerialPort = sPort;
+ 741   1      } /* End of GCONFIG_SetSerialPort() */
+ 742          
+ 743          
+ 744          /*
+ 745           * ----------------------------------------------------------------------------
+ 746           * Function Name: GCONFIG_SetEthernetTxTimer
+ 747           * Purpose: 
+ 748           * Params:
+ 749           * Returns:
+ 750           * Note:
+ 751           * ----------------------------------------------------------------------------
+ 752           */
+ 753          void GCONFIG_SetEthernetTxTimer(U16_T timer)
+ 754          {
+ 755   1              gconfig_ConfigData.EthernetTxTimer = timer;
+ 756   1      } /* End of GCONFIG_SetEthernetTxTimer() */
+ 757          
+ 758          /*
+ 759           * ----------------------------------------------------------------------------
+ 760           * Function Name: GCONFIG_SetUdpAutoConnectClientIp
+ 761           * Purpose: 
+ 762           * Params:
+ 763           * Returns:
+ 764           * Note:
+ 765           * ----------------------------------------------------------------------------
+ 766           */
+ 767          void GCONFIG_SetUdpAutoConnectClientIp(U32_T ip)
+ 768          {
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 14  
+
+ 769   1              gconfig_ConfigData.UdpAutoConnectClientIp = ip;
+ 770   1      } /* End of GCONFIG_SetUdpAutoConnectClientIp() */
+ 771          
+ 772          /*
+ 773           * ----------------------------------------------------------------------------
+ 774           * Function Name: GCONFIG_SetUdpAutoConnectRemotePort
+ 775           * Purpose: 
+ 776           * Params:
+ 777           * Returns:
+ 778           * Note:
+ 779           * ----------------------------------------------------------------------------
+ 780           */
+ 781          void GCONFIG_SetUdpAutoConnectClientPort(U16_T port)
+ 782          {
+ 783   1              gconfig_ConfigData.UdpAutoConnectClientPort = port;
+ 784   1      } /* End of GCONFIG_SetUdpAutoConnectClientPort() */
+ 785          
+ 786          /*
+ 787           * ----------------------------------------------------------------------------
+ 788           * Function Name: GCONFIG_SetTftpServerIp
+ 789           * Purpose: 
+ 790           * Params:
+ 791           * Returns:
+ 792           * Note:
+ 793           * ----------------------------------------------------------------------------
+ 794           */
+ 795          void GCONFIG_SetTftpServerIp(U32_T ip)
+ 796          {
+ 797   1              gconfig_ConfigData.UpgradeCfg.TftpServerIpForMcpu = ip;
+ 798   1      } /* End of GCONFIG_SetTftpServerIp() */
+ 799          
+ 800          /*
+ 801           * ----------------------------------------------------------------------------
+ 802           * Function Name: GCONFIG_SetFilename
+ 803           * Purpose: 
+ 804           * Params:
+ 805           * Returns:
+ 806           * Note:
+ 807           * ----------------------------------------------------------------------------
+ 808           */
+ 809          U8_T GCONFIG_SetFilename(U8_T *filename, U8_T len)
+ 810          {
+ 811   1              if (len > sizeof(gconfig_ConfigData.UpgradeCfg.FileNameMcpu) - 1)
+ 812   1                      len = sizeof(gconfig_ConfigData.UpgradeCfg.FileNameMcpu) - 1;
+ 813   1      
+ 814   1              memcpy(gconfig_ConfigData.UpgradeCfg.FileNameMcpu, filename, len); 
+ 815   1              gconfig_ConfigData.UpgradeCfg.FileNameMcpu[len] = '\0';
+ 816   1          gconfig_ConfigData.UpgradeCfg.FileNameLenMcpu = len;        
+ 817   1          return len;
+ 818   1      } /* End of GCONFIG_SetFilename() */
+ 819          
+ 820          /////////////////////////////////////////////////////////////////////////////////
+ 821          // Get Functions
+ 822          
+ 823          /*
+ 824           * ----------------------------------------------------------------------------
+ 825           * Function Name: GCONFIG_GetTftpServerIp
+ 826           * Purpose: 
+ 827           * Params:
+ 828           * Returns:
+ 829           * Note:
+ 830           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 15  
+
+ 831           */
+ 832          U32_T GCONFIG_GetTftpServerIp(void)
+ 833          {
+ 834   1              return gconfig_ConfigData.UpgradeCfg.TftpServerIpForMcpu; 
+ 835   1      } /* End of GCONFIG_GetTftpServerIp() */
+ 836          
+ 837          /*
+ 838           * ----------------------------------------------------------------------------
+ 839           * Function Name: GCONFIG_GetFilename
+ 840           * Purpose: 
+ 841           * Params:
+ 842           * Returns:
+ 843           * Note:
+ 844           * ----------------------------------------------------------------------------
+ 845           */
+ 846          U8_T GCONFIG_GetFilename(U8_T *filename, U8_T len)
+ 847          {
+ 848   1          if (!filename || len < sizeof(gconfig_ConfigData.UpgradeCfg.FileNameMcpu))
+ 849   1              return 0;
+ 850   1      
+ 851   1          memcpy(filename, gconfig_ConfigData.UpgradeCfg.FileNameMcpu, sizeof(gconfig_ConfigData.UpgradeCfg.File
+             -NameMcpu)); 
+ 852   1      
+ 853   1          return gconfig_ConfigData.UpgradeCfg.FileNameLenMcpu;       
+ 854   1      } /* End of GCONFIG_GetFilename() */
+ 855          
+ 856          /*
+ 857           * ----------------------------------------------------------------------------
+ 858           * Function Name: GCONFIG_GetDeviceName
+ 859           * Purpose: 
+ 860           * Params:
+ 861           * Returns:
+ 862           * Note:
+ 863           * ----------------------------------------------------------------------------
+ 864           */
+ 865          GCONFIG_DEV_NAME* GCONFIG_GetDeviceName(void)
+ 866          {
+ 867   1              return &gconfig_ConfigData.DevName;
+ 868   1      } /* End of GCONFIG_GetDeviceName() */
+ 869          
+ 870          /*
+ 871           * ----------------------------------------------------------------------------
+ 872           * Function Name: GCONFIG_GetMacAddress
+ 873           * Purpose: 
+ 874           * Params:
+ 875           * Returns:
+ 876           * Note:
+ 877           * ----------------------------------------------------------------------------
+ 878           */
+ 879          GCONFIG_MAC_ADDR GCONFIG_GetMacAddress(void)
+ 880          {
+ 881   1              return macAddr;
+ 882   1      } /* End of GCONFIG_GetMacAddress() */
+ 883          
+ 884          /*
+ 885           * ----------------------------------------------------------------------------
+ 886           * Function Name: GCONFIG_GetNetwork
+ 887           * Purpose: 
+ 888           * Params:
+ 889           * Returns:
+ 890           * Note:
+ 891           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 16  
+
+ 892           */
+ 893          U16_T GCONFIG_GetNetwork(void)
+ 894          {
+ 895   1              return gconfig_ConfigData.Network;
+ 896   1      } /* End of GCONFIG_GetNetwork() */
+ 897          
+ 898          /*
+ 899           * ----------------------------------------------------------------------------
+ 900           * Function Name: GCONFIG_GetServerStaticIP
+ 901           * Purpose: 
+ 902           * Params:
+ 903           * Returns:
+ 904           * Note:
+ 905           * ----------------------------------------------------------------------------
+ 906           */
+ 907          U32_T GCONFIG_GetServerStaticIP(void)
+ 908          {
+ 909   1              return gconfig_ConfigData.ServerStaticIP;
+ 910   1      } /* End of GCONFIG_GetServerStaticIP() */
+ 911          
+ 912          /*
+ 913           * ----------------------------------------------------------------------------
+ 914           * Function Name: GCONFIG_GetServerDataPktListenPort
+ 915           * Purpose: 
+ 916           * Params:
+ 917           * Returns:
+ 918           * Note:
+ 919           * ----------------------------------------------------------------------------
+ 920           */
+ 921          U16_T GCONFIG_GetServerDataPktListenPort(void)
+ 922          {
+ 923   1              return gconfig_ConfigData.ServerDataPktListenPort;
+ 924   1      } /* End of GCONFIG_GetServerDataPktListenPort() */
+ 925          
+ 926          /*
+ 927           * ----------------------------------------------------------------------------
+ 928           * Function Name: GCONFIG_GetServerMulticastListenPort
+ 929           * Purpose: 
+ 930           * Params:
+ 931           * Returns:
+ 932           * Note:
+ 933           * ----------------------------------------------------------------------------
+ 934           */
+ 935          U16_T GCONFIG_GetServerMulticastListenPort(void)
+ 936          {
+ 937   1              return gconfig_ConfigData.ServerMulticastListenPort;
+ 938   1      } /* End of GCONFIG_GetServerMulticastListenPort() */
+ 939          
+ 940          /*
+ 941           * ----------------------------------------------------------------------------
+ 942           * Function Name: GCONFIG_GetServerBroadcastListenPort
+ 943           * Purpose: 
+ 944           * Params:
+ 945           * Returns:
+ 946           * Note:
+ 947           * ----------------------------------------------------------------------------
+ 948           */
+ 949          U16_T GCONFIG_GetServerBroadcastListenPort(void)
+ 950          {
+ 951   1              return gconfig_ConfigData.ServerBroadcastListenPort;
+ 952   1      } /* End of GCONFIG_GetServerBroadcastListenPort() */
+ 953          
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 17  
+
+ 954          /*
+ 955           * ----------------------------------------------------------------------------
+ 956           * Function Name: GCONFIG_GetClientDestIP
+ 957           * Purpose: 
+ 958           * Params:
+ 959           * Returns:
+ 960           * Note:
+ 961           * ----------------------------------------------------------------------------
+ 962           */
+ 963          U32_T GCONFIG_GetClientDestIP(void)
+ 964          {
+ 965   1      #if (INCLUDE_DNS_CLIENT)
+ 966   1              U32_T   DestIP, DestNameLen;
+ 967   1          DNSC_STATE state;
+ 968   1      
+ 969   1              DestNameLen = strlen(gconfig_ConfigData.DestHostName);
+ 970   1              DestIP = GCONFIG_IpAddr2Ulong(gconfig_ConfigData.DestHostName, DestNameLen);
+ 971   1              if (DestIP == 0xffffffff)
+ 972   1              {
+ 973   2                      if ((state = DNSC_Query(gconfig_ConfigData.DestHostName, &DestIP)) == DNSC_QUERY_OK)
+ 974   2                              return DestIP;
+ 975   2                      else if (state == DNSC_QUERY_FREE)
+ 976   2                              DNSC_Start(gconfig_ConfigData.DestHostName);
+ 977   2                      return 0;               
+ 978   2              }
+ 979   1              return DestIP;
+ 980   1      #else
+                      return gconfig_ConfigData.ClientDestIP;
+              #endif                  
+ 983   1      } /* End of GCONFIG_GetClientDestIP() */
+ 984          
+ 985          /*
+ 986           * ----------------------------------------------------------------------------
+ 987           * Function Name: GCONFIG_GetClientDestPort
+ 988           * Purpose: 
+ 989           * Params:
+ 990           * Returns:
+ 991           * Note:
+ 992           * ----------------------------------------------------------------------------
+ 993           */
+ 994          U16_T GCONFIG_GetClientDestPort(void)
+ 995          {
+ 996   1              return gconfig_ConfigData.ClientDestPort;
+ 997   1      } /* End of GCONFIG_GetClientDestPort() */
+ 998          
+ 999          /*
+1000           * ----------------------------------------------------------------------------
+1001           * Function Name: GCONFIG_GetNetmask
+1002           * Purpose: 
+1003           * Params:
+1004           * Returns:
+1005           * Note:
+1006           * ----------------------------------------------------------------------------
+1007           */
+1008          U32_T GCONFIG_GetNetmask(void)
+1009          {
+1010   1              return gconfig_ConfigData.Netmask;
+1011   1      } /* End of GCONFIG_GetNetmask() */
+1012          
+1013          /*
+1014           * ----------------------------------------------------------------------------
+1015           * Function Name: GCONFIG_GetGateway
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 18  
+
+1016           * Purpose: 
+1017           * Params:
+1018           * Returns:
+1019           * Note:
+1020           * ----------------------------------------------------------------------------
+1021           */
+1022          U32_T GCONFIG_GetGateway(void)
+1023          {
+1024   1              return gconfig_ConfigData.Gateway;
+1025   1      } /* End of GCONFIG_GetGateway() */
+1026          
+1027          /*
+1028           * ----------------------------------------------------------------------------
+1029           * Function Name: GCONFIG_GetDNS
+1030           * Purpose: 
+1031           * Params:
+1032           * Returns:
+1033           * Note:
+1034           * ----------------------------------------------------------------------------
+1035           */
+1036          U32_T GCONFIG_GetDNS(void)
+1037          {
+1038   1              return gconfig_ConfigData.Dns;
+1039   1      } /* End of GCONFIG_GetDNS() */
+1040          
+1041          /*
+1042           * ----------------------------------------------------------------------------
+1043           * Function Name: GCONFIG_GetSerialPort
+1044           * Purpose: 
+1045           * Params:
+1046           * Returns:
+1047           * Note:
+1048           * ----------------------------------------------------------------------------
+1049           */
+1050          U16_T GCONFIG_GetSerialPort(void)
+1051          {
+1052   1              return gconfig_ConfigData.SerialPort;
+1053   1      } /* End of GCONFIG_GetSerialPort() */
+1054          
+1055          /*
+1056           * ----------------------------------------------------------------------------
+1057           * Function Name: GCONFIG_GetEthernetTxTimer
+1058           * Purpose: 
+1059           * Params:
+1060           * Returns:
+1061           * Note:
+1062           * ----------------------------------------------------------------------------
+1063           */
+1064          U16_T GCONFIG_GetEthernetTxTimer(void)
+1065          {
+1066   1              return gconfig_ConfigData.EthernetTxTimer;
+1067   1      } /* End of GCONFIG_GetEthernetTxTimer() */
+1068          
+1069          /*
+1070           * ----------------------------------------------------------------------------
+1071           * Function Name: GCONFIG_GetUdpAutoConnectClientIp
+1072           * Purpose: 
+1073           * Params:
+1074           * Returns:
+1075           * Note:
+1076           * ----------------------------------------------------------------------------
+1077           */
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 19  
+
+1078          U32_T GCONFIG_GetUdpAutoConnectClientIp(void)
+1079          {
+1080   1              return gconfig_ConfigData.UdpAutoConnectClientIp;
+1081   1      } /* End of GCONFIG_GetUdpAutoConnectClientIp() */
+1082          
+1083          /*
+1084           * ----------------------------------------------------------------------------
+1085           * Function Name: GCONFIG_GetUdpAutoConnectClientPort
+1086           * Purpose: 
+1087           * Params:
+1088           * Returns:
+1089           * Note:
+1090           * ----------------------------------------------------------------------------
+1091           */
+1092          U16_T GCONFIG_GetUdpAutoConnectClientPort(void)
+1093          {
+1094   1              return gconfig_ConfigData.UdpAutoConnectClientPort;
+1095   1      } /* End of GCONFIG_GetUdpAutoConnectClientPort() */
+1096          
+1097          /*
+1098           * ----------------------------------------------------------------------------
+1099           * Function Name: GCONFIG_GetBaudRate
+1100           * Purpose: 
+1101           * Params:
+1102           * Returns:
+1103           * Note:
+1104           * ----------------------------------------------------------------------------
+1105           */
+1106          U16_T GCONFIG_GetBaudRate(U8_T index)
+1107          {
+1108   1              U16_T baudRate = 0;
+1109   1      
+1110   1              switch(gconfig_SysClock)
+1111   1              {
+1112   2                      case SCS_80M:
+1113   2                              if          (index == 0) baudRate = HS_BR80M_921600;
+1114   2                              else if (index == 1) baudRate = HS_BR80M_115200;
+1115   2                              else if (index == 2) baudRate = HS_BR80M_57600;
+1116   2                              else if (index == 3) baudRate = HS_BR80M_38400;
+1117   2                              else if (index == 4) baudRate = HS_BR80M_19200;
+1118   2                              else if (index == 5) baudRate = HS_BR80M_9600;
+1119   2                              else if (index == 6) baudRate = HS_BR80M_4800;
+1120   2                              else if (index == 7) baudRate = HS_BR80M_2400;
+1121   2                              else if (index == 8) baudRate = HS_BR80M_1200;
+1122   2                              break;
+1123   2                      case SCS_40M:
+1124   2                              if          (index == 0) baudRate = HS_BR40M_921600;
+1125   2                              else if (index == 1) baudRate = HS_BR40M_115200;
+1126   2                              else if (index == 2) baudRate = HS_BR40M_57600;
+1127   2                              else if (index == 3) baudRate = HS_BR40M_38400;
+1128   2                              else if (index == 4) baudRate = HS_BR40M_19200;
+1129   2                              else if (index == 5) baudRate = HS_BR40M_9600;
+1130   2                              else if (index == 6) baudRate = HS_BR40M_4800;
+1131   2                              else if (index == 7) baudRate = HS_BR40M_2400;
+1132   2                              else if (index == 8) baudRate = HS_BR40M_1200;
+1133   2                              break;
+1134   2                      default:
+1135   2                              printd("Unknown system clock rate!\n\r");
+1136   2                              break;
+1137   2              }
+1138   1              
+1139   1              return baudRate;
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 20  
+
+1140   1      } /* End of GCONFIG_GetBaudRate() */
+1141          
+1142          /*
+1143           * ----------------------------------------------------------------------------
+1144           * Function Name: GCONFIG_GetAdmin
+1145           * Purpose: 
+1146           * Params:
+1147           * Returns:
+1148           * Note:
+1149           * ----------------------------------------------------------------------------
+1150           */
+1151          S16_T GCONFIG_GetAdmin(U8_T *username, U8_T *passwd, U8_T *level)
+1152          {
+1153   1          if (!username || !passwd)
+1154   1              return -1;
+1155   1      
+1156   1          memcpy(username, gconfig_ConfigData.Admin.Username, 16);
+1157   1          memcpy(passwd, gconfig_ConfigData.Admin.Passwd, 16);
+1158   1          *level = gconfig_ConfigData.Admin.Level;
+1159   1      
+1160   1          return 1;
+1161   1      } /* End of GCONFIG_GetAdmin() */
+1162          
+1163          /*
+1164           * ----------------------------------------------------------------------------
+1165           * Function Name: GCONFIG_SetAdmin
+1166           * Purpose: 
+1167           * Params:
+1168           * Returns:
+1169           * Note:
+1170           * ----------------------------------------------------------------------------
+1171           */
+1172          S16_T GCONFIG_SetAdmin(U8_T *username, U8_T *passwd)
+1173          {
+1174   1          if (!username || !passwd)
+1175   1              return -1;
+1176   1      
+1177   1          memcpy(gconfig_ConfigData.Admin.Username, username, 16);
+1178   1          memcpy(gconfig_ConfigData.Admin.Passwd, passwd, 16);
+1179   1      
+1180   1          return 1;
+1181   1      } /* End of GCONFIG_SetAdmin() */
+1182          
+1183          /*
+1184           * ----------------------------------------------------------------------------
+1185           * Function Name: GCONFIG_GetAccessibleIP
+1186           * Purpose: 
+1187           * Params:
+1188           * Returns:
+1189           * Note:
+1190           * ----------------------------------------------------------------------------
+1191           */
+1192          S16_T GCONFIG_GetAccessibleIP(U8_T idx, U32_T *ip)
+1193          {
+1194   1          if (!ip || idx >= GCONFIG_ACCESSIBLE_IP_NUM)
+1195   1              return -1;
+1196   1      
+1197   1          *ip = gconfig_ConfigData.AccessibleIP[idx];
+1198   1          return 1;
+1199   1      
+1200   1      } /* End of GCONFIG_GetAccessibleIP() */
+1201          
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 21  
+
+1202          /*
+1203           * ----------------------------------------------------------------------------
+1204           * Function Name: GCONFIG_SetAccessibleIP
+1205           * Purpose: 
+1206           * Params:
+1207           * Returns:
+1208           * Note:
+1209           * ----------------------------------------------------------------------------
+1210           */
+1211          S16_T GCONFIG_SetAccessibleIP(U8_T idx, U32_T ip)
+1212          {
+1213   1          if (idx >= GCONFIG_ACCESSIBLE_IP_NUM)
+1214   1              return -1;
+1215   1      
+1216   1          gconfig_ConfigData.AccessibleIP[idx] = ip;
+1217   1          return 1;
+1218   1      } /* GCONFIG_SetAccessibleIP() */
+1219          
+1220          /*
+1221           * ----------------------------------------------------------------------------
+1222           * Function Name: GCONFIG_SetSMTPDomainName
+1223           * Purpose: 
+1224           * Params:
+1225           * Returns:
+1226           * Note:
+1227           * ----------------------------------------------------------------------------
+1228           */
+1229          void GCONFIG_SetSMTPDomainName(U8_T *pIn, U8_T len)
+1230          {
+1231   1              if (len > sizeof(gconfig_ConfigData.Smtp.DomainName) - 1)
+1232   1                      len = sizeof(gconfig_ConfigData.Smtp.DomainName) - 1;
+1233   1              
+1234   1              memcpy(gconfig_ConfigData.Smtp.DomainName, pIn, len);
+1235   1              gconfig_ConfigData.Smtp.DomainName[len] = '\0';
+1236   1      } /* GCONFIG_SetSMTPDomainName() */
+1237          
+1238          /*
+1239           * ----------------------------------------------------------------------------
+1240           * Function Name: U8_T GCONFIG_GetSMTPDomainName
+1241           * Purpose: 
+1242           * Params:
+1243           * Returns:
+1244           * Note:
+1245           * ----------------------------------------------------------------------------
+1246           */
+1247          U8_T GCONFIG_GetSMTPDomainName(U8_T *pOut)
+1248          {
+1249   1              gconfig_ConfigData.Smtp.DomainName[sizeof(gconfig_ConfigData.Smtp.DomainName) - 1] = '\0';
+1250   1          strcpy(pOut, gconfig_ConfigData.Smtp.DomainName);
+1251   1      
+1252   1              return strlen(gconfig_ConfigData.Smtp.DomainName);
+1253   1      } /* GCONFIG_GetSMTPDomainName() */
+1254          
+1255          /*
+1256           * ----------------------------------------------------------------------------
+1257           * Function Name: GCONFIG_SetSMTPFrom
+1258           * Purpose: 
+1259           * Params:
+1260           * Returns:
+1261           * Note:
+1262           * ----------------------------------------------------------------------------
+1263           */
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 22  
+
+1264          void GCONFIG_SetSMTPFrom(U8_T *pIn, U8_T len)
+1265          {
+1266   1              if (len > sizeof(gconfig_ConfigData.Smtp.FromAddr) - 1)
+1267   1                      len = sizeof(gconfig_ConfigData.Smtp.FromAddr) - 1;
+1268   1              
+1269   1              memcpy(gconfig_ConfigData.Smtp.FromAddr, pIn, len);
+1270   1              gconfig_ConfigData.Smtp.FromAddr[len] = '\0';
+1271   1      } /* GCONFIG_SetSMTPFrom() */
+1272          
+1273          /*
+1274           * ----------------------------------------------------------------------------
+1275           * Function Name: U8_T GCONFIG_GetSMTPFrom()
+1276           * Purpose: 
+1277           * Params:
+1278           * Returns:
+1279           * Note:
+1280           * ----------------------------------------------------------------------------
+1281           */
+1282          U8_T GCONFIG_GetSMTPFrom(U8_T *pOut)
+1283          {
+1284   1              gconfig_ConfigData.Smtp.FromAddr[sizeof(gconfig_ConfigData.Smtp.FromAddr) - 1] = '\0';
+1285   1          strcpy(pOut, gconfig_ConfigData.Smtp.FromAddr);
+1286   1      
+1287   1              return strlen(gconfig_ConfigData.Smtp.FromAddr);
+1288   1      } /* GCONFIG_GetSMTPFrom() */
+1289          /*
+1290           * ----------------------------------------------------------------------------
+1291           * Function Name: GCONFIG_SetSMTPTo1
+1292           * Purpose: 
+1293           * Params:
+1294           * Returns:
+1295           * Note:
+1296           * ----------------------------------------------------------------------------
+1297           */
+1298          void GCONFIG_SetSMTPTo1(U8_T *pIn, U8_T len)
+1299          {
+1300   1              if (len > sizeof(gconfig_ConfigData.Smtp.ToAddr1) - 1)
+1301   1                      len = sizeof(gconfig_ConfigData.Smtp.ToAddr1) - 1;
+1302   1              
+1303   1              memcpy(gconfig_ConfigData.Smtp.ToAddr1, pIn, len);
+1304   1              gconfig_ConfigData.Smtp.ToAddr1[len] = '\0';
+1305   1      } /* GCONFIG_SetSMTPTo1() */
+1306          
+1307          /*
+1308           * ----------------------------------------------------------------------------
+1309           * Function Name: U8_T GCONFIG_GetSMTPTo1()
+1310           * Purpose: 
+1311           * Params:
+1312           * Returns:
+1313           * Note:
+1314           * ----------------------------------------------------------------------------
+1315           */
+1316          U8_T GCONFIG_GetSMTPTo1(U8_T *pOut)
+1317          {
+1318   1              gconfig_ConfigData.Smtp.ToAddr1[sizeof(gconfig_ConfigData.Smtp.ToAddr1) - 1] = '\0';
+1319   1          strcpy(pOut, gconfig_ConfigData.Smtp.ToAddr1);
+1320   1      
+1321   1              return strlen(gconfig_ConfigData.Smtp.ToAddr1);
+1322   1      } /* GCONFIG_GetSMTPTo1() */
+1323          /*
+1324           * ----------------------------------------------------------------------------
+1325           * Function Name: GCONFIG_SetSMTPTo2
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 23  
+
+1326           * Purpose: 
+1327           * Params:
+1328           * Returns:
+1329           * Note:
+1330           * ----------------------------------------------------------------------------
+1331           */
+1332          void GCONFIG_SetSMTPTo2(U8_T *pIn, U8_T len)
+1333          {
+1334   1              if (len > sizeof(gconfig_ConfigData.Smtp.ToAddr2) - 1)
+1335   1                      len = sizeof(gconfig_ConfigData.Smtp.ToAddr2) - 1;
+1336   1              
+1337   1              memcpy(gconfig_ConfigData.Smtp.ToAddr2, pIn, len);
+1338   1              gconfig_ConfigData.Smtp.ToAddr2[len] = '\0';
+1339   1      } /* GCONFIG_SetSMTPTo2() */
+1340          
+1341          /*
+1342           * ----------------------------------------------------------------------------
+1343           * Function Name: U8_T GCONFIG_GetSMTPTo2()
+1344           * Purpose: 
+1345           * Params:
+1346           * Returns:
+1347           * Note:
+1348           * ----------------------------------------------------------------------------
+1349           */
+1350          U8_T GCONFIG_GetSMTPTo2(U8_T *pOut)
+1351          {
+1352   1              gconfig_ConfigData.Smtp.ToAddr2[sizeof(gconfig_ConfigData.Smtp.ToAddr2) - 1] = '\0';
+1353   1          strcpy(pOut, gconfig_ConfigData.Smtp.ToAddr2);
+1354   1      
+1355   1              return strlen(gconfig_ConfigData.Smtp.ToAddr2);
+1356   1      } /* GCONFIG_GetSMTPTo2() */
+1357          /*
+1358           * ----------------------------------------------------------------------------
+1359           * Function Name: GCONFIG_SetSMTPTo3
+1360           * Purpose: 
+1361           * Params:
+1362           * Returns:
+1363           * Note:
+1364           * ----------------------------------------------------------------------------
+1365           */
+1366          void GCONFIG_SetSMTPTo3(U8_T *pIn, U8_T len)
+1367          {
+1368   1              if (len > sizeof(gconfig_ConfigData.Smtp.ToAddr3) - 1)
+1369   1                      len = sizeof(gconfig_ConfigData.Smtp.ToAddr3) - 1;
+1370   1              
+1371   1              memcpy(gconfig_ConfigData.Smtp.ToAddr3, pIn, len);
+1372   1              gconfig_ConfigData.Smtp.ToAddr3[len] = '\0';
+1373   1      } /* GCONFIG_SetSMTPTo3() */
+1374          
+1375          /*
+1376           * ----------------------------------------------------------------------------
+1377           * Function Name: U8_T GCONFIG_GetSMTPTo3()
+1378           * Purpose: 
+1379           * Params:
+1380           * Returns:
+1381           * Note:
+1382           * ----------------------------------------------------------------------------
+1383           */
+1384          U8_T GCONFIG_GetSMTPTo3(U8_T *pOut)
+1385          {
+1386   1              gconfig_ConfigData.Smtp.ToAddr3[sizeof(gconfig_ConfigData.Smtp.ToAddr3) - 1] = '\0';
+1387   1          strcpy(pOut, gconfig_ConfigData.Smtp.ToAddr3);
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 24  
+
+1388   1      
+1389   1              return strlen(gconfig_ConfigData.Smtp.ToAddr3); 
+1390   1      } /* GCONFIG_GetSMTPTo3() */
+1391          /*
+1392           * ----------------------------------------------------------------------------
+1393           * Function Name: GCONFIG_SetAutoWarning
+1394           * Purpose: 
+1395           * Params:
+1396           * Returns:
+1397           * Note:
+1398           * ----------------------------------------------------------------------------
+1399           */
+1400          void GCONFIG_SetAutoWarning(U16_T ValueIn)
+1401          {
+1402   1              gconfig_ConfigData.Smtp.EventEnableBits = ValueIn;
+1403   1      } /* GCONFIG_SetAutoWarning() */
+1404          /*
+1405           * ----------------------------------------------------------------------------
+1406           * Function Name: GCONFIG_GetAutoWarning
+1407           * Purpose: 
+1408           * Params:
+1409           * Returns:
+1410           * Note:
+1411           * ----------------------------------------------------------------------------
+1412           */
+1413          U16_T GCONFIG_GetAutoWarning(void)
+1414          {
+1415   1              return gconfig_ConfigData.Smtp.EventEnableBits;
+1416   1      } /* GCONFIG_GetAutoWarning() */
+1417          
+1418          /*
+1419           * ----------------------------------------------------------------------------
+1420           * Function Name: GCONFIG_SetRs485Mode
+1421           * Purpose: 
+1422           * Params:
+1423           * Returns:
+1424           * Note:
+1425           * ----------------------------------------------------------------------------
+1426           */
+1427          void GCONFIG_SetRs485Mode(U8_T mode)
+1428          {
+1429   1              gconfig_ConfigData.Rs485Mode = mode;
+1430   1      } /* GCONFIG_SetAutoWarning() */
+1431          /*
+1432           * ----------------------------------------------------------------------------
+1433           * Function Name: GCONFIG_GetRs485Mode
+1434           * Purpose: 
+1435           * Params:
+1436           * Returns:
+1437           * Note:
+1438           * ----------------------------------------------------------------------------
+1439           */
+1440          U8_T GCONFIG_GetRs485Mode(void)
+1441          {
+1442   1              return gconfig_ConfigData.Rs485Mode;
+1443   1      } /* GCONFIG_GetRs485Mode() */
+1444          
+1445          /*
+1446           * ----------------------------------------------------------------------------
+1447           * Function Name: GCONFIG_SetDestHostName
+1448           * Purpose: 
+1449           * Params:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 25  
+
+1450           * Returns:
+1451           * Note:
+1452           * ----------------------------------------------------------------------------
+1453           */
+1454          void GCONFIG_SetDestHostName(U8_T *pIn, U8_T len)
+1455          {
+1456   1          if (len > (sizeof(gconfig_ConfigData.DestHostName)-1))
+1457   1              len = sizeof(gconfig_ConfigData.DestHostName) - 1;
+1458   1      
+1459   1          memcpy(gconfig_ConfigData.DestHostName, pIn, len);
+1460   1          gconfig_ConfigData.DestHostName[len] = '\0';
+1461   1      
+1462   1      } /* End of GCONFIG_SetDestHostName() */
+1463          
+1464          /*
+1465           * ----------------------------------------------------------------------------
+1466           * Function Name: GCONFIG_GetDestHostName
+1467           * Purpose: 
+1468           * Params:
+1469           * Returns:
+1470           * Note:
+1471           * ----------------------------------------------------------------------------
+1472           */
+1473          U8_T GCONFIG_GetDestHostName(U8_T *pOut)
+1474          {
+1475   1          gconfig_ConfigData.DestHostName[sizeof(gconfig_ConfigData.DestHostName) - 1] = '\0';
+1476   1          strcpy(pOut, gconfig_ConfigData.DestHostName);
+1477   1      
+1478   1              return strlen(gconfig_ConfigData.DestHostName);
+1479   1      } /* End of GCONFIG_GetDestHostName() */
+1480          
+1481          #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+1482          /*
+1483           * ----------------------------------------------------------------------------
+1484           * Function Name: GCONFIG_GetSsid
+1485           * Purpose: 
+1486           * Params:
+1487           * Returns:
+1488           * Note:
+1489           * ----------------------------------------------------------------------------
+1490           */
+1491          U8_T GCONFIG_GetSsid(U8_T *pOut)
+1492          {
+1493   1          if (!pOut)
+1494   1              return 0;
+1495   1      
+1496   1          memcpy(pOut, gconfig_ConfigData.WifiConfig.WifiSsid, gconfig_ConfigData.WifiConfig.WifiSsidLen);
+1497   1      
+1498   1              return gconfig_ConfigData.WifiConfig.WifiSsidLen;
+1499   1      } /* End of GCONFIG_GetSsid() */
+1500          
+1501          /*
+1502           * ----------------------------------------------------------------------------
+1503           * Function Name: GCONFIG_SetSsid
+1504           * Purpose: 
+1505           * Params:
+1506           * Returns:
+1507           * Note:
+1508           * ----------------------------------------------------------------------------
+1509           */
+1510          void GCONFIG_SetSsid(U8_T *pIn, U8_T len)
+1511          {
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 26  
+
+1512   1          if (len > (sizeof(gconfig_ConfigData.WifiConfig.WifiSsid)-1))
+1513   1              len = sizeof(gconfig_ConfigData.WifiConfig.WifiSsid)-1;
+1514   1      
+1515   1          memcpy(gconfig_ConfigData.WifiConfig.WifiSsid, pIn, len);
+1516   1          gconfig_ConfigData.WifiConfig.WifiSsid[len] = '\0';
+1517   1          gconfig_ConfigData.WifiConfig.WifiSsidLen = len;
+1518   1      
+1519   1      } /* End of GCONFIG_SetSsid() */
+1520          
+1521          /*
+1522           * ----------------------------------------------------------------------------
+1523           * Function Name: GCONFIG_GetChannel
+1524           * Purpose: 
+1525           * Params:
+1526           * Returns:
+1527           * Note:
+1528           * ----------------------------------------------------------------------------
+1529           */
+1530          U8_T GCONFIG_GetChannel(void)
+1531          {
+1532   1              return gconfig_ConfigData.WifiConfig.WifiChannel;
+1533   1      } /* End of GCONFIG_GetChannel() */
+1534          
+1535          /*
+1536           * ----------------------------------------------------------------------------
+1537           * Function Name: GCONFIG_SetChannel
+1538           * Purpose: 
+1539           * Params:
+1540           * Returns:
+1541           * Note:
+1542           * ----------------------------------------------------------------------------
+1543           */
+1544          void GCONFIG_SetChannel(U8_T channel)
+1545          {
+1546   1          if (channel > 20)
+1547   1              return;
+1548   1      
+1549   1          gconfig_ConfigData.WifiConfig.WifiChannel = channel;
+1550   1      } /* End of GCONFIG_SetChannel() */
+1551          
+1552          /*
+1553           * ----------------------------------------------------------------------------
+1554           * Function Name: GCONFIG_GetWifiBasebandMode
+1555           * Purpose: 
+1556           * Params:
+1557           * Returns:
+1558           * Note:
+1559           * ----------------------------------------------------------------------------
+1560           */
+1561          U8_T GCONFIG_GetWifiBasebandMode(void)
+1562          {
+1563   1              return gconfig_ConfigData.WifiConfig.WifiBasebandMode;
+1564   1      } /* End of GCONFIG_GetWifiBasebandMode() */
+1565          
+1566          /*
+1567           * ----------------------------------------------------------------------------
+1568           * Function Name: GCONFIG_SetWifiBasebandMode
+1569           * Purpose: 
+1570           * Params:
+1571           * Returns:
+1572           * Note:
+1573           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 27  
+
+1574           */
+1575          U8_T GCONFIG_SetWifiBasebandMode(U8_T value)
+1576          {
+1577   1          if (value != 1 && value != 2)
+1578   1              return 0;
+1579   1      
+1580   1          gconfig_ConfigData.WifiConfig.WifiBasebandMode = value;
+1581   1          return 1;
+1582   1      } /* End of GCONFIG_SetWifiBasebandMode() */
+1583          
+1584          /*
+1585           * ----------------------------------------------------------------------------
+1586           * Function Name: GCONFIG_GetWifiNetworkMode
+1587           * Purpose: 
+1588           * Params:
+1589           * Returns:
+1590           * Note:
+1591           * ----------------------------------------------------------------------------
+1592           */
+1593          U8_T GCONFIG_GetWifiNetworkMode(void)
+1594          {
+1595   1              return gconfig_ConfigData.WifiConfig.WifiNetworkMode;
+1596   1      } /* End of GCONFIG_GetWifiNetworkMode() */
+1597          
+1598          /*
+1599           * ----------------------------------------------------------------------------
+1600           * Function Name: GCONFIG_SetWifiNetworkMode
+1601           * Purpose: 
+1602           * Params:
+1603           * Returns:
+1604           * Note:
+1605           * ----------------------------------------------------------------------------
+1606           */
+1607          void GCONFIG_SetWifiNetworkMode(U8_T value)
+1608          {
+1609   1          if (value > 1)
+1610   1              return;
+1611   1      
+1612   1          gconfig_ConfigData.WifiConfig.WifiNetworkMode = value;
+1613   1      } /* End of GCONFIG_SetWifiNetworkMode() */
+1614          
+1615          /*
+1616           * ----------------------------------------------------------------------------
+1617           * Function Name: GCONFIG_GetWifiTxRate
+1618           * Purpose: 
+1619           * Params:
+1620           * Returns:
+1621           * Note:
+1622           * ----------------------------------------------------------------------------
+1623           */
+1624          U8_T GCONFIG_GetWifiTxRate(void)
+1625          {
+1626   1              return gconfig_ConfigData.WifiConfig.WifiTxRate;
+1627   1      } /* End of GCONFIG_GetWifiTxRate() */
+1628          
+1629          /*
+1630           * ----------------------------------------------------------------------------
+1631           * Function Name: GCONFIG_SetWifiTxRate
+1632           * Purpose: 
+1633           * Params:
+1634           * Returns:
+1635           * Note:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 28  
+
+1636           * ----------------------------------------------------------------------------
+1637           */
+1638          void GCONFIG_SetWifiTxRate(U8_T value)
+1639          {
+1640   1          gconfig_ConfigData.WifiConfig.WifiTxRate = value;
+1641   1      } /* End of GCONFIG_SetWifiTxRate() */
+1642          
+1643          /*
+1644           * ----------------------------------------------------------------------------
+1645           * Function Name: GCONFIG_GetWifiTxPowerLevel
+1646           * Purpose: 
+1647           * Params:
+1648           * Returns:
+1649           * Note:
+1650           * ----------------------------------------------------------------------------
+1651           */
+1652          U8_T GCONFIG_GetWifiTxPowerLevel(void)
+1653          {
+1654   1              return gconfig_ConfigData.WifiConfig.WifiTxPowerLevel;
+1655   1      } /* End of GCONFIG_GetWifiTxPowerLevel() */
+1656          
+1657          /*
+1658           * ----------------------------------------------------------------------------
+1659           * Function Name: GCONFIG_SetWifiTxPowerLevel
+1660           * Purpose: 
+1661           * Params:
+1662           * Returns:
+1663           * Note:
+1664           * ----------------------------------------------------------------------------
+1665           */
+1666          void GCONFIG_SetWifiTxPowerLevel(U8_T value)
+1667          {
+1668   1          gconfig_ConfigData.WifiConfig.WifiTxPowerLevel = value;
+1669   1      } /* End of GCONFIG_SetWifiTxPowerLevel() */
+1670          
+1671          /*
+1672           * ----------------------------------------------------------------------------
+1673           * Function Name: GCONFIG_GetWifiPreambleMode
+1674           * Purpose: 
+1675           * Params:
+1676           * Returns:
+1677           * Note:
+1678           * ----------------------------------------------------------------------------
+1679           */
+1680          U8_T GCONFIG_GetWifiPreambleMode(void)
+1681          {
+1682   1              return gconfig_ConfigData.WifiConfig.WifiPreambleMode;
+1683   1      } /* End of GCONFIG_GetWifiPreambleMode() */
+1684          
+1685          /*
+1686           * ----------------------------------------------------------------------------
+1687           * Function Name: GCONFIG_SetWifiPreambleMode
+1688           * Purpose: 
+1689           * Params:
+1690           * Returns:
+1691           * Note:
+1692           * ----------------------------------------------------------------------------
+1693           */
+1694          U8_T GCONFIG_SetWifiPreambleMode(U8_T value)
+1695          {
+1696   1          if (value > 2)
+1697   1              return 0;
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 29  
+
+1698   1      
+1699   1          gconfig_ConfigData.WifiConfig.WifiPreambleMode = value;
+1700   1          return 1;
+1701   1      } /* End of GCONFIG_SetWifiPreambleMode() */
+1702          
+1703          /*
+1704           * ----------------------------------------------------------------------------
+1705           * Function Name: GCONFIG_GetWifiBcnInterval
+1706           * Purpose: 
+1707           * Params:
+1708           * Returns:
+1709           * Note:
+1710           * ----------------------------------------------------------------------------
+1711           */
+1712          U16_T GCONFIG_GetWifiBcnInterval(void)
+1713          {
+1714   1              return gconfig_ConfigData.WifiConfig.WifiBcnInterval;
+1715   1      } /* End of GCONFIG_GetWifiBcnInterval() */
+1716          
+1717          /*
+1718           * ----------------------------------------------------------------------------
+1719           * Function Name: GCONFIG_SetWifiBcnInterval
+1720           * Purpose: 
+1721           * Params:
+1722           * Returns:
+1723           * Note:
+1724           * ----------------------------------------------------------------------------
+1725           */
+1726          void GCONFIG_SetWifiBcnInterval(U16_T value)
+1727          {
+1728   1          gconfig_ConfigData.WifiConfig.WifiBcnInterval = value;
+1729   1      } /* End of GCONFIG_SetWifiBcnInterval() */
+1730          
+1731          /*
+1732           * ----------------------------------------------------------------------------
+1733           * Function Name: GCONFIG_GetWifiRtsThreshold
+1734           * Purpose: 
+1735           * Params:
+1736           * Returns:
+1737           * Note:
+1738           * ----------------------------------------------------------------------------
+1739           */
+1740          U16_T GCONFIG_GetWifiRtsThreshold(void)
+1741          {
+1742   1              return gconfig_ConfigData.WifiConfig.WifiRtsThreshold;
+1743   1      } /* End of GCONFIG_GetWifiRtsThreshold() */
+1744          
+1745          /*
+1746           * ----------------------------------------------------------------------------
+1747           * Function Name: GCONFIG_SetWifiRtsThreshold
+1748           * Purpose: 
+1749           * Params:
+1750           * Returns:
+1751           * Note:
+1752           * ----------------------------------------------------------------------------
+1753           */
+1754          void GCONFIG_SetWifiRtsThreshold(U16_T value)
+1755          {
+1756   1          gconfig_ConfigData.WifiConfig.WifiRtsThreshold = value;
+1757   1      } /* End of GCONFIG_SetWifiRtsThreshold() */
+1758          
+1759          /*
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 30  
+
+1760           * ----------------------------------------------------------------------------
+1761           * Function Name: GCONFIG_GetWifiAutoPowerCtrl
+1762           * Purpose: 
+1763           * Params:
+1764           * Returns:
+1765           * Note:
+1766           * ----------------------------------------------------------------------------
+1767           */
+1768          U8_T GCONFIG_GetWifiAutoPowerCtrl(void)
+1769          {
+1770   1              return gconfig_ConfigData.WifiConfig.WifiAutoPowerCtrl;
+1771   1      } /* End of GCONFIG_GetWifiAutoPowerCtrl() */
+1772          
+1773          /*
+1774           * ----------------------------------------------------------------------------
+1775           * Function Name: GCONFIG_SetWifiAutoPowerCtrl
+1776           * Purpose: 
+1777           * Params:
+1778           * Returns:
+1779           * Note:
+1780           * ----------------------------------------------------------------------------
+1781           */
+1782          void GCONFIG_SetWifiAutoPowerCtrl(U8_T value)
+1783          {
+1784   1          gconfig_ConfigData.WifiConfig.WifiAutoPowerCtrl = value ? 1:0;
+1785   1      } /* End of GCONFIG_SetWifiAutoPowerCtrl() */
+1786          
+1787          /*
+1788           * ----------------------------------------------------------------------------
+1789           * Function Name: GCONFIG_GetWifiEncryptMode
+1790           * Purpose: 
+1791           * Params:
+1792           * Returns:
+1793           * Note:
+1794           * ----------------------------------------------------------------------------
+1795           */
+1796          U8_T GCONFIG_GetWifiEncryptMode(void)
+1797          {
+1798   1              return gconfig_ConfigData.WifiConfig.WifiEncryptMode;
+1799   1      } /* End of GCONFIG_GetWifiEncryptMode() */
+1800          
+1801          /*
+1802           * ----------------------------------------------------------------------------
+1803           * Function Name: GCONFIG_SetWifiEncryptMode
+1804           * Purpose: 
+1805           * Params:
+1806           * Returns:
+1807           * Note:
+1808           * ----------------------------------------------------------------------------
+1809           */
+1810          U8_T GCONFIG_SetWifiEncryptMode(U8_T value)
+1811          {
+1812   1          if (value > 4)
+1813   1              return 0;
+1814   1      
+1815   1          if (value == 1)
+1816   1              gconfig_ConfigData.WifiConfig.WifiWepKeyLength = 0;
+1817   1          else if (value == 2)
+1818   1              gconfig_ConfigData.WifiConfig.WifiWepKeyLength = 1;
+1819   1      
+1820   1          gconfig_ConfigData.WifiConfig.WifiEncryptMode = value;
+1821   1          return 1;
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 31  
+
+1822   1      } /* End of GCONFIG_SetWifiEncryptMode() */
+1823          
+1824          /*
+1825           * ----------------------------------------------------------------------------
+1826           * Function Name: GCONFIG_GetWifiWepKeyIndex
+1827           * Purpose: 
+1828           * Params:
+1829           * Returns:
+1830           * Note:
+1831           * ----------------------------------------------------------------------------
+1832           */
+1833          U8_T GCONFIG_GetWifiWepKeyIndex(void)
+1834          {
+1835   1              return gconfig_ConfigData.WifiConfig.WifiWepKeyIndex;
+1836   1      } /* End of GCONFIG_GetWifiWepKeyIndex() */
+1837          
+1838          /*
+1839           * ----------------------------------------------------------------------------
+1840           * Function Name: GCONFIG_SetWifiWepKeyIndex
+1841           * Purpose: 
+1842           * Params:
+1843           * Returns:
+1844           * Note:
+1845           * ----------------------------------------------------------------------------
+1846           */
+1847          U8_T GCONFIG_SetWifiWepKeyIndex(U8_T value)
+1848          {
+1849   1          if (value > 3)
+1850   1              return 0;
+1851   1      
+1852   1          gconfig_ConfigData.WifiConfig.WifiWepKeyIndex = value;
+1853   1          return 1;
+1854   1      } /* End of GCONFIG_SetWifiWepKeyIndex() */
+1855          
+1856          /*
+1857           * ----------------------------------------------------------------------------
+1858           * Function Name: GCONFIG_GetWifiWepKeyLength
+1859           * Purpose: 
+1860           * Params:
+1861           * Returns:
+1862           * Note:
+1863           * ----------------------------------------------------------------------------
+1864           */
+1865          U8_T GCONFIG_GetWifiWepKeyLength(void)
+1866          {
+1867   1              return gconfig_ConfigData.WifiConfig.WifiWepKeyLength;
+1868   1      } /* End of GCONFIG_GetWifiWepKeyLength() */
+1869          
+1870          /*
+1871           * ----------------------------------------------------------------------------
+1872           * Function Name: GCONFIG_SetWifiWepKeyLength
+1873           * Purpose: 
+1874           * Params:
+1875           * Returns:
+1876           * Note:
+1877           * ----------------------------------------------------------------------------
+1878           */
+1879          void GCONFIG_SetWifiWepKeyLength(U8_T value)
+1880          {
+1881   1          gconfig_ConfigData.WifiConfig.WifiWepKeyLength = value ? 1:0;
+1882   1      } /* End of GCONFIG_SetWifiWepKeyLength() */
+1883          
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 32  
+
+1884          /*
+1885           * ----------------------------------------------------------------------------
+1886           * Function Name: GCONFIG_GetWifiWep64Key
+1887           * Purpose: 
+1888           * Params:
+1889           * Returns:
+1890           * Note:
+1891           * ----------------------------------------------------------------------------
+1892           */
+1893          U8_T GCONFIG_GetWifiWep64Key(U8_T index, U8_T *pBuf)
+1894          {
+1895   1          if (!pBuf)
+1896   1              return 0;
+1897   1          else if (index > 3)
+1898   1                      index = 0;
+1899   1      
+1900   1          memcpy(pBuf, gconfig_ConfigData.WifiConfig.WifiWep64Key[index], 5);
+1901   1          return 5;
+1902   1      } /* End of GCONFIG_GetWifiWep64Key() */
+1903          
+1904          /*
+1905           * ----------------------------------------------------------------------------
+1906           * Function Name: GCONFIG_SetWifiWep64Key
+1907           * Purpose: 
+1908           * Params:
+1909           * Returns:
+1910           * Note:
+1911           * ----------------------------------------------------------------------------
+1912           */
+1913          void GCONFIG_SetWifiWep64Key(U8_T index, U8_T *pBuf)
+1914          {
+1915   1              if (index > 3)
+1916   1              return;
+1917   1                      
+1918   1              memcpy(gconfig_ConfigData.WifiConfig.WifiWep64Key[index], pBuf, 5);
+1919   1      } /* End of GCONFIG_SetWifiWep64Key() */
+1920          
+1921          /*
+1922           * ----------------------------------------------------------------------------
+1923           * Function Name: GCONFIG_GetWifiWep128Key
+1924           * Purpose: 
+1925           * Params:
+1926           * Returns:
+1927           * Note:
+1928           * ----------------------------------------------------------------------------
+1929           */
+1930          U8_T GCONFIG_GetWifiWep128Key(U8_T index, U8_T *pBuf)
+1931          {
+1932   1          if (!pBuf)
+1933   1              return 0;
+1934   1          else if (index > 3)
+1935   1                      index = 0;
+1936   1      
+1937   1          memcpy(pBuf, gconfig_ConfigData.WifiConfig.WifiWep128Key[index], 13);
+1938   1          return 13;
+1939   1      } /* End of GCONFIG_GetWifiWep128Key() */
+1940          
+1941          /*
+1942           * ----------------------------------------------------------------------------
+1943           * Function Name: GCONFIG_SetWifiWep128Key
+1944           * Purpose: 
+1945           * Params:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 33  
+
+1946           * Returns:
+1947           * Note:
+1948           * ----------------------------------------------------------------------------
+1949           */
+1950          void GCONFIG_SetWifiWep128Key(U8_T index, U8_T *pBuf)
+1951          {
+1952   1              if (index > 3)
+1953   1              return;
+1954   1      
+1955   1              memcpy(gconfig_ConfigData.WifiConfig.WifiWep128Key[index], pBuf, 13);   
+1956   1      } /* End of GCONFIG_SetWifiWep128Key() */
+1957          
+1958          /*
+1959           * ----------------------------------------------------------------------------
+1960           * Function Name: GCONFIG_GetWifiPreShareKey
+1961           * Purpose: 
+1962           * Params:
+1963           * Returns:
+1964           * Note:
+1965           * ----------------------------------------------------------------------------
+1966           */
+1967          U8_T GCONFIG_GetWifiPreShareKey(U8_T *pBuf)
+1968          {
+1969   1          memcpy(pBuf, gconfig_ConfigData.WifiConfig.WifiPreShareKey, gconfig_ConfigData.WifiConfig.WifiPreShare
+             -KeyLen);
+1970   1      
+1971   1              return gconfig_ConfigData.WifiConfig.WifiPreShareKeyLen;
+1972   1      } /* End of GCONFIG_GetWifiPreShareKey() */
+1973          
+1974          /*
+1975           * ----------------------------------------------------------------------------
+1976           * Function Name: GCONFIG_SetWifiPreShareKey
+1977           * Purpose: 
+1978           * Params:
+1979           * Returns:
+1980           * Note:
+1981           * ----------------------------------------------------------------------------
+1982           */
+1983          void GCONFIG_SetWifiPreShareKey(U8_T *pBuf, U8_T len)
+1984          {
+1985   1              if (len > sizeof(gconfig_ConfigData.WifiConfig.WifiPreShareKey))
+1986   1                      len = sizeof(gconfig_ConfigData.WifiConfig.WifiPreShareKey);
+1987   1              
+1988   1              memcpy(gconfig_ConfigData.WifiConfig.WifiPreShareKey, pBuf, len);
+1989   1              gconfig_ConfigData.WifiConfig.WifiPreShareKeyLen = len;
+1990   1                      
+1991   1      } /* End of GCONFIG_SetWifiPreShareKey() */
+1992          
+1993          #endif
+1994          
+1995          /*
+1996           * ----------------------------------------------------------------------------
+1997           * Function Name: GCONFIG_GetDhcpSrvStartIp
+1998           * Purpose: 
+1999           * Params:
+2000           * Returns:
+2001           * Note:
+2002           * ----------------------------------------------------------------------------
+2003           */
+2004          U32_T GCONFIG_GetDhcpSrvStartIp(void)
+2005          {
+2006   1              return gconfig_ConfigData.DhcpSrv.IpPoolAddrStart;
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 34  
+
+2007   1      } /* End of GCONFIG_GetDhcpSrvStartIp() */
+2008          
+2009          /*
+2010           * ----------------------------------------------------------------------------
+2011           * Function Name: GCONFIG_SetDhcpSrvStartIp
+2012           * Purpose: 
+2013           * Params:
+2014           * Returns:
+2015           * Note:
+2016           * ----------------------------------------------------------------------------
+2017           */
+2018          void GCONFIG_SetDhcpSrvStartIp(U32_T startIp)
+2019          {
+2020   1              gconfig_ConfigData.DhcpSrv.IpPoolAddrStart = startIp;
+2021   1      } /* End of GCONFIG_SetDhcpSrvStartIp() */
+2022          
+2023          /*
+2024           * ----------------------------------------------------------------------------
+2025           * Function Name: GCONFIG_GetDhcpSrvEndIp
+2026           * Purpose: 
+2027           * Params:
+2028           * Returns:
+2029           * Note:
+2030           * ----------------------------------------------------------------------------
+2031           */
+2032          U32_T GCONFIG_GetDhcpSrvEndIp(void)
+2033          {
+2034   1              return gconfig_ConfigData.DhcpSrv.IpPoolAddrEnd;
+2035   1      } /* End of GCONFIG_GetDhcpSrvEndIp() */
+2036          
+2037          /*
+2038           * ----------------------------------------------------------------------------
+2039           * Function Name: GCONFIG_SetDhcpSrvEndIp
+2040           * Purpose: 
+2041           * Params:
+2042           * Returns:
+2043           * Note:
+2044           * ----------------------------------------------------------------------------
+2045           */
+2046          void GCONFIG_SetDhcpSrvEndIp(U32_T endIp)
+2047          {
+2048   1              gconfig_ConfigData.DhcpSrv.IpPoolAddrEnd = endIp;
+2049   1      } /* End of GCONFIG_SetDhcpSrvEndIp() */
+2050          
+2051          /*
+2052           * ----------------------------------------------------------------------------
+2053           * Function Name: GCONFIG_GetDhcpSrvNetmask
+2054           * Purpose: 
+2055           * Params:
+2056           * Returns:
+2057           * Note:
+2058           * ----------------------------------------------------------------------------
+2059           */
+2060          U32_T GCONFIG_GetDhcpSrvNetmask(void)
+2061          {
+2062   1              return gconfig_ConfigData.DhcpSrv.Netmask;
+2063   1      } /* End of GCONFIG_GetDhcpSrvNetmask() */
+2064          
+2065          /*
+2066           * ----------------------------------------------------------------------------
+2067           * Function Name: GCONFIG_SetDhcpSrvNetmask
+2068           * Purpose: 
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 35  
+
+2069           * Params:
+2070           * Returns:
+2071           * Note:
+2072           * ----------------------------------------------------------------------------
+2073           */
+2074          void GCONFIG_SetDhcpSrvNetmask(U32_T mask)
+2075          {
+2076   1              gconfig_ConfigData.DhcpSrv.Netmask = mask;
+2077   1      } /* End of GCONFIG_SetDhcpSrvNetmask() */
+2078          
+2079          /*
+2080           * ----------------------------------------------------------------------------
+2081           * Function Name: GCONFIG_GetDhcpSrvDefGateway
+2082           * Purpose: 
+2083           * Params:
+2084           * Returns:
+2085           * Note:
+2086           * ----------------------------------------------------------------------------
+2087           */
+2088          U32_T GCONFIG_GetDhcpSrvDefGateway(void)
+2089          {
+2090   1              return gconfig_ConfigData.DhcpSrv.DefaultGateway;
+2091   1      } /* End of GCONFIG_GetDhcpSrvDefGateway() */
+2092          
+2093          /*
+2094           * ----------------------------------------------------------------------------
+2095           * Function Name: GCONFIG_SetDhcpSrvDefGateway
+2096           * Purpose: 
+2097           * Params:
+2098           * Returns:
+2099           * Note:
+2100           * ----------------------------------------------------------------------------
+2101           */
+2102          void GCONFIG_SetDhcpSrvDefGateway(U32_T gateway)
+2103          {
+2104   1              gconfig_ConfigData.DhcpSrv.DefaultGateway = gateway;
+2105   1      } /* End of GCONFIG_SetDhcpSrvDefGateway() */
+2106          
+2107          /*
+2108           * ----------------------------------------------------------------------------
+2109           * Function Name: GCONFIG_GetDhcpSrvStatus
+2110           * Purpose: 
+2111           * Params:
+2112           * Returns:
+2113           * Note:
+2114           * ----------------------------------------------------------------------------
+2115           */
+2116          U8_T GCONFIG_GetDhcpSrvStatus(void)
+2117          {
+2118   1              return gconfig_ConfigData.DhcpSrv.Status;
+2119   1      } /* End of GCONFIG_GetDhcpSrvStatus() */
+2120          
+2121          /*
+2122           * ----------------------------------------------------------------------------
+2123           * Function Name: GCONFIG_SetDhcpSrvStatus
+2124           * Purpose: 
+2125           * Params:
+2126           * Returns:
+2127           * Note:
+2128           * ----------------------------------------------------------------------------
+2129           */
+2130          void GCONFIG_SetDhcpSrvStatus(U8_T status)
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 36  
+
+2131          {
+2132   1          if (status > 1)
+2133   1              return;
+2134   1      
+2135   1              gconfig_ConfigData.DhcpSrv.Status = status;
+2136   1      } /* End of GCONFIG_SetDhcpSrvStatus() */
+2137          
+2138          /*
+2139           * ----------------------------------------------------------------------------
+2140           * Function Name: GCONFIG_GetDhcpSrvLeaseTime
+2141           * Purpose: 
+2142           * Params:
+2143           * Returns:
+2144           * Note:
+2145           * ----------------------------------------------------------------------------
+2146           */
+2147          U16_T GCONFIG_GetDhcpSrvLeaseTime(void)
+2148          {
+2149   1              return gconfig_ConfigData.DhcpSrv.LeaseTime;
+2150   1      } /* End of GCONFIG_GetDhcpSrvLeaseTime() */
+2151          
+2152          /*
+2153           * ----------------------------------------------------------------------------
+2154           * Function Name: GCONFIG_SetDhcpSrvLeaseTime
+2155           * Purpose: 
+2156           * Params:
+2157           * Returns:
+2158           * Note:
+2159           * ----------------------------------------------------------------------------
+2160           */
+2161          void GCONFIG_SetDhcpSrvLeaseTime(U16_T lease)
+2162          {
+2163   1              gconfig_ConfigData.DhcpSrv.LeaseTime = lease;
+2164   1      } /* End of GCONFIG_SetDhcpSrvLeaseTime() */
+2165          
+2166          /////////////////////////////////////////////////////////////////////////////////
+2167          
+2168          /*
+2169           * ----------------------------------------------------------------------------
+2170           * Function Name: gconfig_ReStoreParameter
+2171           * Purpose: 
+2172           * Params:
+2173           * Returns:
+2174           * Note:
+2175           * ----------------------------------------------------------------------------
+2176           */
+2177          static BOOL gconfig_ReStoreParameter(U32_T addr, GCONFIG_CFG_DATA *pConfig, U16_T len)
+2178          {
+2179   1              U16_T   i;
+2180   1              U8_T    *pParaBaseByte;
+2181   1              U8_T    paraCheckSum = 0;
+2182   1              U8_T    lastWtst = 0;
+2183   1      
+2184   1              pParaBaseByte = (U8_T *)pConfig;
+2185   1      
+2186   1              lastWtst = WTST;
+2187   1              WTST = PROG_WTST_7;
+2188   1              if (CSREPR & PMS) // SRAM shadow
+2189   1              {
+2190   2                      CSREPR |= FAES;
+2191   2                      for (i = 0 ; i < len ; i++)
+2192   2                      {
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 37  
+
+2193   3                              *(pParaBaseByte + i) = FCVAR(U8_T, GCONFIG_CFG_DATA_FLASH_ADDR + addr + i);
+2194   3                      }
+2195   2                      CSREPR &= ~FAES;
+2196   2              }
+2197   1              else
+2198   1              {
+2199   2                      CSREPR &= ~FAES;
+2200   2                      for (i = 0 ; i < len ; i++)
+2201   2                      {
+2202   3                              *(pParaBaseByte + i) = FCVAR(U8_T, GCONFIG_CFG_DATA_FLASH_ADDR + addr + i);
+2203   3                      }
+2204   2              }
+2205   1              WTST = lastWtst;
+2206   1      
+2207   1          if (0xffff != gconfig_Checksum((U16_T *)pConfig, len))
+2208   1          {
+2209   2              printd(" failed! (wrong checksum)\n\r");
+2210   2                      return FALSE;
+2211   2          }
+2212   1          else if (pConfig->SwCfgLength != len)
+2213   1          {
+2214   2              printd(" Invalid configuration data!\n\r");
+2215   2                      return FALSE;
+2216   2          }
+2217   1              printd(" ok.\n\r");
+2218   1              gconfig_DisplayConfigData(pConfig);
+2219   1              return TRUE;
+2220   1      
+2221   1      } /* End of gconfig_ReStoreParameter() */
+2222          
+2223          /*
+2224           * ----------------------------------------------------------------------------
+2225           * Function Name: gconfig_StoreParameter
+2226           * Purpose: 
+2227           * Params:
+2228           * Returns:
+2229           * Note:
+2230           * ----------------------------------------------------------------------------
+2231           */
+2232          static BOOL gconfig_StoreParameter(GCONFIG_CFG_DATA *pConfigData, U16_T len)
+2233          {
+2234   1              U8_T                    ret = FALSE;
+2235   1              pFlashParaData  ptrFlashWrite = (void code *)0x003E00;
+2236   1      
+2237   1          pConfigData->Checksum = 0;
+2238   1          pConfigData->SwCfgLength = len;
+2239   1          pConfigData->Checksum = ~gconfig_Checksum((U16_T *)pConfigData, len);
+2240   1          
+2241   1              ret = (*ptrFlashWrite)((U8_T *)pConfigData, len);       
+2242   1      
+2243   1              if (ret == FALSE)
+2244   1                      printd("Failed to program Configration Data!!\r\n");
+2245   1      
+2246   1              return ret;
+2247   1      } /* End of gconfig_StoreParameter() */
+2248          
+2249          /*
+2250          * -----------------------------------------------------------------------------
+2251           * Function Name: gconfig_Checksum
+2252           * Purpose:
+2253           * Params:
+2254           * Returns:
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 38  
+
+2255           * Note:
+2256           * ----------------------------------------------------------------------------
+2257           */
+2258          static U16_T gconfig_Checksum(U16_T *pBuf, U32_T length)
+2259          {
+2260   1              U32_T   cksum = 0;
+2261   1              U32_T   i, count;
+2262   1              U8_T*   inChar = &pBuf;
+2263   1              U16_T*  point;
+2264   1      
+2265   1              count = length/2;
+2266   1      
+2267   1              for (i = 0; i < count; i++)
+2268   1              {
+2269   2                      point = pBuf;
+2270   2                      cksum += *pBuf++;
+2271   2                      if (point > pBuf)
+2272   2                              (*inChar) = *inChar + 1;
+2273   2      
+2274   2                      if (!(i % 0x8000))
+2275   2                      {
+2276   3                              cksum = (cksum >> 16) + (cksum & 0xffff);
+2277   3                              cksum += (cksum >> 16);
+2278   3                              cksum &= 0xffff;
+2279   3                      }
+2280   2              }
+2281   1                      
+2282   1              if (length % 2)
+2283   1                      cksum += (*pBuf & 0xff00);
+2284   1      
+2285   1              cksum = (cksum >> 16) + (cksum & 0xffff);
+2286   1              cksum += (cksum >> 16);
+2287   1              cksum &= 0xffff;
+2288   1      
+2289   1              return ((U16_T)cksum);
+2290   1      } /* End of gconfig_Checksum() */
+2291          
+2292          /*
+2293           * ----------------------------------------------------------------------------
+2294           * Function Name: gconfig_DisplayConfigData
+2295           * Purpose: 
+2296           * Params:
+2297           * Returns:
+2298           * Note:
+2299           * ----------------------------------------------------------------------------
+2300           */
+2301          static void     gconfig_DisplayConfigData(GCONFIG_CFG_DATA *pConfigData)
+2302          {
+2303   1              U8_T i, *pData;
+2304   1              U8_T dat;
+2305   1              U16_T val;
+2306   1      
+2307   1              if (GS2W_GetTaskState() == GS2W_STATE_IDLE)
+2308   1              {
+2309   2      #if (GS2W_ENABLE_FLOW_CONTROL != 0)
+2310   2                      printd("  Flow Control Support\r\n");
+2311   2      #else
+                              printd("  Flow Control Not Support\r\n");
+              #endif
+2314   2                      printd("  Device Name: ");
+2315   2                      for (i = 0; i < 16; i++)
+2316   2                              printd ("%02bx ", pConfigData->DevName.DevName[i]);             
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 39  
+
+2317   2      
+2318   2                      printd("\n\r");
+2319   2                      printd("  WiFi MAC Addr: ");
+2320   2                      for (i = 0; i < 6; i++)
+2321   2                              printd ("%02bx ", macAddr.MacAddr[i]);          
+2322   2              
+2323   2                      printd("\n\r");
+2324   2                      printd("  Network Setting: ");
+2325   2                      printd ("%04x\r\n", pConfigData->Network);              
+2326   2              
+2327   2                      val = pConfigData->Network;
+2328   2                      
+2329   2                      if (val & GCONFIG_NETWORK_CLIENT) printd("  SC:Cli ");
+2330   2                      else                                    printd("  SC:Ser ");
+2331   2              
+2332   2                      if (val & GCONFIG_NETWORK_DHCP_ENABLE) printd("DHCP:On ");
+2333   2                      else                                    printd("DHCP:Off ");
+2334   2              
+2335   2                      if (val & GCONFIG_NETWORK_PROTO_UDP) printd("UDP:On ");
+2336   2                      else                                    printd("UDP:Off ");
+2337   2              
+2338   2                      if (val & GCONFIG_NETWORK_PROTO_TCP) printd("TCP:On ");
+2339   2                      else                                    printd("TCP:Off ");
+2340   2              
+2341   2                      if (val & GCONFIG_NETWORK_PROTO_UDP_MCAST) printd("MC:On ");
+2342   2                      else                                    printd("MC:Off ");
+2343   2              
+2344   2                      if (val & GCONFIG_NETWORK_PROTO_UDP_BCAST) printd("BC:On ");
+2345   2                      else                                    printd("BC:Off ");
+2346   2              
+2347   2                      printd("\n\r");
+2348   2      //              printd("  IP:");
+2349   2      //        pData = (U8_T *)&pConfigData->ServerDynamicIP;
+2350   2      //              for (i = 0; i < 4; i++)
+2351   2      //                      printd ("%bu ", *(pData + i));          
+2352   2              
+2353   2                      printd("  SIP:");               
+2354   2              pData = (U8_T *)&pConfigData->ServerStaticIP;
+2355   2                      for (i = 0; i < 4; i++)
+2356   2                              printd ("%bu ", *(pData + i));          
+2357   2      
+2358   2                      printd(" Port: DA: %u", pConfigData->ServerDataPktListenPort);
+2359   2                      printd(" MC: %u", pConfigData->ServerMulticastListenPort);
+2360   2                      printd(" BC: %u", pConfigData->ServerBroadcastListenPort);
+2361   2                      printd("\n\r");
+2362   2      
+2363   2                      printd("  Dest Host: %s",pConfigData->DestHostName);
+2364   2                      printd(" Dest Port: %u", pConfigData->ClientDestPort);
+2365   2                      printd("\n\r");
+2366   2                      printd("  Netmask:");
+2367   2              pData = (U8_T *)&pConfigData->Netmask;
+2368   2                      for (i = 0; i < 4; i++)
+2369   2                              printd ("%bu ", *(pData + i));          
+2370   2      
+2371   2                      printd(" Gateway:");
+2372   2              pData = (U8_T *)&pConfigData->Gateway;
+2373   2                      for (i = 0; i < 4; i++)
+2374   2                              printd ("%bu ", *(pData + i));          
+2375   2      
+2376   2                      printd(" DNS:");
+2377   2              pData = (U8_T *)&pConfigData->Dns;
+2378   2                      for (i = 0; i < 4; i++)
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 40  
+
+2379   2                              printd ("%bu ", *(pData + i));          
+2380   2      
+2381   2                      printd("\n\r");
+2382   2                      printd("  Serial Port Setting: ");
+2383   2              
+2384   2                      dat = (pConfigData->SerialPort>>8) & 0xFF;
+2385   2                      val = (dat >> 3) & 0x1F; 
+2386   2                      if      (val == 0) printd ("BR:921600 ");
+2387   2                      else if (val == 1) printd ("BR:115200 ");
+2388   2                      else if (val == 2) printd ("BR:57600 ");
+2389   2                      else if (val == 3) printd ("BR:38400 ");
+2390   2                      else if (val == 4) printd ("BR:19200 ");
+2391   2                      else if (val == 5) printd ("BR:9600 ");
+2392   2                      else if (val == 6) printd ("BR:4800 ");
+2393   2                      else if (val == 7) printd ("BR:2400 ");
+2394   2                      else if (val == 8) printd ("BR:1200 ");
+2395   2              
+2396   2                      val = dat & 0x07; 
+2397   2                      if (val == 0) printd ("DB:5 ");
+2398   2                      else if (val == 1) printd ("DB:6 ");
+2399   2                      else if (val == 2) printd ("DB:7 ");
+2400   2                      else if (val == 3) printd ("DB:8 ");
+2401   2              
+2402   2                      dat = (pConfigData->SerialPort & 0x00FF);
+2403   2              
+2404   2                      val = (dat >> 5) & 0x07; 
+2405   2                      if (val == 0) printd ("P:Odd ");
+2406   2                      else if (val == 1) printd ("P:Even ");
+2407   2                      else if (val == 2) printd ("P:None ");
+2408   2              
+2409   2                      val = (dat >> 2) & 0x07; 
+2410   2                      if (val == 0) printd ("FC:Xon-Xoff ");
+2411   2                      else if (val == 1) printd ("FC:Hardware ");
+2412   2                      else if (val == 2) printd ("FC:None ");
+2413   2              
+2414   2                      val = dat & 0x03; 
+2415   2                      if (val == 0) printd ("SB:1 ");
+2416   2                      else if (val == 1) printd ("SB:1.5 ");
+2417   2      
+2418   2                      printd("\n\r");
+2419   2                      printd("  Tx Time Interval:%u", pConfigData->EthernetTxTimer);
+2420   2                      printd(" Username:%s Password:%s",pConfigData->Admin.Username, pConfigData->Admin.Passwd);
+2421   2                      printd("\n\r");
+2422   2                      
+2423   2                      printd("  E-Mail Server:%s",pConfigData->Smtp.DomainName);              
+2424   2                      printd("\n\r");
+2425   2                                      
+2426   2                      printd("  From:%s",pConfigData->Smtp.FromAddr);
+2427   2                      printd("  To1:%s",pConfigData->Smtp.ToAddr1);
+2428   2                      printd("\n\r");
+2429   2                      
+2430   2                      printd("  To2:%s",pConfigData->Smtp.ToAddr2);
+2431   2                      printd("  To3:%s",pConfigData->Smtp.ToAddr3);
+2432   2                      printd("\n\r");
+2433   2                      
+2434   2                      val = pConfigData->Smtp.EventEnableBits;
+2435   2                      printd("  AutoWarning:%x ", val);
+2436   2                      printd("CS:");
+2437   2                      if (val & GCONFIG_SMTP_EVENT_COLDSTART) printd("On ");
+2438   2                      else printd("Off ");
+2439   2                      
+2440   2                      printd("AF:");
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 41  
+
+2441   2                      if (val & GCONFIG_SMTP_EVENT_AUTH_FAIL) printd("On ");
+2442   2                      else printd("Off ");
+2443   2                      
+2444   2                      printd("IPC:");
+2445   2                      if (val & GCONFIG_SMTP_EVENT_IP_CHANGED) printd("On ");
+2446   2                      else printd("Off ");
+2447   2      
+2448   2                      printd("PC:");
+2449   2                      if (val & GCONFIG_SMTP_EVENT_PSW_CHANGED) printd("On ");
+2450   2                      else printd("Off ");
+2451   2                      printd("\r\n");
+2452   2                                      
+2453   2                      // Add for wifi configuration //
+2454   2                      printd("  ---------- Wifi Configuration ---------- \r\n");
+2455   2                      
+2456   2                      // Wireless mode //             
+2457   2                      i = pConfigData->WifiConfig.WifiBasebandMode;           
+2458   2                      printd("  Baseband: %s mode ", (i==1) ? "802.11b+g" : ((i==2) ? "802.11a" : "unsupport"));
+2459   2                      printd("\r\n");
+2460   2                      
+2461   2                      // Network mode //              
+2462   2                      i = pConfigData->WifiConfig.WifiNetworkMode;            
+2463   2                      printd("  Network: %s mode ", (i ? "Ad-hoc" : "infrastructure"));
+2464   2                      printd("\r\n");
+2465   2                      
+2466   2                      // Channel //           
+2467   2                      i = IO_WiFiSupportedCh[pConfigData->WifiConfig.WifiChannel];
+2468   2                      printd("  Channel: ");
+2469   2                      if (i)
+2470   2                              printd("%bu ", i);
+2471   2                      else
+2472   2                              printd("auto ");
+2473   2                      printd("\r\n");
+2474   2      
+2475   2                      // Service Area Name/SSID //
+2476   2                      printd("  SSID: ");
+2477   2                      for (i = 0; i < pConfigData->WifiConfig.WifiSsidLen; i ++)
+2478   2                      {
+2479   3                              printd("%c", pConfigData->WifiConfig.WifiSsid[i]);
+2480   3                      }       
+2481   2                      printd("\r\n");
+2482   2                      
+2483   2                      // Security Mode //
+2484   2                      i = pConfigData->WifiConfig.WifiEncryptMode;
+2485   2                      printd("  Security: ", i);
+2486   2                      if (i == 0)
+2487   2                              printd("no security ");
+2488   2                      else if (i == 1)
+2489   2                              printd("WEP64 bits");           
+2490   2                      else if (i == 2)
+2491   2                              printd("WEP128 bits");          
+2492   2                      else if (i == 3)
+2493   2                              printd("TKIP ");                
+2494   2                      else
+2495   2                              printd("AES ");
+2496   2                      printd("\r\n");                                 
+2497   2                      
+2498   2                      // Key Length //
+2499   2                      i = pConfigData->WifiConfig.WifiWepKeyLength;
+2500   2                      printd("  WEP Key Length: %s bits", (i ? "128" : "64"));
+2501   2                      printd("\r\n"); 
+2502   2                                                      
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 42  
+
+2503   2                      // Key Index Select //
+2504   2                      i = pConfigData->WifiConfig.WifiWepKeyIndex;
+2505   2                      printd("  WEP Key Index: %bu", i);
+2506   2                      printd("\r\n"); 
+2507   2                                      
+2508   2                      // Key Index 1 ~ 4//
+2509   2                      dat = pConfigData->WifiConfig.WifiWepKeyLength;         
+2510   2                      if (dat)
+2511   2                              dat = 13;
+2512   2                      else
+2513   2                              dat = 5;
+2514   2                              
+2515   2                      for (val = 0; val < 4; val ++)
+2516   2                      {
+2517   3                              printd("  WEP Key %u: 0x", val);
+2518   3                              for (i = 0; i < dat; i ++)
+2519   3                              {
+2520   4                                      if (dat == 5)
+2521   4                                              printd("%02bx", pConfigData->WifiConfig.WifiWep64Key[val][i]);          
+2522   4                                      else
+2523   4                                              printd("%02bx", pConfigData->WifiConfig.WifiWep128Key[val][i]);
+2524   4                              }
+2525   3                              printd("\r\n"); 
+2526   3                      }
+2527   2                                      
+2528   2                      // AES/TKIP Passphrase //
+2529   2                      dat = pConfigData->WifiConfig.WifiPreShareKeyLen;               
+2530   2                      printd("  AES/TKIP Passphrase: ");
+2531   2                      for (i = 0; i < dat; i ++)
+2532   2                      {
+2533   3                              printd("%c", pConfigData->WifiConfig.WifiPreShareKey[i]);
+2534   3                      }
+2535   2                      printd("\r\n"); 
+2536   2                                      
+2537   2                      // TX Data Rate //              
+2538   2                      i = pConfigData->WifiConfig.WifiTxRate;
+2539   2                      printd("  Tx Rate: ", i);
+2540   2              switch(i)
+2541   2              {
+2542   3                  case 0:
+2543   3                      printd("auto");
+2544   3                      break;
+2545   3                  case 1:
+2546   3                      printd("1 Mbps");
+2547   3                      break;
+2548   3                  case 2:
+2549   3                      printd("2 Mbps");
+2550   3                      break;
+2551   3                  case 3:
+2552   3                      printd("5.5 Mbps");
+2553   3                      break;
+2554   3                  case 4:
+2555   3                      printd("6 Mbps");
+2556   3                      break;
+2557   3                  case 5:
+2558   3                      printd("9 Mbps");
+2559   3                      break;
+2560   3                  case 6:
+2561   3                      printd("11 Mbps");
+2562   3                      break;
+2563   3                  case 7:
+2564   3                      printd("12 Mbps");
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 43  
+
+2565   3                      break;
+2566   3                  case 8:
+2567   3                      printd("18 Mbps");
+2568   3                      break;
+2569   3                  case 9:
+2570   3                      printd("24 Mbps");
+2571   3                      break;
+2572   3                  case 10:
+2573   3                      printd("36 Mbps");
+2574   3                      break;
+2575   3                  case 11:
+2576   3                      printd("48 Mbps");
+2577   3                      break;
+2578   3                  case 12:
+2579   3                      printd("54 Mbps");
+2580   3                      break;
+2581   3              }
+2582   2                      printd("\r\n");                                                                         
+2583   2                      
+2584   2                      // Transmission Power //
+2585   2                      i = pConfigData->WifiConfig.WifiTxPowerLevel;
+2586   2                      printd("  Transmission Power Level: ");
+2587   2                      if (i == 0)
+2588   2                              printd("100%% ");
+2589   2                      else if (i == 1)
+2590   2                              printd("50%% ");                
+2591   2                      else if (i == 2)
+2592   2                              printd("25%% ");                
+2593   2                      else if (i == 3)
+2594   2                              printd("12.5%% ");              
+2595   2                      else
+2596   2                              printd("6.25%% ");
+2597   2                      printd("\r\n");         
+2598   2                      
+2599   2                      // GB Protection //
+2600   2                      // Preamble //
+2601   2                      i = pConfigData->WifiConfig.WifiPreambleMode;
+2602   2                      printd("  Preamble Mode: ");
+2603   2                      printd("%s", (i ? "auto" : "long"));
+2604   2                      printd("\r\n");
+2605   2                                      
+2606   2                      // Beacon Interval //
+2607   2                      val = pConfigData->WifiConfig.WifiBcnInterval;
+2608   2                      printd("  Beacon Interval: %u ms\r\n", val);
+2609   2                                      
+2610   2                      // RTS Threshold //     
+2611   2                      val = pConfigData->WifiConfig.WifiRtsThreshold;
+2612   2                      printd("  RTS Threshold: %u \r\n", val);
+2613   2                      
+2614   2                      // Auto Power Control //
+2615   2                      i = pConfigData->WifiConfig.WifiAutoPowerCtrl;
+2616   2                      printd("  Auto Power Control: ");
+2617   2                      printd("%s", (i ? "enable" : "disable"));
+2618   2                                                                                      
+2619   2                      // End of power on information //               
+2620   2                      printd("\n\r\n\r");
+2621   2              }
+2622   1      
+2623   1      } /* End of gconfig_DisplayConfigData() */
+2624          
+2625          /* End of gconfig.c */
+
+C51 COMPILER V9.01   GCONFIG                                                               08/29/2011 15:28:03 PAGE 44  
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =  13161    ----
+   CONSTANT SIZE    =   1582    ----
+   XDATA SIZE       =    845     154
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,1559 @@
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE HTTPD
+OBJECT MODULE PLACED IN .\httpd.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mhttp\httpd.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(.
+                    -.\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mping
+                    -;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\m
+                    -http;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32KH)
+                    - VARBANKING DEBUG PRINT(.\httpd.lst) OBJECT(.\httpd.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*=============================================================================
+  12           * Module Name: httpd.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: httpd.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          #define HTTPD_DEBUG             1
+  22          
+  23          /* INCLUDE FILE DECLARATIONS */
+  24          #include "ax22000.h"
+  25          #include "mcpu.h"
+  26          #include "httpd.h"
+  27          #include "filesys.h"
+  28          #include "adapter.h"
+  29          #include "tcpip.h"
+  30          #include "mstimer.h"
+  31          #include "httpdapi.h"
+  32          #include "httpdap.h"
+  33          #include "uart0.h"
+  34          #include "printd.h"
+  35          #include <ctype.h>
+  36          #include <stdio.h>
+  37          #include <string.h>
+  38          
+  39          /* NAMING CONSTANT DECLARATIONS */
+  40          #define HTTP_TEMP_BUFFER_SIZE   512
+  41          
+  42          /* GLOBAL VARIABLES DECLARATIONS */
+  43          entry entries[20];
+  44          U8_T num_parms;
+  45          U8_T HTTP_PostTable[MAX_POST_COUNT];
+  46          U8_T HTTP_PostCount = 0;
+  47          
+  48          HTTP_SERVER_INFO httpInfo;
+  49          U8_T HTTP_TmpBuf[HTTP_TEMP_BUFFER_SIZE];
+  50          
+  51          /* LOCAL VARIABLES DECLARATIONS */
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 2   
+
+  52          static HTTP_SERVER_CONN XDATA HTTP_Connects[MAX_HTTP_CONNECT];
+  53          static U8_T CODE HtmlHeader[] = {"HTTP/1.0 200 OK\r\nCache-control: no-cache\r\nConnection: Keep-Alive\r\n
+             -Content-type: text/html\r\n\r\n"};
+  54          static U8_T XDATA HtmlHeaderLen = (sizeof(HtmlHeader) - 1);
+  55          static U8_T XDATA CSSHeader[] = {"HTTP/1.0 200 OK\r\nCache-control: no-cache\r\nConnection: Keep-Alive\r\n
+             -Content-type: text/css\r\n\r\n"};
+  56          static U8_T XDATA CSSHeaderLen = (sizeof(CSSHeader) - 1);
+  57          static U8_T CODE JsHeader[] = {"HTTP/1.0 200 OK\r\nCache-control: no-cache\r\nConnection: Keep-Alive\r\nCo
+             -ntent-type: application/javascript\r\n\r\n"};
+  58          static U8_T XDATA JsHeaderLen = (sizeof(JsHeader) - 1);
+  59          static U8_T XDATA ImageHeader[] = {"HTTP/1.0 200 OK\r\nCache-control: no-cache\r\nConnection: Keep-Alive\r
+             -\nContent-Length: xxxxx\r\nContent-type: image/jpeg\r\n\r\n"};
+  60          static U8_T XDATA ImageHeaderLen = (sizeof(ImageHeader) - 1);
+  61          static U8_T XDATA ImageByteCountOffset = 82;
+  62          
+  63          static U8_T http_InterfaceId = 0;
+  64          
+  65          /* LOCAL SUBPROGRAM DECLARATIONS */
+  66          static U8_T http_NewConfig(void);
+  67          static void     http_DivideHtmlFile(HTTP_SERVER_CONN XDATA*, U8_T);
+  68          
+  69          /*
+  70           * ----------------------------------------------------------------------------
+  71           * Function Name: HTTP_Init
+  72           * Purpose: Initialize HTTP server. 
+  73           * Params:
+  74           * Returns:
+  75           * Note:
+  76           * ----------------------------------------------------------------------------
+  77           */
+  78          void HTTP_Init(void)
+  79          {
+  80   1              U8_T                    i;
+  81   1      
+  82   1              for (i = 0; i < MAX_HTTP_CONNECT; i++)
+  83   1              {
+  84   2                      HTTP_Connects[i].State = HTTP_STATE_FREE;
+  85   2                      HTTP_Connects[i].FileId = 0xff;
+  86   2                      HTTP_Connects[i].ContinueFlag = 0;
+  87   2              }
+  88   1      
+  89   1              http_InterfaceId = TCPIP_Bind(HTTP_NewConn, HTTP_Event, HTTP_Receive);
+  90   1              TCPIP_TcpListen(HTTP_SERVER_PORT ,http_InterfaceId);
+  91   1      
+  92   1              FSYS_Init();
+  93   1      
+  94   1              memset(&httpInfo, sizeof(HTTP_SERVER_INFO), 0);
+  95   1              HTTPAP_Init(&httpInfo);
+  96   1      
+  97   1      } /* End of HTTP_Init() */
+  98          
+  99          /*
+ 100           * ----------------------------------------------------------------------------
+ 101           * Function Name: HTTP_NewConn
+ 102           * Purpose: 
+ 103           * Params:
+ 104           * Returns:
+ 105           * Note:
+ 106           * ----------------------------------------------------------------------------
+ 107           */
+ 108          U8_T HTTP_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
+ 109          {
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 3   
+
+ 110   1              U8_T    i;
+ 111   1      
+ 112   1              for (i = 0; i < MAX_HTTP_CONNECT; i++)
+ 113   1              {
+ 114   2                      if (HTTP_Connects[i].State == HTTP_STATE_FREE)
+ 115   2                      {
+ 116   3                              HTTP_Connects[i].State = HTTP_STATE_ACTIVE;
+ 117   3                              HTTP_Connects[i].Timer = (U16_T)SWTIMER_Tick();
+ 118   3                              HTTP_Connects[i].Ip = *pip;
+ 119   3                              HTTP_Connects[i].Port = remotePort;
+ 120   3                              HTTP_Connects[i].TcpSocket = socket;
+ 121   3      
+ 122   3                              return i;
+ 123   3                      }
+ 124   2              }
+ 125   1              return TCPIP_NO_NEW_CONN;
+ 126   1      }
+ 127          
+ 128          /*
+ 129           * ----------------------------------------------------------------------------
+ 130           * Function Name: HTTP_Event
+ 131           * Purpose: 
+ 132           * Params:
+ 133           * Returns:
+ 134           * Note:
+ 135           * ----------------------------------------------------------------------------
+ 136           */
+ 137          void HTTP_Event(U8_T id, U8_T event)
+ 138          {
+ 139   1              U8_T    fileId = HTTP_Connects[id].FileId;
+ 140   1      
+ 141   1              if (event < TCPIP_CONNECT_XMIT_COMPLETE)
+ 142   1              {
+ 143   2                      HTTP_Connects[id].State = event;
+ 144   2                      /* Add for send web page final process start */
+ 145   2                      if (event == TCPIP_CONNECT_CANCEL)
+ 146   2                      {
+ 147   3                      if (FSYS_Manage[fileId].FType == FILE_TYPE_HTML || FSYS_Manage[fileId].FType == FILE_TYPE_CGI)
+ 148   3                              {
+ 149   4                                      if (HTTPAP_ResponseComplete(&(HTTP_Connects[id]), &httpInfo) == HTTP_POST_FAILURE)
+ 150   4                                              return;
+ 151   4                              }
+ 152   3                      }
+ 153   2                      /* Add for send web page final process end */
+ 154   2              }
+ 155   1              else if (event == TCPIP_CONNECT_XMIT_COMPLETE)
+ 156   1              {
+ 157   2                      U8_T*                   pSour;
+ 158   2                      static U16_T    dataLen;
+ 159   2      
+ 160   2                      if (HTTP_Connects[id].State == HTTP_STATE_SEND_HEADER)
+ 161   2                      {
+ 162   3                              {
+ 163   4                                      if (FSYS_Manage[fileId].FType & FILE_TYPE_BIN)
+ 164   4                                      {
+ 165   5                                              HTTP_Connects[id].Divide.Fragment = 0;
+ 166   5                                      }
+ 167   4                                      else
+ 168   4                                      {
+ 169   5                                              http_DivideHtmlFile(&HTTP_Connects[id], fileId);
+ 170   5                                              
+ 171   5                                              HTTPAP_DivideHtmlFile(&HTTP_Connects[id], fileId);
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 4   
+
+ 172   5                                      }
+ 173   4      
+ 174   4                                      pSour = FSYS_Manage[fileId].PBuf;
+ 175   4                                      dataLen = FSYS_Manage[fileId].FileSize;
+ 176   4      
+ 177   4                                      if (HTTP_Connects[id].Divide.Fragment == 0)
+ 178   4                                      {
+ 179   5                                              TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pSour, dataLen, TCPIP_SEND_FINAL);
+ 180   5                                              HTTP_Connects[id].State = HTTP_STATE_SEND_FINAL;
+ 181   5                                      }
+ 182   4                                      else
+ 183   4                                      {
+ 184   5                                              HTTP_Connects[id].State = HTTP_STATE_SEND_DATA;
+ 185   5                                              HTTP_Connects[id].Divide.PData = pSour;
+ 186   5                                              HTTP_Connects[id].Divide.LeftLen = dataLen;
+ 187   5                                              HTTP_Connects[id].Divide.CurIndex = 0;
+ 188   5                                              HTTP_Connects[id].Divide.PadFlag = 0;
+ 189   5                                              goto SENDHTML;
+ 190   5                                      }
+ 191   4                              }
+ 192   3                      }
+ 193   2                      else if (HTTP_Connects[id].State == HTTP_STATE_SEND_DATA)
+ 194   2                      {
+ 195   3      SENDHTML:
+ 196   3                              {
+ 197   4                                      BUF_TEXT XDATA*         pText;
+ 198   4                                      BUF_TAG XDATA*          pTag;
+ 199   4                                      U8_T*                           pSour = HTTP_Connects[id].Divide.PData;
+ 200   4                                      static U8_T XDATA       pTrue[] = " checked";
+ 201   4                                      static U8_T XDATA       pSele[] = " selected";
+ 202   4                                      static U16_T    leftLen;
+ 203   4                                      static U8_T             index;
+ 204   4      
+ 205   4                                      leftLen = HTTP_Connects[id].Divide.LeftLen;
+ 206   4                                      index = HTTP_Connects[id].Divide.CurIndex;
+ 207   4      
+ 208   4                                      if (!HTTP_Connects[id].Divide.PadFlag)
+ 209   4                                      {
+ 210   5                                              if (index == 0)
+ 211   5                                                      dataLen = HTTP_Connects[id].Divide.Offset[index];
+ 212   5                                              else if (index == HTTP_Connects[id].Divide.Fragment)
+ 213   5                                                      dataLen = leftLen;
+ 214   5                                              else
+ 215   5                                                      dataLen = HTTP_Connects[id].Divide.Offset[index] -
+ 216   5                                                              HTTP_Connects[id].Divide.Offset[index - 1];
+ 217   5      
+ 218   5                                              if (index == HTTP_Connects[id].Divide.Fragment)
+ 219   5                                              {
+ 220   6                                                      TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pSour, dataLen, TCPIP_SEND_FINAL);
+ 221   6                                                      HTTP_Connects[id].State = HTTP_STATE_SEND_FINAL;
+ 222   6                                              }
+ 223   5                                              else
+ 224   5                                              {
+ 225   6                                                      TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pSour, dataLen, TCPIP_SEND_NOT_FINAL);
+ 226   6                                                      HTTP_Connects[id].Divide.PData += dataLen;
+ 227   6                                                      HTTP_Connects[id].Divide.LeftLen -= dataLen;
+ 228   6                                                      HTTP_Connects[id].Divide.PadFlag = 1;
+ 229   6                                              }
+ 230   5                                      }
+ 231   4                                      else
+ 232   4                                      {
+ 233   5                                              if (HTTP_Connects[id].Divide.PostType[index] ==POST_TYPE_RADIO)
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 5   
+
+ 234   5                                              {
+ 235   6                                                      if (HTTP_Connects[id].Divide.SetFlag[index] == 1)
+ 236   6                                                              TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pTrue, 8, TCPIP_SEND_NOT_FINAL);
+ 237   6                                                      else if (HTTP_Connects[id].Divide.SetFlag[index] == 2)
+ 238   6                                                      {
+ 239   7                                                              if (*pSour == ' ')
+ 240   7                                                              {
+ 241   8                                                                      HTTP_Connects[id].Divide.PData += 8;
+ 242   8                                                                      HTTP_Connects[id].Divide.Offset[index] += 8;
+ 243   8                                                                      HTTP_Connects[id].Divide.LeftLen -= 8;
+ 244   8                                                              }
+ 245   7                                                              else
+ 246   7                                                              {
+ 247   8                                                                      HTTP_Connects[id].Divide.PData += 7;
+ 248   8                                                                      HTTP_Connects[id].Divide.Offset[index] += 7;
+ 249   8                                                                      HTTP_Connects[id].Divide.LeftLen -= 7;
+ 250   8                                                              }
+ 251   7                                                              HTTP_Connects[id].Divide.PadFlag = 0;
+ 252   7                                                              HTTP_Connects[id].Divide.CurIndex++;
+ 253   7                                                              goto SENDHTML;
+ 254   7                                                      }
+ 255   6                                              }
+ 256   5                                              else if (HTTP_Connects[id].Divide.PostType[index] == POST_TYPE_TEXT)
+ 257   5                                              {
+ 258   6                                                      pText = POST_Record[HTTP_Connects[id].Divide.RecordIndex[index]].PValue;
+ 259   6                                                      leftLen -= pText->DefaultLength;
+ 260   6                                                      if (!leftLen)
+ 261   6                                                      {
+ 262   7                                                              TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pText->CurrValue, pText->CurrLength, TCPIP_SEND_FINAL);
+ 263   7                                                              HTTP_Connects[id].State = HTTP_STATE_SEND_FINAL;
+ 264   7                                                              return;
+ 265   7                                                      }
+ 266   6      
+ 267   6                                                      TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pText->CurrValue, pText->CurrLength, TCPIP_SEND_NOT_FINAL
+             -);
+ 268   6                                                      HTTP_Connects[id].Divide.PData += pText->DefaultLength;
+ 269   6                                                      HTTP_Connects[id].Divide.Offset[index] += pText->DefaultLength;
+ 270   6                                                      HTTP_Connects[id].Divide.LeftLen =leftLen;
+ 271   6                                              }
+ 272   5                                              else if (HTTP_Connects[id].Divide.PostType[index] == POST_TYPE_TAG)
+ 273   5                                              {
+ 274   6                                                      pTag = POST_Record[HTTP_Connects[id].Divide.RecordIndex[index]].PValue;
+ 275   6                                                      leftLen -= pTag->DefaultLength;
+ 276   6                                                      if(pTag->CurrLength)
+ 277   6                                                        TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pTag->CurrValue, pTag->CurrLength, TCPIP_SEND_NOT_FINAL
+             -);
+ 278   6                                                      HTTP_Connects[id].Divide.PData += pTag->DefaultLength;
+ 279   6                                                      HTTP_Connects[id].Divide.Offset[index] += pTag->DefaultLength;
+ 280   6                                                      HTTP_Connects[id].Divide.LeftLen =leftLen;
+ 281   6                                                      if(!pTag->CurrLength)
+ 282   6                                                      {
+ 283   7                                                              HTTP_Connects[id].Divide.PadFlag = 0;
+ 284   7                                                              HTTP_Connects[id].Divide.CurIndex++;
+ 285   7                                                              goto SENDHTML;
+ 286   7                                                      }
+ 287   6                                              } 
+ 288   5                                              else if (HTTP_Connects[id].Divide.PostType[index] == POST_TYPE_SELECT)
+ 289   5                                              {
+ 290   6                                                      if (HTTP_Connects[id].Divide.SetFlag[index] == 1)
+ 291   6                                                      {
+ 292   7                                                              TCPIP_TcpSend(HTTP_Connects[id].TcpSocket, pSele, 9, TCPIP_SEND_NOT_FINAL);
+ 293   7                                                      }
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 6   
+
+ 294   6                                                      else if (HTTP_Connects[id].Divide.SetFlag[index] == 2)
+ 295   6                                                      {
+ 296   7                                                              HTTP_Connects[id].Divide.PData += 9;
+ 297   7                                                              HTTP_Connects[id].Divide.Offset[index] += 9;
+ 298   7                                                              HTTP_Connects[id].Divide.LeftLen -= 9;
+ 299   7      
+ 300   7                                                              HTTP_Connects[id].Divide.PadFlag = 0;
+ 301   7                                                              HTTP_Connects[id].Divide.CurIndex++;
+ 302   7                                                              goto SENDHTML;
+ 303   7                                                      }
+ 304   6                                                      else
+ 305   6                                                      {
+ 306   7                                                              HTTPAP_SendMoreWebFragment(index, &HTTP_Connects[id]);
+ 307   7                                                      }
+ 308   6                                              }
+ 309   5                                              HTTP_Connects[id].Divide.PadFlag = 0;
+ 310   5                                              HTTP_Connects[id].Divide.CurIndex++;
+ 311   5                                      }
+ 312   4                              }
+ 313   3                      }
+ 314   2                      else if (HTTP_Connects[id].State == HTTP_STATE_SEND_FINAL)
+ 315   2                      {
+ 316   3      //                      HTTP_Connects[id].State = HTTP_STATE_FREE;
+ 317   3                      }
+ 318   2              }
+ 319   1      
+ 320   1      } /* End of HTTP_Event() */
+ 321          
+ 322          /*
+ 323           * ----------------------------------------------------------------------------
+ 324           * Function Name: StringCompare
+ 325           * Purpose: 
+ 326           * Params:
+ 327           * Returns:
+ 328           * Note:
+ 329           * ----------------------------------------------------------------------------
+ 330           */
+ 331          U8_T StringCompare(U8_T XDATA* pData, U8_T XDATA* pStr, U8_T len)
+ 332          {
+ 333   1              U8_T    index;
+ 334   1      
+ 335   1              for (index = 0; index < len; index++)
+ 336   1              {
+ 337   2                      if (*pData++ != *pStr++)
+ 338   2                              break;
+ 339   2              }
+ 340   1              if (index == len)
+ 341   1                      return 1;
+ 342   1      
+ 343   1              return 0;
+ 344   1      } /* End of StringCompare() */
+ 345          
+ 346          /*
+ 347           * ----------------------------------------------------------------------------
+ 348           * Function Name: http_GetFile
+ 349           * Purpose: 
+ 350           * Params:
+ 351           * Returns:
+ 352           * Note:
+ 353           * ----------------------------------------------------------------------------
+ 354           */
+ 355          U8_T http_GetFile(U8_T XDATA** pData, U8_T XDATA** pFName, U8_T XDATA** pFNameExt, U16_T* length)
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 7   
+
+ 356          {
+ 357   1              U8_T    c, find = 0;
+ 358   1              U8_T    parse_state = 0;
+ 359   1      
+ 360   1              c = **pData;
+ 361   1              while ((c != ' ') && (c != '\0') && (c != '\r') && (c != '\n'))
+ 362   1              {
+ 363   2                      switch(parse_state)
+ 364   2                      {
+ 365   3                      case 0:
+ 366   3                              if (c == '/' || c == '\\')
+ 367   3                              {
+ 368   4                                      parse_state = 1;
+ 369   4                                      *pFName = *pData + 1;
+ 370   4                              }
+ 371   3                              break;
+ 372   3                      case 1:
+ 373   3                              if (c == '?')
+ 374   3                              {
+ 375   4                                      find = 2;
+ 376   4                                      return find;
+ 377   4                              }
+ 378   3                              else if (c == '&')
+ 379   3                              {
+ 380   4                                      **pData = '\0';
+ 381   4                                      return find;
+ 382   4                              }
+ 383   3                              else
+ 384   3                              {
+ 385   4                                      if ((c == '+') || (c == '='))
+ 386   4                                              return 0;
+ 387   4      
+ 388   4                                      /* a path, change it to '_' */
+ 389   4                                      else if ((c == '/') || (c == '\\'))
+ 390   4                                      {
+ 391   5                                              **pData = '_';
+ 392   5                                      }
+ 393   4                                      /* Remember where file extension starts. */
+ 394   4                                      else if (c == '.')
+ 395   4                                      {
+ 396   5                                              *pFNameExt = *pData + 1;
+ 397   5                                              find = 1;
+ 398   5                                      }
+ 399   4                              }
+ 400   3                              break;
+ 401   3                      }
+ 402   2                      (*pData)++;
+ 403   2                      (*length)--;
+ 404   2                      c = **pData;
+ 405   2              }
+ 406   1      
+ 407   1              return find;
+ 408   1      }
+ 409          
+ 410          /*
+ 411           * ----------------------------------------------------------------------------
+ 412           * Function Name: http_UserPost
+ 413           * Purpose: 
+ 414           * Params:
+ 415           * Returns:
+ 416           * Note:
+ 417           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 8   
+
+ 418           */
+ 419          U8_T http_UserPost(U8_T XDATA* pData, U16_T length, U8_T fileId, U8_T continueFlag)
+ 420          {
+ 421   1              BUF_SUBMIT XDATA*       pSubmit;
+ 422   1              BUF_TEXT XDATA*         pText;
+ 423   1              U8_T                            j;
+ 424   1      #if (MAX_POST_BUF_RADIO)
+ 425   1              BUF_RADIO XDATA*        pRadio;
+ 426   1      #endif
+ 427   1      #if (MAX_POST_BUF_SELECT)
+ 428   1              BUF_SELECT XDATA*       pSelect;
+ 429   1      #endif
+ 430   1              U16_T                           i;
+ 431   1              U8_T                            x, y, a, nameLen;
+ 432   1              U8_T                            status = 0, final = 0;
+ 433   1      
+ 434   1              U8_T index;
+ 435   1              U8_T StrTemp[MAX_POST_VALUE_LEN] ;
+ 436   1              U8_T tempchar;
+ 437   1      
+ 438   1              if (continueFlag)
+ 439   1                      goto MAPRECORD;
+ 440   1      
+ 441   1              if (length < 150)
+ 442   1              {
+ 443   2                      return HTTP_POST_FAILURE;
+ 444   2              }
+ 445   1      
+ 446   1              HTTP_PostCount = 0;
+ 447   1              if (*pData == '?')
+ 448   1              {
+ 449   2                      length -= 1;
+ 450   2                      pData += 1;
+ 451   2                      goto MAPRECORD;
+ 452   2              }
+ 453   1      
+ 454   1              /* Parse the start address of post value from trailer to header */
+ 455   1              for (i = length - 4; ;i --)
+ 456   1              {
+ 457   2                      if (pData[i] == '\r' && pData[i+1] == '\n' && pData[i+2] == '\r' && pData[i+3] == '\n')
+ 458   2                      {
+ 459   3                              pData += i;
+ 460   3                              length -= i;
+ 461   3                              break;
+ 462   3                      }
+ 463   2                      else if (!i)
+ 464   2                              return HTTP_POST_FAILURE;
+ 465   2              }
+ 466   1      
+ 467   1              i = 0;
+ 468   1              while(i < length)
+ 469   1              {
+ 470   2                      while (1)
+ 471   2                      {
+ 472   3                              if ((pData[0]=='\r')&&(pData[1]=='\n')&&(pData[2]=='\r')&&(pData[3]=='\n'))
+ 473   3                              {
+ 474   4                                      pData += 4;
+ 475   4                                      i += 4;
+ 476   4                                      if (i == length)
+ 477   4                                              return HTTP_POST_CONTINUE;
+ 478   4                                              
+ 479   4                                      break;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 9   
+
+ 480   4                              }
+ 481   3                              else
+ 482   3                              {
+ 483   4                                      pData++;
+ 484   4                                      i++;
+ 485   4                                      if ((i + 3) >= length)
+ 486   4                                              return HTTP_POST_FAILURE;
+ 487   4                              }
+ 488   3                      }
+ 489   2      MAPRECORD:
+ 490   2                      for (x = 0; x < MAX_POST_RECORDS; x++)
+ 491   2                      {
+ 492   3                              if (POST_Record[x].Occupy == 1)
+ 493   3                              {
+ 494   4                                      // check file id
+ 495   4                                      if (fileId != POST_Record[x].FileIndex)
+ 496   4                                      {
+ 497   5                                              if (POST_Record[x].FileIndex != 0xff)
+ 498   5                                              {
+ 499   6                                                      continue;
+ 500   6                                              }
+ 501   5                                      }
+ 502   4      
+ 503   4                                      for (y = 0; y < POST_Record[x].NameLen; y++)
+ 504   4                                      {
+ 505   5                                              if (POST_Record[x].Name[y] != pData[y])
+ 506   5                                                      break;
+ 507   5                                      }
+ 508   4                                      if (y == POST_Record[x].NameLen)
+ 509   4                                      {
+ 510   5                                              if (pData[y] == '=')
+ 511   5                                              {
+ 512   6                                                      nameLen = (y + 1);
+ 513   6                                                      pData += nameLen;
+ 514   6                                                      i += nameLen;
+ 515   6      
+ 516   6                                                      switch (POST_Record[x].PostType)
+ 517   6                                                      {
+ 518   7                                                      case POST_TYPE_SUBMIT:
+ 519   7                                                              pSubmit = POST_Record[x].PValue;
+ 520   7                                                              for (a = 0; a < pSubmit->DefaultVlaueLen; a++)
+ 521   7                                                              {
+ 522   8                                                                      if (pSubmit->Value[a] != pData[a])
+ 523   8                                                                              break;
+ 524   8                                                              }
+ 525   7                                                              if (a == pSubmit->DefaultVlaueLen)
+ 526   7                                                              {
+ 527   8                                                                      HTTP_PostTable[HTTP_PostCount] = x;
+ 528   8                                                                      HTTP_PostCount++;
+ 529   8      #if (HTTPD_DEBUG)
+ 530   8                                                                      printd ("SUBMIT\n\r");
+ 531   8      #endif
+ 532   8                                                                      if (pSubmit->IsApply)
+ 533   8                                                                      {
+ 534   9                                                                              if (status)
+ 535   9                                                                              {
+ 536  10                                                                                      return HTTP_POST_FAILURE;
+ 537  10                                                                              }
+ 538   9                                                                              else
+ 539   9                                                                                      return HTTP_POST_SUCCESS;
+ 540   9                                                                      }
+ 541   8                                                                      else
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 10  
+
+ 542   8                                                                              return HTTP_POST_CANCEL;
+ 543   8                                                              }
+ 544   7                                                              else
+ 545   7                                                              {
+ 546   8                                                                      pData -= nameLen;
+ 547   8                                                                      i -= nameLen;
+ 548   8      
+ 549   8                                                                      goto MAPRECORD;
+ 550   8                                                              }
+ 551   7                                                              break;
+ 552   7                                                      case POST_TYPE_TEXT:
+ 553   7                                                              pText = POST_Record[x].PValue;
+ 554   7                                                              memset( StrTemp, 0, sizeof(StrTemp));
+ 555   7                                                      index=0;
+ 556   7                                                              for (a = 0; a < MAX_POST_VALUE_LEN; a++)
+ 557   7                                                              {
+ 558   8                                                                      if (pData[a] == '&')
+ 559   8                                                                              break;
+ 560   8                                                                      else if (pData[a] == ' ')
+ 561   8                                                                      {
+ 562   9                                                                              final = 1;
+ 563   9                                                                              break;
+ 564   9                                                                      }
+ 565   8      
+ 566   8                                                                      StrTemp[index] = pData[a];
+ 567   8                                                                      if(pData[a] == '%')
+ 568   8                                                                      {       
+ 569   9                                                                       if(isdigit(pData[a+1]))
+ 570   9                                                                              tempchar = (pData[a+1] - '0') << 4;
+ 571   9                                                                       else
+ 572   9                                                                              tempchar = ((pData[a+1] - 'A') + 10) << 4;
+ 573   9                                
+ 574   9                                                                       if(isdigit(pData[a+2]))
+ 575   9                                                                              tempchar += (pData[a+2] - '0');
+ 576   9                                                                      else
+ 577   9                                                                              tempchar += ((pData[a+2] - 'A') + 10);
+ 578   9      
+ 579   9                                                                  StrTemp[index] = tempchar;
+ 580   9                                                                      a+=2;                           
+ 581   9                                                              }
+ 582   8                                                                      index++;
+ 583   8                                                              }
+ 584   7      
+ 585   7                                                              if (pText == NULL)
+ 586   7                                                              {
+ 587   8                                                                      return HTTP_POST_FAILURE;
+ 588   8                                                              }
+ 589   7                                                              else
+ 590   7                                                              {
+ 591   8                                                                      memcpy(pText->UserValue, StrTemp, strlen(StrTemp)+1);
+ 592   8                                                                      pText->UserLength = strlen(StrTemp);
+ 593   8                                                              }
+ 594   7      
+ 595   7                                                              if (strlen(StrTemp) == MAX_POST_VALUE_LEN)
+ 596   7                                                              {
+ 597   8                                                                      if ((pData[a] != '&') && (pData[a] != ' '))
+ 598   8                                                                      {
+ 599   9      #if (HTTPD_DEBUG)
+ 600   9                                                                              printd ("TEXT_FALSE\n\r");
+ 601   9      #endif
+ 602   9                                                                              status = 1;
+ 603   9                                                                              pData += a;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 11  
+
+ 604   9                                                                              i += a;
+ 605   9      
+ 606   9                                                                              while ((*pData != '&') && (*pData != 0xa) && (*pData != 0xd))
+ 607   9                                                                              {
+ 608  10                                                                                      pData++;
+ 609  10                                                                                      i++;
+ 610  10                                                                              }
+ 611   9      
+ 612   9                                                                              pData++;
+ 613   9                                                                              i++;
+ 614   9      
+ 615   9                                                                              goto MAPRECORD;
+ 616   9                                                                      }
+ 617   8                                                                      else if (pData[a] == ' ')
+ 618   8                                                                              final = 1;
+ 619   8                                                              }
+ 620   7      #if (HTTPD_DEBUG)
+ 621   7                                                              printd ("TEXT_TRUE\n\r");
+ 622   7      #endif
+ 623   7                                                              HTTP_PostTable[HTTP_PostCount] = x;
+ 624   7                                                              HTTP_PostCount++;
+ 625   7                                                              if (final == 1)
+ 626   7                                                              {
+ 627   8                                                                      if (status)
+ 628   8                                                                      {
+ 629   9                                                                              return HTTP_POST_FAILURE;
+ 630   9                                                                      }
+ 631   8                                                                      else
+ 632   8                                                                              return HTTP_POST_SUCCESS;
+ 633   8                                                              }
+ 634   7                                                              pData += (a + 1);
+ 635   7                                                              i += (a + 1);
+ 636   7      
+ 637   7                                                              goto MAPRECORD;
+ 638   7                                                              break;
+ 639   7      #if (MAX_POST_BUF_PASSWORD)
+ 640   7                                                      case POST_TYPE_PASSWORD:
+ 641   7                                                              pText = POST_Record[x].PValue;
+ 642   7                                                              memset(StrTemp, 0, sizeof(StrTemp));
+ 643   7                                                      index=0;
+ 644   7                                                              for (a = 0; a < MAX_POST_VALUE_LEN; a++)
+ 645   7                                                              {
+ 646   8                                                                      if (pData[a] == '&')
+ 647   8                                                                              break;
+ 648   8                                                                      else if (pData[a] == ' ')
+ 649   8                                                                      {
+ 650   9                                                                              final = 1;
+ 651   9                                                                              break;
+ 652   9                                                                      }
+ 653   8      
+ 654   8                                                                      StrTemp[index] = pData[a];
+ 655   8                                                                      index++;
+ 656   8                                                              }
+ 657   7      
+ 658   7                                                              if (pText == NULL)
+ 659   7                                                              {
+ 660   8                                                                      return HTTP_POST_FAILURE;
+ 661   8                                                              }
+ 662   7                                                              else
+ 663   7                                                              {
+ 664   8                                                                      memcpy(pText->UserValue, StrTemp, strlen(StrTemp)+1);
+ 665   8                                                                      pText->UserLength = strlen(StrTemp);
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 12  
+
+ 666   8                                                              }
+ 667   7      
+ 668   7                                                              if (strlen(StrTemp) == MAX_POST_VALUE_LEN)
+ 669   7                                                              {
+ 670   8                                                                      if ((pData[a] != '&') && (pData[a] != ' '))
+ 671   8                                                                      {
+ 672   9      #if (HTTPD_DEBUG)
+ 673   9                                                                              printd ("TEXT_FALSE\n\r");
+ 674   9      #endif
+ 675   9                                                                              status = 1;
+ 676   9                                                                              pData += a;
+ 677   9                                                                              i += a;
+ 678   9      
+ 679   9                                                                              while ((*pData != '&') && (*pData != 0xa) && (*pData != 0xd))
+ 680   9                                                                              {
+ 681  10                                                                                      pData++;
+ 682  10                                                                                      i++;
+ 683  10                                                                              }
+ 684   9      
+ 685   9                                                                              pData++;
+ 686   9                                                                              i++;
+ 687   9      
+ 688   9                                                                              goto MAPRECORD;
+ 689   9                                                                      }
+ 690   8                                                                      else if (pData[a] == ' ')
+ 691   8                                                                              final = 1;
+ 692   8                                                              }
+ 693   7      #if (HTTPD_DEBUG)
+ 694   7                                                              printd ("PASSWORD_TRUE\n\r");
+ 695   7      #endif
+ 696   7                                                              HTTP_PostTable[HTTP_PostCount] = x;
+ 697   7                                                              HTTP_PostCount++;
+ 698   7                                                              if (final == 1)
+ 699   7                                                              {
+ 700   8                                                                      if (status)
+ 701   8                                                                      {
+ 702   9                                                                              return HTTP_POST_FAILURE;
+ 703   9                                                                      }
+ 704   8                                                                      else
+ 705   8                                                                              return HTTP_POST_SUCCESS;
+ 706   8                                                              }
+ 707   7                                                              pData += (a + 1);
+ 708   7                                                              i += (a + 1);
+ 709   7      
+ 710   7                                                              goto MAPRECORD;
+ 711   7                                                              break;
+ 712   7      #endif
+ 713   7      #if (MAX_POST_BUF_RADIO)
+ 714   7                                                      case POST_TYPE_RADIO:
+ 715   7                                                              pRadio = POST_Record[x].PValue;
+ 716   7                                                              for (j = 0; j < pRadio->Count; j++)
+ 717   7                                                              {
+ 718   8                                                                      for (a = 0; a < pRadio->Length[j]; a++)
+ 719   8                                                                      {
+ 720   9                                                                              if (pRadio->Value[j][a] != pData[a])
+ 721   9                                                                                      break;
+ 722   9                                                                      }
+ 723   8                                                                      if (a == pRadio->Length[j])
+ 724   8                                                                      {
+ 725   9                                                                              pData += (a + 1);
+ 726   9                                                                              i += (a + 1);
+ 727   9                                                                              pRadio->UserSet = j;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 13  
+
+ 728   9                                                                              HTTP_PostTable[HTTP_PostCount] = x;
+ 729   9                                                                              HTTP_PostCount++;
+ 730   9      #if (HTTPD_DEBUG)
+ 731   9                                                                              printd ("Radio item : %bx\n\r", j);
+ 732   9      #endif
+ 733   9                                                                              goto MAPRECORD;
+ 734   9                                                                      }
+ 735   8                                                              }
+ 736   7                                                              return HTTP_POST_FAILURE;
+ 737   7                                                              break;
+ 738   7      #endif
+ 739   7      #if (MAX_POST_BUF_SELECT)
+ 740   7                                                      case POST_TYPE_SELECT:
+ 741   7      #if (HTTPD_DEBUG)
+ 742   7                                                              printd("POST_TYPE_SELECT\n\r");
+ 743   7      #endif
+ 744   7                                                              pSelect = POST_Record[x].PValue;
+ 745   7      
+ 746   7                                                              pSelect->UserSet = (*pData) - 0x30;
+ 747   7      
+ 748   7                                                              if (pSelect->UserSet >= pSelect->Count)
+ 749   7                                                                      return HTTP_POST_FAILURE;
+ 750   7      
+ 751   7                                                              pData++;
+ 752   7                                                              i++;
+ 753   7      
+ 754   7                                                              if (*pData != '&')
+ 755   7                                                              {
+ 756   8                                                                      /* support select item > 10 */
+ 757   8                                                                      if ((*pData >= '0') && (*pData <= '9'))
+ 758   8                                                                      {
+ 759   9                                                                              pSelect->UserSet *= 10;
+ 760   9                                                                              pSelect->UserSet += ((*pData) - 0x30);
+ 761   9                                                                              if (pSelect->UserSet >= pSelect->Count)
+ 762   9                                                                                      return HTTP_POST_FAILURE;
+ 763   9      
+ 764   9                                                                              pData++;
+ 765   9                                                                              i++;
+ 766   9                                                                      }
+ 767   8      
+ 768   8                                                                      if (*pData != '&')
+ 769   8                                                                      {
+ 770   9                                                                              while ((*pData != '&') && (*pData != 0xa) && (*pData != 0xd))
+ 771   9                                                                              {
+ 772  10                                                                                      pData++;
+ 773  10                                                                                      i++;
+ 774  10                                                                              }
+ 775   9      
+ 776   9                                                                              pData++;
+ 777   9                                                                              i++;
+ 778   9      
+ 779   9                                                                              goto MAPRECORD;
+ 780   9                                                                      }
+ 781   8                                                              }
+ 782   7      
+ 783   7                                                              pData++;
+ 784   7                                                              i++;
+ 785   7                                                              HTTP_PostTable[HTTP_PostCount] = x;
+ 786   7                                                              HTTP_PostCount++;
+ 787   7      
+ 788   7                                                              goto MAPRECORD;
+ 789   7                                                              break;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 14  
+
+ 790   7      #endif
+ 791   7                                                      default:
+ 792   7                                                              break;
+ 793   7                                                      }
+ 794   6                                              }
+ 795   5                                      }
+ 796   4                              }
+ 797   3                      }
+ 798   2              }
+ 799   1      } /* End of http_UserPost() */
+ 800          
+ 801          /*
+ 802           * ----------------------------------------------------------------------------
+ 803           * Function Name: http_PostVal
+ 804           * Purpose: 
+ 805           * Params:
+ 806           * Returns:
+ 807           * Note:
+ 808           * ----------------------------------------------------------------------------
+ 809           */
+ 810          U8_T http_PostVal(U8_T XDATA* pData, U16_T length, U8_T Continue_Flag)
+ 811          {
+ 812   1              U8_T*   pTemp;
+ 813   1              U8_T    idx, index;
+ 814   1              U16_T   temp;
+ 815   1              U8_T    StrTemp[NORM_POST_VALUE_LEN] ;
+ 816   1              U8_T    tempchar;
+ 817   1        
+ 818   1              num_parms=0;
+ 819   1              pData[length]=0x0;
+ 820   1      
+ 821   1          if(Continue_Flag)
+ 822   1                      goto HTTP_POST_VAL_START;
+ 823   1                      
+ 824   1              if (*pData == '?')
+ 825   1              {
+ 826   2                      pData += 1;
+ 827   2                      goto HTTP_POST_VAL_START;
+ 828   2              }               
+ 829   1      
+ 830   1              /* Parse the start address of post value from trailer to header */
+ 831   1              for (temp = length - 4; ;temp --)
+ 832   1              {
+ 833   2                      if (pData[temp] == '\r' && pData[temp+1] == '\n' && pData[temp+2] == '\r' && pData[temp+3] == '\n')
+ 834   2                              break;
+ 835   2                      else if (!temp)
+ 836   2                              return HTTP_POST_FAILURE;
+ 837   2              }
+ 838   1              pData+=temp+4;
+ 839   1      
+ 840   1      HTTP_POST_VAL_START:
+ 841   1              idx=0;
+ 842   1              while (*pData != 0x0)
+ 843   1              {
+ 844   2                      entries[idx].name = pData;
+ 845   2                      pTemp = strchr(pData, '=');
+ 846   2                      if (!pTemp)
+ 847   2                              break;
+ 848   2      
+ 849   2                      pData=pTemp;
+ 850   2                      *pData++ = 0x0;
+ 851   2                      entries[idx].val = pData;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 15  
+
+ 852   2      
+ 853   2                      while (*pData != 0x0)
+ 854   2                      {
+ 855   3                              if (*pData == '\r')
+ 856   3                              {
+ 857   4                                      *pData++= 0x0;
+ 858   4                              }
+ 859   3                              if (*pData == '&')
+ 860   3                              {
+ 861   4                                      *pData++ = 0x0;    
+ 862   4                                      if (*pData == 0x0d)
+ 863   4                                              pData +=2;  //for \r\n
+ 864   4                                      break;
+ 865   4                              }
+ 866   3                              pData++;
+ 867   3                      }
+ 868   2      
+ 869   2                      /* convert  '+' to spaces */
+ 870   2                      pTemp = entries[idx].val;
+ 871   2                      for (; *pTemp != 0x0; pTemp++)
+ 872   2                              if (*pTemp == '+')
+ 873   2                                      *pTemp = ' '; 
+ 874   2                      
+ 875   2                      /* convert  '%XX' */
+ 876   2                      memset( StrTemp, 0, sizeof(StrTemp));
+ 877   2                      index=0;
+ 878   2                      for (pTemp = entries[idx].val ; *pTemp != 0x0 ; pTemp++)
+ 879   2                      {
+ 880   3                              StrTemp[index] = *pTemp;
+ 881   3                              if(*pTemp == '%')
+ 882   3                              {       
+ 883   4                                      if(isdigit(*(pTemp+1)))
+ 884   4                                              tempchar = (*(pTemp+1) - '0') << 4;
+ 885   4                                      else
+ 886   4                                              tempchar = ((*(pTemp+1) - 'A') + 10) << 4;
+ 887   4      
+ 888   4                                      if(isdigit(*(pTemp+2)))
+ 889   4                                              tempchar += (*(pTemp+2) - '0');
+ 890   4                                      else
+ 891   4                                              tempchar += ((*(pTemp+2) - 'A') + 10);
+ 892   4      
+ 893   4                                      StrTemp[index] = tempchar;
+ 894   4                                      pTemp+=2;                               
+ 895   4                              }
+ 896   3                              index ++;
+ 897   3                      }
+ 898   2                      strncpy(entries[idx].val, StrTemp, strlen(StrTemp)+1 );
+ 899   2                      idx++;
+ 900   2              }
+ 901   1      
+ 902   1              if(idx==0)
+ 903   1                      return HTTP_POST_CONTINUE;
+ 904   1      
+ 905   1              num_parms=idx;
+ 906   1              return  HTTP_POST_SUCCESS;
+ 907   1      }
+ 908          /*
+ 909           * ----------------------------------------------------------------------------
+ 910           * Function Name: HTTP_Receive
+ 911           * Purpose: 
+ 912           * Params:
+ 913           * Returns:
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 16  
+
+ 914           * Note:
+ 915           * ----------------------------------------------------------------------------
+ 916           */
+ 917          void HTTP_Receive(U8_T XDATA* pData, U16_T length, U8_T conn_id)
+ 918          {
+ 919   1              HTTP_SERVER_CONN XDATA* pHttpConn = &HTTP_Connects[conn_id];
+ 920   1              U8_T XDATA                              str_post[] = {"POST"};
+ 921   1              U8_T                                    command, status, fileId, index, fileStatus;
+ 922   1              U8_T XDATA*                             pFName;
+ 923   1              U8_T XDATA*                             pFNameExt;
+ 924   1              U8_T CODE*                              pSour;
+ 925   1              U8_T XDATA*                             pExpanSour;
+ 926   1              U16_T                                   data_len;
+ 927   1              U8_T                                    i;
+ 928   1                      
+ 929   1          num_parms = 0;
+ 930   1              
+ 931   1              httpInfo.pRequestBuf = pData;
+ 932   1                      
+ 933   1              if (pHttpConn->State < HTTP_STATE_ACTIVE)
+ 934   1              {
+ 935   2                      return;
+ 936   2              }
+ 937   1      
+ 938   1              if (pHttpConn->ContinueFlag)
+ 939   1              {
+ 940   2                      fileId = pHttpConn->ContinueFileId;
+ 941   2                      goto POST_START;
+ 942   2              }
+ 943   1      
+ 944   1              if (length < 14)
+ 945   1              {
+ 946   2              /* Auto response warning message */
+ 947   2                      HTTPAPI_ResponseErrMessage(HTTP_TmpBuf, HTTPAPI_400_BadRequest, pHttpConn);     
+ 948   2                      return;
+ 949   2              }
+ 950   1      
+ 951   1              if (StringCompare(pData, str_post, 4))
+ 952   1              {
+ 953   2                      command = HTTP_CMD_POST;
+ 954   2                      pData += 5;
+ 955   2                      length -= 5;
+ 956   2              }
+ 957   1              else
+ 958   1              {
+ 959   2                      command = HTTP_CMD_GET;
+ 960   2                      pData += 4;
+ 961   2                      length -= 4;
+ 962   2              }
+ 963   1      
+ 964   1              /* skip space */
+ 965   1              while (*pData == ' ')
+ 966   1              {
+ 967   2                      pData++;
+ 968   2                      length--;
+ 969   2              }
+ 970   1      
+ 971   1              fileId = MAX_STORE_FILE_NUM;
+ 972   1              fileStatus = http_GetFile(&pData, &pFName, &pFNameExt, &length);
+ 973   1      
+ 974   1              if (fileStatus)
+ 975   1                      fileId = FSYS_FindFile(pFName);
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 17  
+
+ 976   1      
+ 977   1              if (fileStatus == 2) /* for GET /XXX.XXX?--- mode */
+ 978   1                      goto POST_START;
+ 979   1      
+ 980   1              if (command == HTTP_CMD_POST)
+ 981   1              {
+ 982   2      POST_START:
+ 983   2                      if (fileId == MAX_STORE_FILE_NUM)
+ 984   2                      {
+ 985   3                      /* Auto response warning message */
+ 986   3                              HTTPAPI_ResponseErrMessage(HTTP_TmpBuf, HTTPAPI_404_NotFound, pHttpConn);
+ 987   3                              return;
+ 988   3                      }
+ 989   2      
+ 990   2                      if(FSYS_Manage[fileId].FType == FILE_TYPE_CGI)
+ 991   2                      {
+ 992   3                              status = http_PostVal(pData, length, pHttpConn->ContinueFlag);
+ 993   3      
+ 994   3                              if (status == HTTP_POST_CONTINUE)
+ 995   3                              {
+ 996   4      #if (HTTPD_DEBUG)
+ 997   4                                      printd ("POST continue.\n\r");
+ 998   4      #endif
+ 999   4                                      pHttpConn->ContinueFlag = 1;
+1000   4                                      pHttpConn->ContinueFileId = fileId;
+1001   4                                      return;
+1002   4                              }
+1003   3      #if (HTTPD_DEBUG)
+1004   3                              i=0;
+1005   3                              while(i<num_parms)
+1006   3                              {
+1007   4                                      printd("entry[%02bx]=%s,%s\n",i,entries[i].name,entries[i].val);
+1008   4                                      i++;
+1009   4                              }
+1010   3      #endif
+1011   3                              pHttpConn->ContinueFlag = 0;
+1012   3      
+1013   3                              if (status == HTTP_POST_FAILURE)
+1014   3                              {
+1015   4      #if (HTTPD_DEBUG)
+1016   4                                      printd ("POST error data0.\n\r");
+1017   4      #endif
+1018   4                              /* Auto response warning message */
+1019   4                                      HTTPAPI_ResponseErrMessage(HTTP_TmpBuf, HTTPAPI_400_BadRequest, pHttpConn);     
+1020   4                                      return;
+1021   4                              }
+1022   3                      }       
+1023   2                      else
+1024   2                      {
+1025   3      /* Add for post method process start */
+1026   3                              {
+1027   4                                      pHttpConn->FileId = fileId;
+1028   4                                      HTTPAP_PostMethodPreParseProcess(pHttpConn, &httpInfo);
+1029   4                                      fileId = pHttpConn->FileId;
+1030   4                      }
+1031   3      /* Add for post method process end */
+1032   3      
+1033   3                              /* look for Referer */
+1034   3                              status = http_UserPost(pData, length, FSYS_Manage[fileId].CgiRef,
+1035   3                                      pHttpConn->ContinueFlag);
+1036   3      
+1037   3      /* Add for post method process start */
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 18  
+
+1038   3                              if (status == HTTP_POST_SUCCESS)
+1039   3                              {
+1040   4                                      pHttpConn->FileId = fileId;
+1041   4                                      status = HTTPAP_PostMethodDeferParseProcess(pHttpConn, &httpInfo);
+1042   4                                      fileId = pHttpConn->FileId;
+1043   4                              }
+1044   3      /* Add for post method process end */
+1045   3      
+1046   3                              if (status == HTTP_POST_SUCCESS)
+1047   3                              {
+1048   4                                      pHttpConn->ContinueFlag = 0;
+1049   4      
+1050   4      /* Add for post method process start */
+1051   4                                      {
+1052   5                                              pHttpConn->FileId = fileId;
+1053   5                                              if (HTTPAP_PostMethodPreUpdateProcess(pHttpConn, &httpInfo) == HTTPAPI_OK)
+1054   5                                              {
+1055   6                                                      fileId = pHttpConn->FileId;
+1056   6      
+1057   6                                                      status = http_NewConfig();
+1058   6                                              
+1059   6                                  pHttpConn->FileId = fileId;
+1060   6                                      pHttpConn->Method = command;
+1061   6                                  if (HTTPAP_PostMethodDeferProcess(HTTP_POST_SUCCESS, pHttpConn, &httpInfo) == HTTP_PO
+             -ST_ERR)
+1062   6                                                      {
+1063   7                                          return;
+1064   7                                                      }
+1065   6                                              }
+1066   5                                              fileId = pHttpConn->FileId;
+1067   5                                      }
+1068   4      /* Add for post method process end */
+1069   4                              }
+1070   3                              else if (status == HTTP_POST_CONTINUE)
+1071   3                              {
+1072   4                                      pHttpConn->ContinueFlag = 1;
+1073   4                                      pHttpConn->ContinueFileId = fileId;
+1074   4                                      return;
+1075   4                              }
+1076   3                              else if (status == HTTP_POST_FAILURE)
+1077   3                              {
+1078   4                                      pHttpConn->ContinueFlag = 0;
+1079   4      #if (HTTPD_DEBUG)
+1080   4                                      printd ("POST error data1.\n\r");
+1081   4      #endif
+1082   4                                      {
+1083   5                              pHttpConn->FileId = fileId;
+1084   5                                  pHttpConn->Method = command;
+1085   5                                      if (HTTPAP_PostMethodDeferProcess(HTTP_POST_FAILURE, pHttpConn, &httpInfo) == HTTP_POST_ERR)
+1086   5                                              {
+1087   6                                              /* Auto response warning message */
+1088   6                                                      HTTPAPI_ResponseErrMessage(HTTP_TmpBuf, HTTPAPI_400_BadRequest, pHttpConn);     
+1089   6                                                      return;
+1090   6                                              }
+1091   5                                              fileId = pHttpConn->FileId;
+1092   5                                      }
+1093   4                              }
+1094   3                      }
+1095   2              }
+1096   1      
+1097   1              if (command == HTTP_CMD_GET)
+1098   1              {
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 19  
+
+1099   2                      if (fileStatus)
+1100   2                      {
+1101   3                              if (fileId == MAX_STORE_FILE_NUM)
+1102   3                              {
+1103   4                                      /* not find file, send reset */
+1104   4                              /* Auto response warning message */
+1105   4                                      HTTPAPI_ResponseErrMessage(HTTP_TmpBuf, HTTPAPI_404_NotFound, pHttpConn);       
+1106   4                                      return;
+1107   4                              }
+1108   3      
+1109   3                  /* Add for get method process start */
+1110   3                  if (FSYS_Manage[fileId].FType == FILE_TYPE_HTML)
+1111   3                  {
+1112   4                      pHttpConn->FileId = fileId;
+1113   4                          pHttpConn->Method = command;
+1114   4                              if (HTTPAP_GetMethodProcess(pHttpConn, &httpInfo) == HTTP_POST_ERR)
+1115   4                                      return;
+1116   4      
+1117   4                                      fileId = pHttpConn->FileId;
+1118   4                      }
+1119   3                  /* Add for get method process end */
+1120   3                      }
+1121   2                      else
+1122   2                      {
+1123   3                  /* Auto redirect to home page */
+1124   3                              HTTPAPI_ResponseRedirectMesssge(HTTP_TmpBuf, httpInfo.HomePage, pHttpConn);     
+1125   3                              return;
+1126   3                      }
+1127   2              }
+1128   1      
+1129   1          //call cgi function
+1130   1              if(FSYS_Manage[fileId].CgiCall)
+1131   1              {
+1132   2                      void (*pF)(void);
+1133   2                      pF= FSYS_Manage[fileId].CgiCall;
+1134   2                      pF();
+1135   2              }
+1136   1              
+1137   1              // update data in some web page
+1138   1              {
+1139   2                      U8_T i;
+1140   2      
+1141   2                      for (i = 0; i < MAX_POST_RECORDS; i++)
+1142   2                      {
+1143   3                              if (fileId == POST_Record[i].FileIndex)
+1144   3                              {
+1145   4                                      if (POST_Record[i].UpdateSelf == TRUE)
+1146   4                                      {
+1147   5                                              void *pValue = POST_Record[i].PValue;
+1148   5                                              void (*f)(void *pWebData);
+1149   5                                              f = fun_tbl[i];
+1150   5                                              f(pValue);
+1151   5                                      }
+1152   4                              }
+1153   3                      }
+1154   2              }
+1155   1      
+1156   1              pHttpConn->FileId = fileId;
+1157   1      
+1158   1              /* begin send html and jpg header */
+1159   1              if (FSYS_Manage[fileId].FType & FILE_TYPE_BIN)
+1160   1              {
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 20  
+
+1161   2                      data_len = (U32_T)FSYS_Manage[fileId].FileSize;
+1162   2                      index = 5;
+1163   2      
+1164   2                      while (index > 0)
+1165   2                      {
+1166   3                              index--;
+1167   3                              ImageHeader[ImageByteCountOffset + index] = (U8_T)((data_len%10) + 0x30);
+1168   3                              data_len /= 10;
+1169   3                      }
+1170   2      
+1171   2                      if (FSYS_Manage[fileId].FType == FILE_TYPE_CSS)
+1172   2                      {
+1173   3      
+1174   3                              data_len = (U32_T)CSSHeaderLen;
+1175   3                              pExpanSour = CSSHeader;
+1176   3                      }
+1177   2                      else /* only for ASIX IPCam */
+1178   2                      { 
+1179   3                              data_len = (U32_T)ImageHeaderLen;
+1180   3                              pExpanSour = ImageHeader;
+1181   3                      }
+1182   2                      TCPIP_TcpSend(pHttpConn->TcpSocket, pExpanSour, data_len, TCPIP_SEND_NOT_FINAL);
+1183   2              }
+1184   1              else
+1185   1              {
+1186   2                      if (FSYS_Manage[fileId].FType == FILE_TYPE_JS)
+1187   2                      {
+1188   3      
+1189   3                              data_len = (U32_T)JsHeaderLen;
+1190   3                              pSour = JsHeader;
+1191   3                      }
+1192   2                      else
+1193   2                      { 
+1194   3                              data_len = (U32_T)HtmlHeaderLen;
+1195   3                              pSour = HtmlHeader;
+1196   3                      }
+1197   2                      TCPIP_TcpSend(pHttpConn->TcpSocket, pSour, data_len, TCPIP_SEND_NOT_FINAL);
+1198   2              }
+1199   1      
+1200   1              pHttpConn->State = HTTP_STATE_SEND_HEADER;
+1201   1      
+1202   1      } /* End of HTTP_Receive() */
+1203          
+1204          /*
+1205           * ----------------------------------------------------------------------------
+1206           * Function Name: http_DivideHtmlFile
+1207           * Purpose: 
+1208           * Params:
+1209           * Returns:
+1210           * Note:
+1211           * ----------------------------------------------------------------------------
+1212           */
+1213          void http_DivideHtmlFile(HTTP_SERVER_CONN XDATA* pHttpConn, U8_T id)
+1214          {
+1215   1      #if (MAX_POST_BUF_RADIO)
+1216   1              BUF_RADIO XDATA*        pRadio;
+1217   1      #endif
+1218   1              BUF_TEXT XDATA*         pText;
+1219   1      #if (MAX_POST_BUF_SELECT)
+1220   1              BUF_SELECT XDATA*       pSelect;
+1221   1      #endif
+1222   1              BUF_TAG XDATA*          pTag;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 21  
+
+1223   1              U8_T                            tableIndex = 0;
+1224   1              U8_T                            i, k;
+1225   1      
+1226   1              {
+1227   2                      for (i = 0; i < MAX_POST_RECORDS; i++)
+1228   2                      {
+1229   3                              if (id != POST_Record[i].FileIndex)
+1230   3                                      continue;
+1231   3      
+1232   3                              if (POST_Record[i].PostType == POST_TYPE_TEXT)
+1233   3                              {
+1234   4                                      U8_T*   pData;
+1235   4      
+1236   4                                      pText = POST_Record[i].PValue;
+1237   4                                      if (!pText || (pText->DefaultLength == 0) || (pText->CurrLength == 0) ||
+1238   4                                              ((pText->CurrLength == 1) && (pText->DefaultLength == 1)))
+1239   4                                      {
+1240   5                                              continue;
+1241   5                                      }
+1242   4      
+1243   4                                      pData = FSYS_Manage[id].PBuf + pText->Offset;
+1244   4                                      if (pText->CurrLength == pText->DefaultLength)
+1245   4                                      {
+1246   5                                              for (k = 0; k < pText->CurrLength; k++)
+1247   5                                              {
+1248   6                                                      if (pData[k] != pText->CurrValue[k])
+1249   6                                                              break;
+1250   6                                              }
+1251   5      
+1252   5                                              if (k == pText->CurrLength)
+1253   5                                                      continue;
+1254   5                                      }
+1255   4      
+1256   4                                      pHttpConn->Divide.Offset[tableIndex] = pText->Offset;
+1257   4                                      pHttpConn->Divide.RecordIndex[tableIndex] = i;
+1258   4                                      pHttpConn->Divide.PostType[tableIndex] = POST_TYPE_TEXT;
+1259   4      
+1260   4                                      tableIndex++;
+1261   4                              }
+1262   3                              else if (POST_Record[i].PostType == POST_TYPE_TAG)
+1263   3                              {
+1264   4                                      
+1265   4                                      pTag = POST_Record[i].PValue;
+1266   4                                      if (pTag->DefaultLength == 0)
+1267   4                                              continue;
+1268   4                                      pHttpConn->Divide.Offset[tableIndex] = pTag->Offset;
+1269   4                                      pHttpConn->Divide.RecordIndex[tableIndex] = i;
+1270   4                                      pHttpConn->Divide.PostType[tableIndex] = POST_TYPE_TAG;
+1271   4      
+1272   4                                      tableIndex++;
+1273   4                              }
+1274   3      #if (MAX_POST_BUF_RADIO)
+1275   3                              else if (POST_Record[i].PostType == POST_TYPE_RADIO)
+1276   3                              {
+1277   4                                      pRadio = POST_Record[i].PValue;
+1278   4                                      if (pRadio->DefaultSet == pRadio->CurrentSet)
+1279   4                                              continue;
+1280   4      
+1281   4                                      for (k = 0; k < pRadio->Count; k++)
+1282   4                                      {
+1283   5                                              pHttpConn->Divide.Offset[tableIndex] = pRadio->Offset[k];
+1284   5                                              pHttpConn->Divide.RecordIndex[tableIndex] = i;
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 22  
+
+1285   5                                              pHttpConn->Divide.PostType[tableIndex] = POST_TYPE_RADIO;
+1286   5                                              if (pRadio->CurrentSet == k)
+1287   5                                              {
+1288   6                                                      pHttpConn->Divide.SetFlag[tableIndex] = 1;
+1289   6                                                      tableIndex++;
+1290   6                                              }
+1291   5                                              else if (pRadio->DefaultSet == k)
+1292   5                                              {
+1293   6                                                      pHttpConn->Divide.SetFlag[tableIndex] = 2;
+1294   6                                                      tableIndex++;
+1295   6                                              }
+1296   5                                      }
+1297   4                              }
+1298   3      #endif
+1299   3      #if (MAX_POST_BUF_SELECT)
+1300   3                              else if (POST_Record[i].PostType == POST_TYPE_SELECT)
+1301   3                              {
+1302   4                                      pSelect = POST_Record[i].PValue;
+1303   4                                      if ((pSelect->DefaultSet == pSelect->CurrentSet) ||
+1304   4                                                      (pSelect->CurrentSet >= pSelect->Count))
+1305   4                                      {
+1306   5                                              continue;
+1307   5                                      }
+1308   4                                      for (k = 0; k < pSelect->Count; k++)
+1309   4                                      {
+1310   5                                              if (pSelect->DefaultSet == k)
+1311   5                                              {
+1312   6                                                      pHttpConn->Divide.Offset[tableIndex] = pSelect->Offset[k];
+1313   6                                                      pHttpConn->Divide.RecordIndex[tableIndex] = i;
+1314   6                                                      pHttpConn->Divide.PostType[tableIndex] = POST_TYPE_SELECT;
+1315   6                                                      pHttpConn->Divide.SetFlag[tableIndex] = 2;
+1316   6                                                      tableIndex++;
+1317   6                                              }
+1318   5                                              else if (pSelect->CurrentSet == k)
+1319   5                                              {
+1320   6                                                      pHttpConn->Divide.Offset[tableIndex] = pSelect->Offset[k];
+1321   6                                                      pHttpConn->Divide.RecordIndex[tableIndex] = i;
+1322   6                                                      pHttpConn->Divide.PostType[tableIndex] = POST_TYPE_SELECT;
+1323   6                                                      pHttpConn->Divide.SetFlag[tableIndex] = 1;
+1324   6                                                      tableIndex++;
+1325   6                                              }
+1326   5                                      }                       
+1327   4                              }
+1328   3      #endif
+1329   3                              else
+1330   3                                      continue;
+1331   3                      }
+1332   2              }
+1333   1              pHttpConn->Divide.Fragment = tableIndex;
+1334   1      
+1335   1      } /* End of http_DivideHtmlFile() */
+1336          
+1337          /*
+1338           * ----------------------------------------------------------------------------
+1339           * Function Name: http_NewConfig
+1340           * Purpose: 
+1341           * Params:
+1342           * Returns:
+1343           * Note:
+1344           * ----------------------------------------------------------------------------
+1345           */
+1346          U8_T http_NewConfig(void)
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 23  
+
+1347          {
+1348   1      #if (MAX_POST_BUF_RADIO)
+1349   1              BUF_RADIO XDATA         *pRadio;
+1350   1      #endif
+1351   1              BUF_TEXT XDATA          *pText;
+1352   1      #if (MAX_POST_BUF_PASSWORD)
+1353   1              BUF_PASSWORD XDATA      *pPassword;
+1354   1      #endif
+1355   1      #if (MAX_POST_BUF_SELECT)
+1356   1              BUF_SELECT XDATA        *pSelect;
+1357   1      #endif
+1358   1              static U8_T                     i; /* static for avoiding callback function issue */
+1359   1              U8_T                            change;
+1360   1              void                            (*f)(void *pWebData);
+1361   1      
+1362   1      #if (HTTPD_DEBUG)
+1363   1              printd ("POST count = %bx\n\r", HTTP_PostCount);
+1364   1      #endif
+1365   1              for (i = 0; i < HTTP_PostCount; i++)
+1366   1              {
+1367   2      #if (HTTPD_DEBUG)
+1368   2                      printd ("Post Table %bx\n\r", HTTP_PostTable[i]);
+1369   2      #endif
+1370   2                      if (POST_Record[HTTP_PostTable[i]].PostType == POST_TYPE_TEXT)
+1371   2                      {
+1372   3                              change = 0;
+1373   3                              pText = POST_Record[HTTP_PostTable[i]].PValue;
+1374   3      
+1375   3                              if (pText == NULL)
+1376   3                                      continue;
+1377   3      
+1378   3                              if ((pText->CurrLength - 1) == pText->UserLength)
+1379   3                              {
+1380   4                                      if (memcmp(pText->CurrValue, pText->UserValue, pText->CurrLength - 1))
+1381   4                                              change = 1;
+1382   4                              }
+1383   3                              else
+1384   3                                      change = 1;
+1385   3      
+1386   3                              if (!change)
+1387   3                                      continue;
+1388   3      
+1389   3                              memcpy(pText->CurrValue, pText->UserValue, pText->UserLength);
+1390   3                              pText->CurrValue[pText->UserLength] = '"';
+1391   3                              pText->CurrLength =  pText->UserLength + 1 ;
+1392   3                              pText->UserLength++;
+1393   3      
+1394   3                              f = fun_tbl[HTTP_PostTable[i]];
+1395   3                              f(pText);
+1396   3                      }
+1397   2      #if (MAX_POST_BUF_PASSWORD)             
+1398   2                      else if (POST_Record[HTTP_PostTable[i]].PostType == POST_TYPE_PASSWORD)
+1399   2                      {
+1400   3                              change = 0;
+1401   3                              pPassword = POST_Record[HTTP_PostTable[i]].PValue;
+1402   3      
+1403   3                              if (pPassword == NULL)
+1404   3                                      continue;
+1405   3      
+1406   3                              if ((pPassword->CurrLength - 1) == pPassword->UserLength)
+1407   3                              {
+1408   4                                      if (memcmp(pPassword->CurrValue, pPassword->UserValue, pPassword->CurrLength - 1))
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 24  
+
+1409   4                                              change = 1;
+1410   4                              }
+1411   3                              else
+1412   3                                      change = 1;
+1413   3      
+1414   3                              if (!change)
+1415   3                                      continue;
+1416   3      
+1417   3                              memcpy(pPassword->CurrValue, pPassword->UserValue, pPassword->UserLength);
+1418   3                              pPassword->CurrValue[pPassword->UserLength] = '"';
+1419   3                              pPassword->CurrLength =  pPassword->UserLength + 1 ;
+1420   3                              pPassword->UserLength++;
+1421   3      
+1422   3                              f = fun_tbl[HTTP_PostTable[i]];
+1423   3                              f(pPassword);                   
+1424   3                      }
+1425   2      #endif          
+1426   2      #if (MAX_POST_BUF_RADIO)
+1427   2                      else if (POST_Record[HTTP_PostTable[i]].PostType == POST_TYPE_RADIO)
+1428   2                      {
+1429   3                              change = 0;
+1430   3                              pRadio = POST_Record[HTTP_PostTable[i]].PValue;
+1431   3                              if (pRadio->UserSet != pRadio->CurrentSet)
+1432   3                              {
+1433   4                                      pRadio->CurrentSet = pRadio->UserSet;
+1434   4                                      change = 1;
+1435   4                              }
+1436   3      
+1437   3                              if (!change)
+1438   3                                      continue;
+1439   3      
+1440   3                              f = fun_tbl[HTTP_PostTable[i]];
+1441   3                              f(&pRadio->CurrentSet);
+1442   3                      }
+1443   2      #endif
+1444   2      #if (MAX_POST_BUF_SELECT)
+1445   2                      else if (POST_Record[HTTP_PostTable[i]].PostType == POST_TYPE_SELECT)
+1446   2                      {
+1447   3                              change = 0;
+1448   3                              pSelect = POST_Record[HTTP_PostTable[i]].PValue;
+1449   3      
+1450   3                              if (pSelect->UserSet != pSelect->CurrentSet)
+1451   3                              {
+1452   4                                      pSelect->CurrentSet = pSelect->UserSet;
+1453   4                                      change = 1;
+1454   4                              }
+1455   3      
+1456   3                              if (!change)
+1457   3                                      continue;
+1458   3      
+1459   3                              f = fun_tbl[HTTP_PostTable[i]];
+1460   3                              f(&pSelect->CurrentSet);
+1461   3                      }
+1462   2      #endif
+1463   2                      else 
+1464   2                              continue;
+1465   2              }
+1466   1      
+1467   1              return HTTP_POST_SUCCESS;
+1468   1      
+1469   1      } /* End of http_NewConfig() */
+1470          
+C51 COMPILER V9.01   HTTPD                                                                 03/08/2012 11:01:03 PAGE 25  
+
+1471          
+1472          /* End of httpd.c */
+*** WARNING C291 IN LINE 799 OF ..\SRC\MHTTP\HTTPD.C: not every exit path returns a value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =  14771    ----
+   CONSTANT SIZE    =    407    ----
+   XDATA SIZE       =   2076     205
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

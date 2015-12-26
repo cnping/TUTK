@@ -1,0 +1,18 @@
+//======================================================================
+// AX220xx Firmware Revision History
+// Module Name: MCPU SIMPLIFIED I2C Module (si2c)
+//
+// Description: This is a simplified I2C module and it only supplies
+//		AX220xx	device in master mode. If the AX220xx runtime
+//		firmware only use I2C interface to access EEPROM or
+//		some simple I2C devices, software programmer cans use
+//		the simple I2C module instead of standard MCPU I2C module
+//		to reduce the firmware code size.
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the AX220xx Firmware between released versions. 
+//======================================================================
+
+Version 1.0.0  (2010-12-04)
+1. Initial release
+

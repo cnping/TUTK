@@ -1,0 +1,9 @@
+uIP is a very small implementation of the TCP/IP stack that is written
+by Adam Dunkels <adam@dunkels.com>. More information can be obtained 
+at the uIP homepage at
+		     http://dunkels.com/adam/uip/
+
+
+Note: The tcpip.LIB has been compiled with some parameters that has been
+definied in *.h file, so does not try to modify the default value of any
+definition in this module.

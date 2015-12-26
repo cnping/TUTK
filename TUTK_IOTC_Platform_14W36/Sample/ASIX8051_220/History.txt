@@ -1,0 +1,10 @@
+//======================================================================
+// AX220xx RS232-to-WiFi Reference Design 
+// Device Server Firmware Revision History
+//
+// This document describes the major changes, additions and bug fixes made 
+// to the Device Server Firmware between released versions. 
+//======================================================================
+
+Version 1.0.0 (2011-04-08)
+1. Initial release

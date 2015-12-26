@@ -1,0 +1,129 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Security</title>
+<link href="axcss0.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<table width="800" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+    <td colspan="2" align="right" bgcolor="#0088F7"><a href="http://www.asix.com.tw" target="mainFrame" style="text-decoration:none"><font face="Arial, Helvetica, sans-serif"><strong><font color="#FFFFFF" size="2"><em>http://www.asix.com.tw</em></font></strong></font></a>&nbsp;</td>
+	</tr>
+<tr>
+    <td colspan="2" bgcolor="#FFFFFF"><table border="0" cellpadding="0" cellspacing="0">
+		<tr>
+        <td width="20">&nbsp;</td>
+        <td><img src="img/Logo.jpg" alt="" width="67" height="62" /></td>
+        <td>&nbsp;&nbsp;<img src="img/asix.gif" alt="" width="95" height="24" /></td>
+        <td width="20">&nbsp;</td>
+        <td class="txtstyle_2" >ELECTRONICS CORPORATION</td>
+        <td width="20">&nbsp;</td>
+        <td class="txtstyle_1">AX220xx RS-232 to WiFi</td>
+		</tr>
+    </table></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="right" bgcolor="#60B7FF"><table border="0" cellpadding="0" cellspacing="0">
+		<tr> 
+        <td width="100" align="center"><a href="index.htm"><font color="#FFFFFF" face="Arial, Helvetica, sans-serif">Logout</font></a></td>
+		</tr>
+    </table></td>
+</tr>
+	<tr>
+    <td colspan="2" align="left" bgcolor="#C0C0C0"><table width="20" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td><div class="menuitem_1"><a href="bscsetting.htm">Basic</a></div></td>
+          <td><div class="menuitem_1"><a href="advsetting.htm">Advance</a></div></td>
+          <td bgcolor="#EDEFEF"><div class="menuitem_1"><a href="security.htm">Security</a></div></td>
+          <td><div class="menuitem_1"><a href="wifisetting.htm">WiFi</a></div></td>
+          <td><div class="menuitem_1"><a href="sysmonitor.htm">Status</a></div></td>
+	</tr>
+    </table></td>
+</tr>
+<form method="POST" onsubmit="return chkForm(0);">  
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF"><div class="subitem_1">Change Username Setting</div></td>
+  </tr>
+  <tr>
+    <td width="260" bgcolor="#EDEFEF"><div class="item_1">New Username</div></td>
+    <td width="530" bgcolor="#EDEFEF"><input name="new_usn" type="text" class="item_2" id="username" value="" style="width: 250px" maxlength="15" /></td>
+</tr>
+  <tr>
+	<td bgcolor="#EDEFEF"><div class="item_1"></div></td>
+    <td bgcolor="#EDEFEF">
+	<input name="Apply" type="submit" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" onclick="setSubmitType(1)" value="Apply" />
+	<input name="Cancel" type="reset" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" value="Cancel" /></td>
+</tr>
+</form>
+  <form method="POST" onsubmit="return chkForm(1);">     
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF"><div class="subitem_1">Change Password Setting</div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Old Password</div></td>
+    <td bgcolor="#EDEFEF"><input name="old_psw" type="password" class="item_2" value="" style="width: 250px" maxlength="15" /></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">New Password</div></td>
+    <td bgcolor="#EDEFEF"><input name="new_psw" type="password" class="item_2" value="" style="width: 250px" maxlength="15" /></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Confirm Password</div></td>
+    <td bgcolor="#EDEFEF"><input name="cfm_psw" type="password" class="item_2" value="" style="width: 250px" maxlength="15" /></td>
+</tr>
+  <tr>
+	<td bgcolor="#EDEFEF"><div class="item_1"></div></td>
+    <td bgcolor="#EDEFEF">
+	<input name="Apply" type="submit" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" onclick="setSubmitType(1)" value="Apply" />
+      <input name="Cancel" type="reset" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" value="Cancel" /></td>
+</tr>
+</form>
+  <form method="POST" onsubmit="return chkForm(2);">    
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF"><div class="subitem_1">Accessible IP Setting</div></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">IP #1</div></td>
+    <td bgcolor="#EDEFEF"><input name="acc_ip1" type="text" class="item_2" style="WIDTH: 140px" value="" maxlength="15" /></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">IP #2</div></td>
+    <td bgcolor="#EDEFEF"><input name="acc_ip2" type="text" class="item_2" style="WIDTH: 140px" value="" maxlength="15" /></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">IP #3</div></td>
+    <td bgcolor="#EDEFEF"><input name="acc_ip3" type="text" class="item_2" style="WIDTH: 140px" value="" maxlength="15" /></td>
+</tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">IP #4</div></td>
+    <td bgcolor="#EDEFEF"><input name="acc_ip4" type="text" class="item_2" style="WIDTH: 140px" value="" maxlength="15" /></td>
+</tr>
+  <tr><td bgcolor="#EDEFEF"></td><td bgcolor="#EDEFEF"><span class="setinfo">Please enter IP address(e.g. 10.4.1.100)</span></td></tr>
+  <tr>
+    <td bgcolor="#EDEFEF"><div class="item_1">Control</div></td>
+    <td bgcolor="#EDEFEF"><select name="acc_ipen" class="item_2" style="WIDTH: 80px">
+      <option value="0" selected >Disable</option>
+      <option value="1"			 >Enable</option>
+    </select></td>
+</tr>
+	<tr><td bgcolor="#EDEFEF"></td><td bgcolor="#EDEFEF"><span class="setinfo">Attention:</span></td></tr>
+	<tr><td bgcolor="#EDEFEF"></td><td bgcolor="#EDEFEF"><span class="setinfo">When you change the accessible IP successful, you must reboot device</br></span></td></tr>
+	<tr><td bgcolor="#EDEFEF"></td><td bgcolor="#EDEFEF"><span class="setinfo">to take it effect. please confirm settings before reboot device.</span></td></tr>
+  <tr>
+   	<td bgcolor="#EDEFEF"><div class="item_1"></div></td>
+    <td bgcolor="#EDEFEF">
+	<input name="Apply" type="submit" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" onclick="setSubmitType(1)" value="Apply" />
+      <input name="Cancel" type="reset" class="item_2" style="WIDTH: 60px; HEIGHT: 24px;" value="Cancel" /></td>
+</tr>
+</form>
+  <tr>
+    <td colspan="2" bgcolor="#EDEFEF">&nbsp;</td>
+  </tr>
+  <tr>
+    <td colspan="2" bgcolor="#C0C0C0">&nbsp;</td>
+</tr>
+</table>
+<script src="axjs0.js" type="text/javascript"></script>
+</body>
+</html>

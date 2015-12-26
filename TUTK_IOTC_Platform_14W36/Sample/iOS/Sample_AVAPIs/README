@@ -1,0 +1,23 @@
+This README file contains build instructions for the AVAPI sample code.
+
+Requirements:
+
+1. iOS SDK 4.3 or above.
+2. Xcode 4.0 or above.
+
+---------------------
+How to build the app:
+---------------------
+1. Open Sample_AVAPIs.xcodeproj with Xcode.
+2. Replace your device's UID with sample UID in "ViewControll.m".
+3. Click "Product" and "Build" in Xcode to build your project.
+
+-------------------
+How to run the app:
+-------------------
+This source code of sample client app is converted from 
+Linux/Sample_AVAPIs/AVAPIs_Client.c directly. So it has no UI elements, and it
+outputs message to the "Output" panel in Xcode (like a console program).
+
+Before running this app, an AVAPI sample server in Linux/Sample_AVAPIs/ should
+be ready for listening incoming connections.

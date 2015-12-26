@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>    
+    <string name="app_name">RDTAPIs</string>
+    <string name="title_btn_start1">Listen</string>
+    <string name="title_btn_start2">Connect</string>
+</resources>

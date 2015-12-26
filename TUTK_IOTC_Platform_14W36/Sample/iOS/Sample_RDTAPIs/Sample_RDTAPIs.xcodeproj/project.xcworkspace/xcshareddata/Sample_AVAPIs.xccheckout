@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>D95E9A3E-750D-4D08-AE70-BDE63CF5E8A4</string>
+	<key>IDESourceControlProjectName</key>
+	<string>Sample_AVAPIs</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>768EA87C-2FD3-4FF8-952E-28536172268F</key>
+		<string>http://stash.tutk.com:7990/scm/iotc/iotc.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>Sample/iOS/Sample_AVAPIs/Sample_AVAPIs.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>768EA87C-2FD3-4FF8-952E-28536172268F</key>
+		<string>../../../../..</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>http://stash.tutk.com:7990/scm/iotc/iotc.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>110</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>768EA87C-2FD3-4FF8-952E-28536172268F</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>768EA87C-2FD3-4FF8-952E-28536172268F</string>
+			<key>IDESourceControlWCCName</key>
+			<string>iotc</string>
+		</dict>
+	</array>
+</dict>
+</plist>

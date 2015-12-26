@@ -1,0 +1,5 @@
+drwxr-xr-x    2 1001     1001         4096 Sep 01 17:32 .
+drwxr-xr-x    6 1001     1001         4096 Sep 01 17:32 ..
+-rw-r--r--    1 1001     1001            0 Sep 01 17:32 dummy
+-rw-r--r--    1 1001     1001       750608 Sep 01 17:32 libIOTCAPIs_ALL.a
+-rw-r--r--    1 1001     1001       831128 Sep 01 17:32 libIOTCAPIs_P2PTunnel.a

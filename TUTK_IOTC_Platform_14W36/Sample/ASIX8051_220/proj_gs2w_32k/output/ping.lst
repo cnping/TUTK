@@ -1,0 +1,501 @@
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE PING
+OBJECT MODULE PLACED IN .\ping.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mping\ping.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(..
+                    -\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mping;
+                    -..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\mh
+                    -ttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\..\B
+                    -uild\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\ping.lst) OBJECT(.\ping.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: ping.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: ping.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "ping.h"
+  24          #include "stoe.h"
+  25          #include "adapter.h"
+  26          #include "tcpip.h"
+  27          #include "mstimer.h"
+  28          #include <string.h>
+  29          /* NAMING CONSTANT DECLARATIONS */
+  30          #define PING_PATTERN_DATA_START         (0x61)
+  31          #define PING_ICMP_ECHO_TYPE                     (0x08)
+  32          #define PING_ICMP_ECHO_REPLY_TYPE       (0x00)
+  33          
+  34          #define PING_DEFAULT_TIME_OUT           (35)//Unit in 50ms
+  35          #define MAX_PING_PATTERN_LENGTH         (64)
+  36          
+  37          /* MACRO DECLARATIONS */
+  38          
+  39          /* TYPE DECLARATIONS */
+  40          typedef struct _IP_HEADER
+  41          {
+  42                  U8_T    VerHlen;
+  43                  U8_T    TOS;
+  44                  U16_T   Length;
+  45                  U16_T   ID;
+  46                  U16_T   Frags;
+  47                  U8_T    TTL;
+  48                  U8_T    Protocol;
+  49                  U16_T   CheckSum;
+  50                  U32_T   SourIp;
+  51                  U32_T   DestIp;
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 2   
+
+  52                  U8_T    Option_Data[1];
+  53          } tsIP_HEADER;
+  54          
+  55          typedef struct _ICMP_HEADER
+  56          {
+  57                  U8_T    Type;
+  58                  U8_T    Code;
+  59                  U16_T   CheckSum;
+  60                  U16_T   Indentifier;
+  61                  U16_T   Sequence;
+  62                  U8_T    Data[1];
+  63          } tsICMP_HEADER;
+  64          
+  65          typedef struct _PING_LINKLIST
+  66          {
+  67                  tsPING_LINK *pHead;
+  68                  tsPING_LINK *pTail;
+  69          }tsPING_LINKLIST;
+  70          
+  71          /* GLOBAL VARIABLES DECLARATIONS */
+  72          U8_T XDATA PingFlag;/* for mwif compatable */
+  73          
+  74          /* LOCAL VARIABLES DECLARATIONS */
+  75          static tsPING_LINKLIST CmdFIFO, WaitFIFO, ReplyFIFO;
+  76          
+  77          /* LOCAL SUBPROGRAM DECLARATIONS */
+  78          static void PING_Send(tsPING_CONFIG_SET *pEntity);
+  79          static void PING_CallBack(void);
+  80          static U8_T PING_ChkQueueEmpty(tsPING_LINKLIST *pFIFO);
+  81          static void PING_EnQueue(tsPING_LINKLIST *pFIFO, tsPING_LINK *pEntity);
+  82          static tsPING_LINK *PING_DeQueue(tsPING_LINKLIST *pFIFO);
+  83          static tsPING_LINK *PING_DeQueueByOption(tsPING_LINKLIST *pFIFO, tsPING_LINK *pEntity);
+  84          
+  85          /*
+  86           * ----------------------------------------------------------------------------
+  87           * Function Name:void PING_Init()
+  88           * Purpose:
+  89           * Params:
+  90           * Returns:
+  91           * Note:
+  92           * ----------------------------------------------------------------------------
+  93           */
+  94          void PING_Init(void)
+  95          {
+  96   1              memset((U8_T*)&CmdFIFO, 0, sizeof(tsPING_LINKLIST));
+  97   1              memset((U8_T*)&WaitFIFO, 0, sizeof(tsPING_LINKLIST));
+  98   1              memset((U8_T*)&ReplyFIFO, 0, sizeof(tsPING_LINKLIST));
+  99   1              
+ 100   1              TCPIP_AssignPingRespFunc(PING_CallBack);
+ 101   1      } /* End of PING_Init() */
+ 102          
+ 103          /*
+ 104           * ----------------------------------------------------------------------------
+ 105           * Function Name:void PING_Send()
+ 106           * Purpose:
+ 107           * Params:
+ 108           * Returns:
+ 109           * Note:
+ 110           * ----------------------------------------------------------------------------
+ 111           */
+ 112          void PING_Send(tsPING_CONFIG_SET *pEntity)
+ 113          {
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 3   
+
+ 114   1              U16_T i, j;
+ 115   1              tsIP_HEADER XDATA *pIP;
+ 116   1              tsICMP_HEADER XDATA *pICMP;     
+ 117   1      
+ 118   1              /* append ICMP header */
+ 119   1              pICMP = (tsICMP_HEADER XDATA*)(TCPIP_GetXmitBuffer() + ETH_HEADER_LEN + 20);
+ 120   1              j = pEntity->PatternLen;
+ 121   1              for (i = 0; i < j; i ++)
+ 122   1              {
+ 123   2                      pICMP->Data[i] = (U8_T)(i + PING_PATTERN_DATA_START);
+ 124   2              }
+ 125   1              pICMP->Type = PING_ICMP_ECHO_TYPE;
+ 126   1              pICMP->Code = 0;
+ 127   1              pICMP->CheckSum = 0x0000;
+ 128   1              pICMP->Indentifier = pEntity->PingID;
+ 129   1              pICMP->Sequence = ++(pEntity->Sequence);
+ 130   1              j += 8;//for ICMP header        
+ 131   1      
+ 132   1              /* append IP header */
+ 133   1              pIP = (tsIP_HEADER XDATA*)(TCPIP_GetXmitBuffer() + ETH_HEADER_LEN);
+ 134   1              
+ 135   1              pIP->VerHlen = 0x45;
+ 136   1              pIP->TOS = 0x00;
+ 137   1              pIP->Length = j + ((pIP->VerHlen & 0x0F)*4);
+ 138   1              pIP->ID = pICMP->Sequence;
+ 139   1              pIP->Frags = 0x0000;
+ 140   1              pIP->TTL = 0x80;
+ 141   1              pIP->Protocol = 0x01;
+ 142   1              pIP->CheckSum = 0x0000;
+ 143   1              pIP->SourIp = STOE_GetIPAddr();
+ 144   1              pIP->DestIp = pEntity->TargetIP;
+ 145   1      
+ 146   1              TCPIP_SetXmitLength(pIP->Length);
+ 147   1              
+ 148   1              if (TCPIP_GetXmitLength() > 0)
+ 149   1              {
+ 150   2                      uip_appdata = (TCPIP_GetXmitBuffer() + ETH_HEADER_LEN + 40);
+ 151   2                      uip_arp_out();          
+ 152   2                      ETH_Send(0);
+ 153   2              }
+ 154   1      } /* End of PING_Send() */
+ 155          
+ 156          /*
+ 157           * ----------------------------------------------------------------------------
+ 158           * Function Name:void PING_CallBack()
+ 159           * Purpose:
+ 160           * Params:
+ 161           * Returns:
+ 162           * Note:
+ 163           * ----------------------------------------------------------------------------
+ 164           */
+ 165          void PING_CallBack(void)
+ 166          {
+ 167   1              tsIP_HEADER XDATA *pIP;
+ 168   1              tsICMP_HEADER XDATA *pICMP;     
+ 169   1              tsPING_LINK *pEntity;
+ 170   1              tsPING_CONFIG_SET *pTmp;
+ 171   1              U16_T i;
+ 172   1      
+ 173   1              if (PING_ChkQueueEmpty(&WaitFIFO))
+ 174   1                      return;
+ 175   1      
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 4   
+
+ 176   1              pIP = (tsIP_HEADER XDATA*)(TCPIP_GetRcvBuffer() + ETH_HEADER_LEN);
+ 177   1              pICMP = (tsICMP_HEADER XDATA*)(TCPIP_GetRcvBuffer() + ETH_HEADER_LEN + 20);
+ 178   1              
+ 179   1              // Search entity in wait queue //
+ 180   1              pEntity = WaitFIFO.pHead;
+ 181   1              for (i = 0; i < 100; i ++)
+ 182   1              {
+ 183   2                      pTmp = (tsPING_CONFIG_SET *)(pEntity->Buf);
+ 184   2                      if (pIP->SourIp == pTmp->TargetIP &&
+ 185   2                              pICMP->Type == PING_ICMP_ECHO_REPLY_TYPE &&
+ 186   2                              pICMP->Sequence == pTmp->Sequence &&
+ 187   2                              pICMP->Indentifier == pTmp->PingID)
+ 188   2                              break;
+ 189   2                              
+ 190   2                      if (pEntity != WaitFIFO.pTail)
+ 191   2                              pEntity = pEntity->pNext;
+ 192   2                      else
+ 193   2                              return;
+ 194   2              }
+ 195   1              if (i == 100)
+ 196   1                      return;
+ 197   1              
+ 198   1              for (i = 0; i < pTmp->PatternLen; i ++)
+ 199   1              {
+ 200   2                      if (pICMP->Data[i] != (U8_T)(i + PING_PATTERN_DATA_START))
+ 201   2                              return;
+ 202   2              }       
+ 203   1              
+ 204   1              // Mission complete //
+ 205   1              pTmp->EchoTime = PING_DEFAULT_TIME_OUT - pEntity->WaitTime;     
+ 206   1              pTmp->TTL = pIP->TTL;
+ 207   1              pTmp->RxCount ++;
+ 208   1              
+ 209   1              pEntity->ReplyLen = sizeof(tsPING_CONFIG_SET);
+ 210   1              pEntity = PING_DeQueueByOption(&WaitFIFO, pEntity);
+ 211   1              if (pEntity)
+ 212   1                      PING_EnQueue(&ReplyFIFO, pEntity);
+ 213   1              
+ 214   1      } /* End of PING_CallBack() */
+ 215          
+ 216          /*
+ 217           * ----------------------------------------------------------------------------
+ 218           * Function Name: PING_ChkQueueEmpty()
+ 219           * Purpose:
+ 220           * Params:
+ 221           * Returns:
+ 222           * Note:
+ 223           * ----------------------------------------------------------------------------
+ 224           */
+ 225          U8_T PING_ChkQueueEmpty(tsPING_LINKLIST *pFIFO)
+ 226          {
+ 227   1              return ((pFIFO->pHead == 0 && pFIFO->pTail == 0) ? 1:0);
+ 228   1      } // End of PING_ChkQueueEmpty() // 
+ 229          
+ 230          /*
+ 231           * ----------------------------------------------------------------------------
+ 232           * Function Name: PING_EnQueue()
+ 233           * Purpose:
+ 234           * Params:
+ 235           * Returns:
+ 236           * Note:
+ 237           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 5   
+
+ 238           */
+ 239          void PING_EnQueue(tsPING_LINKLIST *pFIFO, tsPING_LINK *pEntity)
+ 240          {
+ 241   1              if (PING_ChkQueueEmpty(pFIFO))
+ 242   1              {
+ 243   2                      pFIFO->pHead = pEntity;
+ 244   2                      pFIFO->pTail = pEntity;
+ 245   2              }
+ 246   1              else
+ 247   1              {
+ 248   2                      pEntity->pPre = pFIFO->pTail;
+ 249   2                      pFIFO->pTail->pNext = pEntity;
+ 250   2                      pFIFO->pTail = pEntity;         
+ 251   2              }
+ 252   1      } // End of PING_EnQueue() // 
+ 253          
+ 254          /*
+ 255           * ----------------------------------------------------------------------------
+ 256           * Function Name: PING_DeQueue()
+ 257           * Purpose:
+ 258           * Params:
+ 259           * Returns:
+ 260           * Note:
+ 261           * ----------------------------------------------------------------------------
+ 262           */
+ 263          tsPING_LINK *PING_DeQueue(tsPING_LINKLIST *pFIFO)
+ 264          {
+ 265   1              tsPING_LINK *pTmp;
+ 266   1              
+ 267   1              if (PING_ChkQueueEmpty(pFIFO))
+ 268   1                      return 0;
+ 269   1                      
+ 270   1              pTmp = pFIFO->pHead;
+ 271   1              if (pFIFO->pHead == pFIFO->pTail)
+ 272   1              {
+ 273   2                      pFIFO->pHead = 0;
+ 274   2                      pFIFO->pTail = 0;
+ 275   2              }
+ 276   1              else
+ 277   1              {
+ 278   2                      pFIFO->pHead = pFIFO->pHead->pNext;
+ 279   2              }
+ 280   1              return pTmp;            
+ 281   1      } // End of PING_DeQueue() //
+ 282          
+ 283          /*
+ 284           * ----------------------------------------------------------------------------
+ 285           * Function Name: PING_DeQueueByOption()
+ 286           * Purpose:
+ 287           * Params:
+ 288           * Returns:
+ 289           * Note:
+ 290           * ----------------------------------------------------------------------------
+ 291           */
+ 292          tsPING_LINK *PING_DeQueueByOption(tsPING_LINKLIST *pFIFO, tsPING_LINK *pEntity)
+ 293          {
+ 294   1              tsPING_LINK *pTmp;
+ 295   1              U8_T i;
+ 296   1              
+ 297   1              if (PING_ChkQueueEmpty(pFIFO))
+ 298   1                      return 0;
+ 299   1                      
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 6   
+
+ 300   1              pTmp = pFIFO->pHead;
+ 301   1              for (i = 0; i < 100; i ++)
+ 302   1              {               
+ 303   2                      if (pTmp == pEntity)
+ 304   2                      {
+ 305   3                              if (pFIFO->pHead == pFIFO->pTail)
+ 306   3                              {
+ 307   4                                      pFIFO->pHead = 0;               
+ 308   4                                      pFIFO->pTail = 0;
+ 309   4                                      return pTmp;
+ 310   4                              }
+ 311   3                              else if (pTmp == pFIFO->pHead)
+ 312   3                              {
+ 313   4                                      pFIFO->pHead = pFIFO->pHead->pNext;
+ 314   4                                      return pTmp;
+ 315   4                              }
+ 316   3                              else if (pTmp == pFIFO->pTail)
+ 317   3                              {
+ 318   4                                      pFIFO->pTail = pFIFO->pTail->pPre;
+ 319   4                                      return pTmp;
+ 320   4                              }
+ 321   3                              else
+ 322   3                              {
+ 323   4                                      pTmp->pPre->pNext = pTmp->pNext;
+ 324   4                                      pTmp->pNext->pPre = pTmp->pPre;
+ 325   4                                      return pTmp;                    
+ 326   4                              }
+ 327   3                      }
+ 328   2                      if (pTmp != pFIFO->pTail)
+ 329   2                              pTmp = pTmp->pNext;             
+ 330   2                      else
+ 331   2                              break;
+ 332   2              }
+ 333   1              return 0;
+ 334   1      } // End of PING_DeQueueByOption() //
+ 335          
+ 336          /*
+ 337           * ----------------------------------------------------------------------------
+ 338           * Function Name: PING_CmdEnQueue()
+ 339           * Purpose:
+ 340           * Params:
+ 341           * Returns:
+ 342           * Note:
+ 343           * ----------------------------------------------------------------------------
+ 344           */
+ 345          S8_T PING_CmdEnQueue(tsPING_LINK *pEntity)
+ 346          {
+ 347   1              static U16_T PingID;
+ 348   1              
+ 349   1              tsPING_CONFIG_SET *pCfig = pEntity->Buf;
+ 350   1              
+ 351   1              if (pCfig->PatternLen > MAX_PING_PATTERN_LENGTH)
+ 352   1                      pCfig->PatternLen = MAX_PING_PATTERN_LENGTH;
+ 353   1                      
+ 354   1              pEntity->WaitTime = PING_DEFAULT_TIME_OUT;
+ 355   1              pEntity->ReplyLen = 0;
+ 356   1      
+ 357   1              pCfig->TTL = 0;
+ 358   1              pCfig->PingID = ++PingID;
+ 359   1              
+ 360   1              PING_EnQueue(&CmdFIFO, pEntity);
+ 361   1              return 0;
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 7   
+
+ 362   1      } // End of PING_CmdEnQueue() //
+ 363          
+ 364          /*
+ 365           * ----------------------------------------------------------------------------
+ 366           * Function Name: PING_CmdDeQueue()
+ 367           * Purpose:
+ 368           * Params:
+ 369           * Returns:
+ 370           * Note:
+ 371           * ----------------------------------------------------------------------------
+ 372           */
+ 373          S8_T PING_CmdDeQueue(tsPING_LINK *pEntity)
+ 374          {
+ 375   1              if (PING_DeQueueByOption(&ReplyFIFO, pEntity))
+ 376   1                      return 0;
+ 377   1              else
+ 378   1                      return -1;
+ 379   1      } // End of PING_CmdDeQueue() //
+ 380          
+ 381          /*
+ 382           * ----------------------------------------------------------------------------
+ 383           * Function Name: PING_Task()
+ 384           * Purpose:
+ 385           * Params:
+ 386           * Returns:
+ 387           * Note:
+ 388           * ----------------------------------------------------------------------------
+ 389           */
+ 390          void PING_Task(void)
+ 391          {
+ 392   1              static U32_T Tp = 0, Ts = 0;
+ 393   1              tsPING_LINK *pEntity, *pEntityTmp;
+ 394   1              U8_T i, ExitFlag;
+ 395   1                      
+ 396   1              // Check command queue and send command //
+ 397   1              if (!PING_ChkQueueEmpty(&CmdFIFO))
+ 398   1              {
+ 399   2                      PING_Send((tsPING_CONFIG_SET *)&(CmdFIFO.pHead->Buf));
+ 400   2                      pEntity = PING_DeQueue(&CmdFIFO);
+ 401   2                      PING_EnQueue(&WaitFIFO, pEntity);       
+ 402   2              }
+ 403   1                              
+ 404   1              Tp = SWTIMER_Tick();
+ 405   1              if (Ts != Tp)
+ 406   1              {
+ 407   2                      Ts = Tp;
+ 408   2                      
+ 409   2                      // Check wait queue timeout //
+ 410   2                      if (!PING_ChkQueueEmpty(&WaitFIFO))
+ 411   2                      {
+ 412   3                              pEntity = WaitFIFO.pHead;
+ 413   3                              ExitFlag = 0;
+ 414   3                              for (i = 0; i < 100; i ++)
+ 415   3                              {
+ 416   4                                      if (pEntity->WaitTime)
+ 417   4                                              pEntity->WaitTime --;
+ 418   4                                      
+ 419   4                                      pEntityTmp = pEntity;
+ 420   4                                      if (pEntity != WaitFIFO.pTail)
+ 421   4                                              pEntity = pEntity->pNext;
+ 422   4                                      else
+ 423   4                                              ExitFlag = 1;
+C51 COMPILER V9.01   PING                                                                  08/29/2011 15:27:55 PAGE 8   
+
+ 424   4                                              
+ 425   4                                      if (pEntityTmp->WaitTime == 0)
+ 426   4                                      {
+ 427   5                                              pEntityTmp = PING_DeQueueByOption(&WaitFIFO, pEntityTmp);
+ 428   5                                              if (pEntityTmp)
+ 429   5                                                      PING_EnQueue(&ReplyFIFO, pEntityTmp);                           
+ 430   5                                      }
+ 431   4                                      
+ 432   4                                      if (ExitFlag)
+ 433   4                                              break;
+ 434   4                              }
+ 435   3                      }
+ 436   2                      
+ 437   2                      // Reply queue timer countdown //
+ 438   2                      if (!PING_ChkQueueEmpty(&ReplyFIFO))
+ 439   2                      {
+ 440   3                              pEntity = ReplyFIFO.pHead;
+ 441   3                              for (i = 0; i < 100; i ++)
+ 442   3                              {
+ 443   4                                      if (pEntity->WaitTime)
+ 444   4                                              pEntity->WaitTime --;           
+ 445   4                                      if (pEntity != ReplyFIFO.pTail)
+ 446   4                                              pEntity = pEntity->pNext;
+ 447   4                                      else
+ 448   4                                              break;
+ 449   4                              }               
+ 450   3                      }
+ 451   2              }
+ 452   1      } /* End of PING_Task() */
+ 453          
+ 454          /* End of ping.c */
+ 455          
+ 456          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3517    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     29      63
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

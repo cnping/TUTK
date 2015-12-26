@@ -1,0 +1,348 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1675694319B46D8900366677 /* libIOTCAPIs_P2PTunnel.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1675694219B46D8900366677 /* libIOTCAPIs_P2PTunnel.a */; };
+		4AED29231785412C006D8A76 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 4AED29221785412C006D8A76 /* Default-568h@2x.png */; };
+		D8BB8343150482C8001F03AB /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8BB8342150482C8001F03AB /* UIKit.framework */; };
+		D8BB8345150482C8001F03AB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8BB8344150482C8001F03AB /* Foundation.framework */; };
+		D8BB8347150482C8001F03AB /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8BB8346150482C8001F03AB /* CoreGraphics.framework */; };
+		D8BB8349150482C8001F03AB /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8BB8348150482C8001F03AB /* CoreData.framework */; };
+		D8BB834F150482C8001F03AB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D8BB834D150482C8001F03AB /* InfoPlist.strings */; };
+		D8BB8351150482C8001F03AB /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D8BB8350150482C8001F03AB /* main.m */; };
+		D8BB8355150482C8001F03AB /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = D8BB8354150482C8001F03AB /* AppDelegate.m */; };
+		D8BB8358150482C8001F03AB /* IOTCBrowser.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = D8BB8356150482C8001F03AB /* IOTCBrowser.xcdatamodeld */; };
+		D8BB836015048303001F03AB /* mainWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = D8BB835F15048303001F03AB /* mainWindow.xib */; };
+		D8BB83A215048547001F03AB /* BrowserController.mm in Sources */ = {isa = PBXBuildFile; fileRef = D8BB83A115048547001F03AB /* BrowserController.mm */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1675694219B46D8900366677 /* libIOTCAPIs_P2PTunnel.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libIOTCAPIs_P2PTunnel.a; path = "../../../../Lib/iOS/Release-iphonesimulator/libIOTCAPIs_P2PTunnel.a"; sourceTree = "<group>"; };
+		4AED29221785412C006D8A76 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
+		85E5DBBC1668D4D500F9BCA1 /* P2PTunnelAPIs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = P2PTunnelAPIs.h; path = ../../../../Include/P2PTunnelAPIs.h; sourceTree = "<group>"; };
+		85E5DBD31668D57600F9BCA1 /* platform_Config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = platform_Config.h; path = include/platform_Config.h; sourceTree = "<group>"; };
+		D8BB833E150482C8001F03AB /* IOTCBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IOTCBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D8BB8342150482C8001F03AB /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		D8BB8344150482C8001F03AB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		D8BB8346150482C8001F03AB /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		D8BB8348150482C8001F03AB /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		D8BB834C150482C8001F03AB /* IOTCBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IOTCBrowser-Info.plist"; sourceTree = "<group>"; };
+		D8BB834E150482C8001F03AB /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		D8BB8350150482C8001F03AB /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		D8BB8352150482C8001F03AB /* IOTCBrowser-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IOTCBrowser-Prefix.pch"; sourceTree = "<group>"; };
+		D8BB8353150482C8001F03AB /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		D8BB8354150482C8001F03AB /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		D8BB8357150482C8001F03AB /* IOTCBrowser.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = IOTCBrowser.xcdatamodel; sourceTree = "<group>"; };
+		D8BB835F15048303001F03AB /* mainWindow.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = mainWindow.xib; sourceTree = "<group>"; };
+		D8BB83A015048547001F03AB /* BrowserController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BrowserController.h; sourceTree = "<group>"; };
+		D8BB83A115048547001F03AB /* BrowserController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = BrowserController.mm; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D8BB833B150482C8001F03AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D8BB8343150482C8001F03AB /* UIKit.framework in Frameworks */,
+				D8BB8345150482C8001F03AB /* Foundation.framework in Frameworks */,
+				D8BB8347150482C8001F03AB /* CoreGraphics.framework in Frameworks */,
+				D8BB8349150482C8001F03AB /* CoreData.framework in Frameworks */,
+				1675694319B46D8900366677 /* libIOTCAPIs_P2PTunnel.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D8BB8333150482C7001F03AB = {
+			isa = PBXGroup;
+			children = (
+				4AED29221785412C006D8A76 /* Default-568h@2x.png */,
+				D8BB834A150482C8001F03AB /* IOTCBrowser */,
+				D8BB8341150482C8001F03AB /* Frameworks */,
+				D8BB833F150482C8001F03AB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D8BB833F150482C8001F03AB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D8BB833E150482C8001F03AB /* IOTCBrowser.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D8BB8341150482C8001F03AB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D8BB8342150482C8001F03AB /* UIKit.framework */,
+				D8BB8344150482C8001F03AB /* Foundation.framework */,
+				D8BB8346150482C8001F03AB /* CoreGraphics.framework */,
+				D8BB8348150482C8001F03AB /* CoreData.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D8BB834A150482C8001F03AB /* IOTCBrowser */ = {
+			isa = PBXGroup;
+			children = (
+				D8CB68951504BB1100EBE5E0 /* lib */,
+				D8BB8353150482C8001F03AB /* AppDelegate.h */,
+				D8BB8354150482C8001F03AB /* AppDelegate.m */,
+				D8BB83A015048547001F03AB /* BrowserController.h */,
+				D8BB83A115048547001F03AB /* BrowserController.mm */,
+				D8BB83AD1504AA5C001F03AB /* include */,
+				D8BB835E150482E3001F03AB /* Resources */,
+				D8BB834B150482C8001F03AB /* Supporting Files */,
+			);
+			path = IOTCBrowser;
+			sourceTree = "<group>";
+		};
+		D8BB834B150482C8001F03AB /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				D8BB834D150482C8001F03AB /* InfoPlist.strings */,
+				D8BB834C150482C8001F03AB /* IOTCBrowser-Info.plist */,
+				D8BB8352150482C8001F03AB /* IOTCBrowser-Prefix.pch */,
+				D8BB8356150482C8001F03AB /* IOTCBrowser.xcdatamodeld */,
+				D8BB8350150482C8001F03AB /* main.m */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		D8BB835E150482E3001F03AB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D8BB835F15048303001F03AB /* mainWindow.xib */,
+			);
+			name = Resources;
+			path = ..;
+			sourceTree = "<group>";
+		};
+		D8BB83AD1504AA5C001F03AB /* include */ = {
+			isa = PBXGroup;
+			children = (
+				85E5DBBC1668D4D500F9BCA1 /* P2PTunnelAPIs.h */,
+				85E5DBD31668D57600F9BCA1 /* platform_Config.h */,
+			);
+			name = include;
+			sourceTree = "<group>";
+		};
+		D8CB68951504BB1100EBE5E0 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				1675694219B46D8900366677 /* libIOTCAPIs_P2PTunnel.a */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D8BB833D150482C8001F03AB /* IOTCBrowser */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D8BB835B150482C8001F03AB /* Build configuration list for PBXNativeTarget "IOTCBrowser" */;
+			buildPhases = (
+				D8BB833A150482C8001F03AB /* Sources */,
+				D8BB833B150482C8001F03AB /* Frameworks */,
+				D8BB833C150482C8001F03AB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOTCBrowser;
+			productName = IOTCBrowser;
+			productReference = D8BB833E150482C8001F03AB /* IOTCBrowser.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D8BB8335150482C7001F03AB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+			};
+			buildConfigurationList = D8BB8338150482C7001F03AB /* Build configuration list for PBXProject "IOTCBrowser" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = D8BB8333150482C7001F03AB;
+			productRefGroup = D8BB833F150482C8001F03AB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D8BB833D150482C8001F03AB /* IOTCBrowser */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D8BB833C150482C8001F03AB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D8BB834F150482C8001F03AB /* InfoPlist.strings in Resources */,
+				D8BB836015048303001F03AB /* mainWindow.xib in Resources */,
+				4AED29231785412C006D8A76 /* Default-568h@2x.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D8BB833A150482C8001F03AB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D8BB8351150482C8001F03AB /* main.m in Sources */,
+				D8BB8355150482C8001F03AB /* AppDelegate.m in Sources */,
+				D8BB8358150482C8001F03AB /* IOTCBrowser.xcdatamodeld in Sources */,
+				D8BB83A215048547001F03AB /* BrowserController.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		D8BB834D150482C8001F03AB /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D8BB834E150482C8001F03AB /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		D8BB8359150482C8001F03AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D8BB835A150482C8001F03AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D8BB835C150482C8001F03AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				GCC_NO_COMMON_BLOCKS = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IOTCBrowser/IOTCBrowser-Prefix.pch";
+				HEADER_SEARCH_PATHS = ../../../Include;
+				INFOPLIST_FILE = "IOTCBrowser/IOTCBrowser-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"/Users/build/Desktop/TUTK_IOTC_Platform_14W36/Lib/iOS/Release-iphonesimulator",
+					"../../../Lib/iOS/Release-iphoneos",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		D8BB835D150482C8001F03AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				GCC_NO_COMMON_BLOCKS = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IOTCBrowser/IOTCBrowser-Prefix.pch";
+				HEADER_SEARCH_PATHS = ../../../Include;
+				INFOPLIST_FILE = "IOTCBrowser/IOTCBrowser-Info.plist";
+				LIBRARY_SEARCH_PATHS = (
+					"/Users/build/Desktop/TUTK_IOTC_Platform_14W36/Lib/iOS/Release-iphonesimulator",
+					"../../../Lib/iOS/Release-iphoneos",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D8BB8338150482C7001F03AB /* Build configuration list for PBXProject "IOTCBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D8BB8359150482C8001F03AB /* Debug */,
+				D8BB835A150482C8001F03AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D8BB835B150482C8001F03AB /* Build configuration list for PBXNativeTarget "IOTCBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D8BB835C150482C8001F03AB /* Debug */,
+				D8BB835D150482C8001F03AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCVersionGroup section */
+		D8BB8356150482C8001F03AB /* IOTCBrowser.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				D8BB8357150482C8001F03AB /* IOTCBrowser.xcdatamodel */,
+			);
+			currentVersion = D8BB8357150482C8001F03AB /* IOTCBrowser.xcdatamodel */;
+			path = IOTCBrowser.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
+	};
+	rootObject = D8BB8335150482C7001F03AB /* Project object */;
+}

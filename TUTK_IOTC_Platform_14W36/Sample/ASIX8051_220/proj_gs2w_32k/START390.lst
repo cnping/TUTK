@@ -1,0 +1,1554 @@
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     1
+
+
+MACRO ASSEMBLER AX51 V3.07
+OBJECT MODULE PLACED IN .\START390.obj
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\AX51.EXE ..\src\mcpu\START390.A51 MOD_CONT INCDIR(..\src\madapter;..\src\main;..\s
+                      rc\mconsole;..\src\mcpu;..\src\mdebug;..\src\mdhcpc;..\src\mdnsc;..\src\meeprom;..\src\mmac;..\src
+                      \mgs2wifi;..\src\mhsuart;..\src\mhttp;..\src\mmstimer;..\src\mping;..\src\mpppoe;..\src\msmtpc;..\
+                      src\mswdma;..\src\mtcpip;..\src\mtelnet;..\src\mwif;..\src\si2c;..\src\uart0;..\src\web_page;..\sr
+                      c\dhcps) SET(LARGE,RUNTIMECODEAT32KH) DEBUG PRINT(.\START390.lst) OBJECT(.\START390.obj) EP
+
+LOC    OBJ             LINE     SOURCE
+
+                          1     $nomod51 
+                          2     ;#include "mcpu_cfg.h"
+                    +1    3     
+                    +1    4     
+                    +1    5     
+                    +1    6     
+                    +1    7     
+                    +1    8     
+                    +1    9     
+                    +1   10     
+                    +1   11     
+                    +1   12     
+                    +1   13     
+                    +1   14     
+                    +1   15     
+                    +1   16     
+                    +1   17     
+                    +1   18     
+                    +1   19     
+                    +1   20     
+                    +1   21     
+                    +1   22     
+                    +1   23     
+                    +1   24     
+                    +1   25     
+                    +1   26     
+                    +1   27     
+                    +1   28     ;#include "stoe_cfg.h"
+                    +2   29     
+                    +2   30     
+                    +2   31     
+                    +2   32     
+                    +2   33     
+                    +2   34     
+                    +2   35     
+                    +2   36     
+                    +2   37     
+                    +2   38     
+                    +2   39     
+                    +2   40     
+                    +2   41     
+                    +2   42     
+                    +2   43     
+                    +2   44     
+                    +2   45     
+                    +2   46     
+                    +2   47     
+                    +2   48     
+                    +2   49     
+                    +2   50     
+                    +2   51     
+                    +2   52     
+                    +2   53     
+                    +2   54     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     2
+
+                    +2   55     
+                    +2   56     
+                    +2   57     
+                    +2   58     
+                    +2   59     
+                    +2   60     
+                    +2   61     
+                    +2   62     
+                    +2   63     
+                    +2   64     
+                    +2   65     
+                    +2   66     
+                    +2   67     
+                    +2   68     
+                    +2   69     
+                    +2   70     
+                    +2   71     
+                    +2   72     
+                    +2   73     
+                    +2   74     
+                    +2   75     
+                    +2   76     
+                    +2   77     
+                    +2   78     
+                    +2   79     
+                    +2   80                                                                                             
+                    +2   81     
+                    +2   82     
+                    +2   83     
+                    +2   84      
+                    +2   85       
+                    +2   86      
+                    +2            
+                    +2           
+                    +2          
+                    +2           
+                    +2          
+                    +2   92     
+                    +2   93     
+                    +2   94     
+                    +2   95     
+                    +2   96     
+                    +2   97     
+                    +2   98     
+                    +2   99     
+                    +2  100     
+                    +2  101     
+                    +2  102     
+                    +2  103     
+                    +2  104     
+                    +2  105     
+                    +2  106     
+                    +2  107     
+                    +2  108     
+                    +2  109     
+                    +2  110     
+                    +2  111     
+                    +2  112     
+                    +2  113     
+                    +2  114     
+                    +2  115     
+                    +2  116     
+                    +2  117     
+                    +2  118     
+                    +2  119     
+                    +2  120     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     3
+
+                    +2  121     
+                    +2            
+                    +2                                                                                                  
+                    +2                                                                                                  
+                    +2                                                                                                  
+                    +2                                                                                                  
+                    +2            
+                    +2                                                                                                  
+                    +2                                                                                                  
+                    +2                                                                                                  
+                    +2          
+                    +2            
+                    +2          
+                    +2          
+                    +2          
+                    +2            
+                    +2          
+                    +2  138     
+                    +2  139     
+                    +2  140     
+                    +2  141     
+                    +2  142     
+                    +2  143     
+                    +2  144     
+                    +2  145     
+                    +2  146     
+                    +2  147     
+                    +1  148     
+                    +1  149     
+                    +1  150     
+                    +1  151     
+                    +1  152     
+                    +1  153       
+                    +1          
+                    +1            
+                    +1          
+                    +1  157     
+                    +1  158     
+                    +1  159     
+                    +1  160     
+                    +1  161     
+                    +1  162     
+                    +1  163     
+                    +1  164     
+                    +1  165     
+                    +1  166     
+                    +1  167     
+                    +1  168     
+                    +1  169     
+                    +1  170     
+                    +1  171     
+                    +1  172     
+                    +1  173     
+                    +1  174     
+                    +1  175     
+                    +1  176     
+                    +1  177     
+                    +1  178     
+                    +1  179     
+                    +1  180     
+                    +1  181     
+                    +1  182     
+                    +1  183     
+                        184     
+                        185     
+                        186     ;------------------------------------------------------------------------------
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     4
+
+                        187     ;  This file is part of the C51 Compiler package
+                        188     ;  Copyright (c) 1988-2001 Keil Elektronik GmbH and Keil Software, Inc.
+                        189     ;  Startup code for Flipper CPU, Contigious Mode
+                        190     ;------------------------------------------------------------------------------
+                        191     ;  START390.A51:  This code is executed after processor reset.
+                        192     ;  You may add this file to a uVision2 project.
+                        193     ;
+                        194     ;  To translate this file use A51 with the following invocation:
+                        195     ;
+                        196     ;     AX51 START390.A51 MOD_CONT
+                        197     ;
+                        198     ;  To link the modified STARTUP.OBJ file to your application use the following
+                        199     ;  LX51 invocation:
+                        200     ;
+                        201     ;     LX51 <your object file list>, START390.OBJ <controls>
+                        202     ;
+                        203     ;------------------------------------------------------------------------------
+                        204     ;
+                        205     ;------------------------------------------------------------------------------
+                        206     ;
+                        207     
+                        208     ;  Code Block Size
+                        209     ;
+                        210     ;  This Block Size must be set before system initialization.
+                        211     ;  Hardware will check this value for memory shadow function first.
+                        212     ;  It could be obtained after compilied whole source code.
+                        213     ;
+ 0090                   214     MCPU_CODEBLOCK  EQU     0x90            ; the MCPU block size of code space.
+ 0019                   215     WCPU_CODEBLOCK  EQU     0x19    ; the WCPU block size of code space.
+                        216     ;
+                        217     ;  Notes:  Each Block has 32KBytes memory space, and must not be set to '00H'.
+                        218     ;          The MCPU must be placed at address 0x3FFF of code space.
+                        219     ;          The WCPU must be placed at address 0x3FFE of code space.
+                        220     ;------------------------------------------------------------------------------
+                        221     ;
+                        222     ;  User-defined Power-On Initialization of Memory
+                        223     ;
+                        224     ;  With the following EQU statements the initialization of memory
+                        225     ;  at processor reset can be defined:
+                        226     ;
+                        227     ;               ; the absolute start-address of IDATA memory is always 0
+ 0080                   228     IDATALEN        EQU     80H     ; the length of IDATA memory in bytes.
+                        229     ;
+ 0000                   230     XDATASTART      EQU     0H      ; the absolute start-address of XDATA memory
+ 00010000               231     XDATALEN        EQU     10000H  ; the length of XDATA memory in bytes.
+                        232     ;
+ 0000                   233     PDATASTART      EQU     0H      ; the absolute start-address of PDATA memory
+ 0000                   234     PDATALEN        EQU     0H      ; the length of PDATA memory in bytes.
+                        235     ;
+                        236     ;  Notes:  The IDATA space overlaps physically the DATA and BIT areas of the
+                        237     ;          8051 CPU. At minimum the memory space occupied from the C51 
+                        238     ;          run-time routines must be set to zero.
+                        239     ;------------------------------------------------------------------------------
+                        240     ;
+                        241     ;  Reentrant Stack Initilization
+                        242     ;
+                        243     ;  The following EQU statements define the stack pointer for reentrant
+                        244     ;  functions and initialized it:
+                        245     ;
+                        246     ;  Stack Space for reentrant functions in the SMALL model.
+ 0000                   247     IBPSTACK                EQU     0               ; set to 1 if small reentrant is used.
+ 00FF                   248     IBPSTACKTOP             EQU     0FFH    ; set top of stack to highest location+1.
+                        249     ;
+                        250     ;  Stack Space for reentrant functions in the LARGE model.      
+ 0001                   251     XBPSTACK                EQU     1               ; set to 1 if large reentrant is used.
+ 56FF                   252     XBPSTACKTOP             EQU     (07FFFH - ((16 + 24 + 1) * 256))
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     5
+
+                        253     ;                               ;set top of stack to highest location below STOE buffer.
+                        254     ;
+                        255     ;  Stack Space for reentrant functions in the COMPACT model.    
+ 0000                   256     PBPSTACK                EQU     0               ; set to 1 if compact reentrant is used.
+ FFFF                   257     PBPSTACKTOP             EQU     0FFFFH  ; set top of stack to highest location+1.
+                        258     ;
+                        259     ;------------------------------------------------------------------------------
+                        260     ;
+                        261     ;  Page Definition for Using the Compact Model with 64 KByte xdata RAM
+                        262     ;
+                        263     ;  The following EQU statements define the xdata page used for pdata
+                        264     ;  variables. The EQU PPAGE must conform with the PPAGE control used
+                        265     ;  in the linker invocation.
+                        266     ;
+ 0000                   267     PPAGEENABLE             EQU     0               ; set to 1 if pdata object are used.
+ 00F4                   268     PPAGE                   EQU     0F4H    ; define PPAGE number. 
+                        269     ;
+                        270     ;------------------------------------------------------------------------------
+                        271     ;#include "ax22000.h"
+                    +1  272     
+                    +1  273     
+                    +1  274     
+                    +1  275     
+                    +1  276     
+                    +1  277     
+                    +1  278     
+                    +1  279     
+                    +1  280     
+                    +1  281     
+                    +1  282     
+                    +1  283     
+                    +1  284     
+                    +1  285     
+                    +1  286     
+                    +1  287     
+  0080              +1  288     sfr     P0                      = 0x80;// Port 0
+  0081              +1  289     sfr     SP                      = 0x81;// Stack Pointer
+  0082              +1  290     sfr     DPL0            = 0x82;// Data Pointer 0 Low Byte
+  0083              +1  291     sfr     DPH0            = 0x83;// Data Pointer 0 High Byte
+  0082              +1  292     sfr     DPL                     = 0x82;// Data Pointer 0 Low Byte
+  0083              +1  293     sfr     DPH                     = 0x83;// Data Pointer 0 High Byte
+  0084              +1  294     sfr     DPL1            = 0x84;// Data Pointer 1 Low Byte
+  0085              +1  295     sfr     DPH1            = 0x85;// Data Pointer 1 High Byte
+  0086              +1  296     sfr     DPS                     = 0x86;// Data Pointers Select Register
+  0087              +1  297     sfr     PCON            = 0x87;// Power Configuration Register
+  0088              +1  298     sfr TCON                = 0x88;// Timer 0,1 Configuration Register
+  0089              +1  299     sfr TMOD                = 0x89;// Timer 0,1 Control Mode Register
+  008A              +1  300     sfr TL0                 = 0x8A;// Timer 0 Low Byte Counter
+  008B              +1  301     sfr TL1                 = 0x8B;// Timer 1 Low Byte Counter
+  008C              +1  302     sfr TH0                 = 0x8C;// Timer 0 High Byte Counter
+  008D              +1  303     sfr TH1                 = 0x8D;// Timer 1 High Byte Counter
+  008E              +1  304     sfr CKCON               = 0x8E;// Clock Control Register
+                    +1  305     
+  008F              +1  306     sfr CSREPR              = 0x8F;// Software Reset and External Program RAM Select Registe
+                               r
+                    +1  307     
+  008F              +1  308     sfr WBSR                = 0x8F;// WCPU Byte Swap Register
+                    +1  309     
+                    +1  310     
+  0090              +1  311     sfr P1                  = 0x90;// Port 1
+  0091              +1  312     sfr EIF                 = 0x91;// Extended Interrupt Flag Register
+  0092              +1  313     sfr WTST                = 0x92;// Program Wait States Register
+  0093              +1  314     sfr DPX0                = 0x93;// Data Pointer Extended Register 0
+  0093              +1  315     sfr DPX                 = 0x93;// Data Pointer Extended Register 0
+                    +1  316     
+  0094              +1  317     sfr     PSGR            = 0x94;// Program Status & GAP Register
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     6
+
+                    +1  318     
+  0095              +1  319     sfr DPX1                = 0x95;// Data Pointer Extended Register 1
+                    +1  320     
+  0096              +1  321     sfr I2CCIR              = 0x96;// I2C Command Index Register
+  0097              +1  322     sfr I2CDR               = 0x97;// I2C Data Register
+                    +1  323     
+  0098              +1  324     sfr SCON0               = 0x98;// UART 0 Configuration Register
+  0099              +1  325     sfr SBUF0               = 0x99;// UART 0 Buffer Register
+                    +1  326     
+  009A              +1  327     sfr EMDMR               = 0x9A;// External Memory DMA Mask Register
+  009B              +1  328     sfr OCGCR               = 0x9B;// Oscillator and Clock Generation Control Register
+  009C              +1  329     sfr WKUPSR              = 0x9C;// Wake-up Status Summary Register
+                    +1  330     
+  009D              +1  331     sfr ACON                = 0x9D;// Address Control Register
+                    +1  332     
+  009E              +1  333     sfr PISSR1              = 0x9E;// Peripheral Interrupt Status Summary Register 1
+  009F              +1  334     sfr PISSR2              = 0x9F;// Peripheral Interrupt Status Summary Register 2
+                    +1  335     
+  009E              +1  336     sfr SFFSCR              = 0x9E;// Sequence and Fragment Filtering SRAM Command Register
+  009F              +1  337     sfr SFFSDR              = 0x9F;// Sequence and Fragment Filtering SRAM Data Register
+                    +1  338     
+                    +1  339     
+  00A0              +1  340     sfr P2                  = 0xA0;// Port 2
+                    +1  341     
+                    +1  342     
+  00A1              +1  343     sfr LMSR                = 0xA1;// Local Bus Mode Setup Register
+  00A2              +1  344     sfr LCR                 = 0xA2;// Local Bus Command Register
+  00A3              +1  345     sfr LSR                 = 0xA3;// Local Bus Status Register
+  00A4              +1  346     sfr LDALR               = 0xA4;// Local Bus Device Address Low Register
+  00A5              +1  347     sfr LDAHR               = 0xA5;// Local Bus Device Address High Register
+  00A6              +1  348     sfr LDCSR               = 0xA6;// Local Bus Device Chip Select Register
+  00A7              +1  349     sfr LABLR               = 0xA7;// Local Bus Arbitrate Burst Length Register
+                    +1  350     
+  00A1              +1  351     sfr LSAIER              = 0xA1;// Local Bus Slave mode Action and Interrupt Enable Regis
+                               ter
+  00A2              +1  352     sfr LSCR                = 0xA2;// Local Bus Slave mode Command Register
+  00A3              +1  353     sfr LSSR                = 0xA3;// Local Bus Slave mode Status Register
+  00A4              +1  354     sfr XRXNR               = 0xA4;// External Master Receive Notice Register of 8Bit
+  00A5              +1  355     sfr XRXAR               = 0xA5;// External Master Receive Acknowledge Register of 8Bit
+  00A6              +1  356     sfr XTXAR               = 0xA6;// External Master Transmit Acknowledge Register of 8Bit
+  00A7              +1  357     sfr XTXRR               = 0xA7;// External Master Transmit Request Register of 8Bit
+                    +1  358     
+  00A1              +1  359     sfr DGMSR               = 0xA1;// Digiport Setup Register
+  00A2              +1  360     sfr DGCR                = 0xA2;// Digiport Command Register
+  00A3              +1  361     sfr DGSR                = 0xA3;// Digiport Status Register
+  00A4              +1  362     sfr DGLLR               = 0xA4;// Digiport Length Low Register
+  00A5              +1  363     sfr DGLMR               = 0xA5;// Digiport Length Medial Register
+  00A6              +1  364     sfr DGLHR               = 0xA6;// Digiport Length High Register
+  00A7              +1  365     sfr DGCNT               = 0xA7;// Digiport Frame Counter Register
+                    +1  366     
+  00A1              +1  367     sfr PMALR               = 0xA1;// PCI Master Address Low Register
+  00A2              +1  368     sfr PMAHR               = 0xA2;// PCI Master Address High Register
+  00A3              +1  369     sfr     PMDR0           = 0xA3;// PCI Master Data Register 0
+  00A4              +1  370     sfr     PMDR1           = 0xA4;// PCI Master Data Register 1
+  00A5              +1  371     sfr     PMDR2           = 0xA5;// PCI Master Data Register 2
+  00A6              +1  372     sfr     PMDR3           = 0xA6;// PCI Master Data Register 3
+  00A7              +1  373     sfr     PBIER           = 0xA7;// PCI Interrupt Enable register
+                    +1  374     
+  00A8              +1  375     sfr IE                  = 0xA8;// Interrupt Enable register
+                    +1  376     
+  00A9              +1  377     sfr LDLR                = 0xA9;// Local Bus Data Low Register
+  00AA              +1  378     sfr LDHR                = 0xAA;// Local Bus Data High Register
+  00AB              +1  379     sfr DMALR               = 0xAB;// Local Bus DMA Address Low Register
+  00AC              +1  380     sfr DMAMR               = 0xAC;// Local Bus DMA Address Medium Register
+  00AD              +1  381     sfr DMAHR               = 0xAD;// Local Bus DMA Address High Register
+  00AE              +1  382     sfr TCIR                = 0xAE;// TOE Command Index Register
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     7
+
+  00AF              +1  383     sfr     TDR                     = 0xAF;// TOE Data Register
+                    +1  384     
+  00A9              +1  385     sfr RHPLR               = 0xA9;
+  00AA              +1  386     sfr RHPHR               = 0xAA;
+  00AB              +1  387     sfr RSPLR               = 0xAB;
+  00AC              +1  388     sfr RSPHR               = 0xAC;
+  00AE              +1  389     sfr PBSR                = 0xAE;// PCI Bridge Status Register
+  00AF              +1  390     sfr     PBISR           = 0xAF;// PCI Bridge Interrupt Status Register
+                    +1  391     
+                    +1  392     
+  00B0              +1  393     sfr P3                  = 0xB0;// Port 3
+                    +1  394     
+  00B1              +1  395     sfr CCAPL0      = 0xB1;// PCA Module 0 Compare/Capture Low Byte Register
+  00B2              +1  396     sfr CCAPL1      = 0xB2;// PCA Module 1 Compare/Capture Low Byte Register
+  00B3              +1  397     sfr CCAPL2      = 0xB3;// PCA Module 2 Compare/Capture Low Byte Register
+  00B4              +1  398     sfr CCAPL3      = 0xB4;// PCA Module 3 Compare/Capture Low Byte Register
+  00B5              +1  399     sfr CCAPL4      = 0xB5;// PCA Module 4 Compare/Capture Low Byte Register
+  00B6              +1  400     sfr MCIR                = 0xB6;// MAC Command Index Register
+  00B7              +1  401     sfr MDR                 = 0xB7;// MAC Data Register
+                    +1  402     
+  00B1              +1  403     sfr MTWPL               = 0xB1;// This register defines the current address that MII bri
+                               dge is prepared to write(LOW).
+  00B2              +1  404     sfr MTWPH               = 0xB2;// This register defines the current address that MII bri
+                               dge is prepared to write(HIGH).
+  00B3              +1  405     sfr CTRPL               = 0xB3;// This register defines the address of cpu reads from TX
+                                block(LOW).
+  00B4              +1  406     sfr CTRPH               = 0xB4;// This register defines the address of cpu reads from TX
+                                block(HIGH).
+  00B5              +1  407     sfr TXBS                = 0xB5;// MII Bridge TX Block Status Register.
+                    +1  408     
+  00B8              +1  409     sfr IP                  = 0xB8;// Interrupt Priority Register
+                    +1  410     
+  00B9              +1  411     sfr CCAPH0      = 0xB9;// PCA Module 0 Compare/Capture High Byte Register
+  00BA              +1  412     sfr CCAPH1      = 0xBA;// PCA Module 1 Compare/Capture High Byte Register
+  00BB              +1  413     sfr CCAPH2      = 0xBB;// PCA Module 2 Compare/Capture High Byte Register
+  00BC              +1  414     sfr CCAPH3      = 0xBC;// PCA Module 3 Compare/Capture High Byte Register
+  00BD              +1  415     sfr CCAPH4      = 0xBD;// PCA Module 4 Compare/Capture High Byte Register
+  00BE              +1  416     sfr EPCR                = 0xBE;// Ethernet PHY Command Index Register
+  00BF              +1  417     sfr EPDR                = 0xBF;// Ethernet PHY Data Register
+                    +1  418     
+  00B9              +1  419     sfr     MRPLL           = 0xB9;// This register defines the packet length of received pa
+                               cket(LOW).
+  00BA              +1  420     sfr MRPLH               = 0xBA;// This register defines the packet length of received pa
+                               cket(HIGH).
+  00BB              +1  421     sfr MRBLL               = 0xBB;// This register defines the block length of received pac
+                               ket for each block access(LOW).
+  00BC              +1  422     sfr MRBLH               = 0xBC;// This register defines the block length of received pac
+                               ket for each block access(HIGH).
+  00BD              +1  423     sfr MRBSAL              = 0xBD;// This register defines the starting address of RX block
+                               (LOW).
+  00BE              +1  424     sfr MRBSAH              = 0xBE;// This register defines the starting address of RX block
+                               (HIGH).
+  00BF              +1  425     sfr MRCR                = 0xBF;// MII Bridge RX Command Register.
+                    +1  426     
+                    +1  427     
+  00C0              +1  428     sfr SCON1               = 0xC0;// UART 1 Configuration Register
+  00C1              +1  429     sfr SBUF1               = 0xC1;// UART 1 Buffer Register
+                    +1  430     
+  00C2              +1  431     sfr CMOD                = 0xC2;// PCA Timer/Counter Mode Register
+  00C3              +1  432     sfr CCON                = 0xC3;// PCA Timer/Counter Control Register
+  00C4              +1  433     sfr CL                  = 0xC4;// PCA Timer/Counter Low
+  00C5              +1  434     sfr CH                  = 0xC5;// PCA Timer/Counter High
+  00C6              +1  435     sfr RTCIR               = 0xC6;// RTC Command Index Register
+  00C7              +1  436     sfr RTCDR               = 0xC7;// RTC Data Register
+                    +1  437     
+  00C2              +1  438     sfr MISR                = 0xC2;// Interrupt status.
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     8
+
+  00C3              +1  439     sfr MIMR                = 0xC3;// Interrupt mask.
+                    +1  440     
+  00C8              +1  441     sfr T2CON               = 0xC8;// Timer 2 Configuration Register
+  00C9              +1  442     sfr T2IF                = 0xC9;// Timer 2 Interrupt Flags
+  00CA              +1  443     sfr RLDL                = 0xCA;// Timer 2 Reload Low Byte
+  00CB              +1  444     sfr RLDH                = 0xCB;// Timer 2 Reload High Byte
+  00CC              +1  445     sfr TL2                 = 0xCC;// Timer 2 Low Byte Counter
+  00CD              +1  446     sfr TH2                 = 0xCD;// Timer 2 High Byte Counter
+                    +1  447     
+  00CE              +1  448     sfr SPICIR              = 0xCE;// SPI Command Index Register
+  00CF              +1  449     sfr SPIDR               = 0xCF;// SPI Data Register
+                    +1  450     
+  00CE              +1  451     sfr WI2CCIR             = 0xCE;// I2C Command Index Register
+  00CF              +1  452     sfr WI2CDR              = 0xCF;// I2C Data Register
+                    +1  453     
+                    +1  454     
+  00D0              +1  455     sfr PSW                 = 0xD0;// Program Status Word
+                    +1  456     
+  00D1              +1  457     sfr CCAPM0              = 0xD1;// PCA Compare/Capture Module Mode Register 0
+  00D2              +1  458     sfr CCAPM1              = 0xD2;// PCA Compare/Capture Module Mode Register 1
+  00D3              +1  459     sfr CCAPM2              = 0xD3;// PCA Compare/Capture Module Mode Register 2
+  00D4              +1  460     sfr CCAPM3              = 0xD4;// PCA Compare/Capture Module Mode Register 3
+  00D5              +1  461     sfr CCAPM4              = 0xD5;// PCA Compare/Capture Module Mode Register 4
+  00D6              +1  462     sfr OWCIR               = 0xD6;// OneWire Command Index Register
+  00D7              +1  463     sfr OWDR                = 0xD7;// OneWire Data Register
+                    +1  464     
+  00D1              +1  465     sfr WSDSR               = 0xD1;// WCPU Software DMA Setting Register
+  00D2              +1  466     sfr WSDSAL              = 0xD2;// WCPU Software DMA Source Low Address Register
+  00D3              +1  467     sfr WSDSAH              = 0xD3;// WCPU Software DMA Source High Address Register
+  00D4              +1  468     sfr WSDDAL              = 0xD4;// WCPU Software DMA Destination Low Address Register
+  00D5              +1  469     sfr WSDDAH              = 0xD5;// WCPU Software DMA Destination High Address Register
+  00D6              +1  470     sfr WSDLR0              = 0xD6;// WCPU Software DMA Length Register 0
+  00D7              +1  471     sfr WSDLR1              = 0xD7;// WCPU Software DMA Length Register 1
+                    +1  472     
+  00D8              +1  473     sfr WDCON               = 0xD8;// Watchdog Configuration
+                    +1  474     
+  00D9              +1  475     sfr SDSTSR              = 0xD9;// Software DMA and Software Timer complete interrupt sta
+                               tus
+  00DA              +1  476     sfr DCIR                = 0xDA;// DMA Command Index Register
+  00DB              +1  477     sfr DDR                 = 0xDB;// DMA Data Register
+  00DE              +1  478     sfr MR                  = 0xDE;// Miscellaneous Register
+  00DF              +1  479     sfr CRR                 = 0xDF;// Chip Revision Register
+                    +1  480     
+  00D9              +1  481     sfr SINTMR              = 0xD9;// Sub-System Interrupt Mask Register
+  00DA              +1  482     sfr HASHCR              = 0xDA;// HASH Command Register
+  00DB              +1  483     sfr HASHDR              = 0xDB;// HASH Data Register
+  00DC              +1  484     sfr SFFEDR0             = 0xDC;// Sequence and Fragment Filtering ENTRY DROP Register 0
+  00DD              +1  485     sfr SFFEDR1             = 0xDD;// Sequence and Fragment Filtering ENTRY DROP Register 1
+  00DE              +1  486     sfr SFFEDR2             = 0xDE;// Sequence and Fragment Filtering ENTRY DROP Register 2
+  00DF              +1  487     sfr SFFEDR3             = 0xDF;// Sequence and Fragment Filtering ENTRY DROP Register 3
+                    +1  488     
+                    +1  489     
+  00E0              +1  490     sfr ACC                 = 0xE0;// Accumulator
+                    +1  491     
+  00E1              +1  492     sfr PWHR                = 0xE1;// Program Write High Byte Register
+  00E2              +1  493     sfr FCCR                = 0xE2;// Flash Controller Command Register
+  00E3              +1  494     sfr FCSR                = 0xE3;// Flash Controller Status Register
+  00E4              +1  495     sfr I2STCR              = 0xE4;// I2S/PCM TX Command Index Register
+  00E5              +1  496     sfr I2STDR              = 0xE5;// I2S/PCM TX Data Register
+  00E6              +1  497     sfr I2SRCR              = 0xE6;// I2S/PCM RX Command Index Register
+  00E7              +1  498     sfr     I2SRDR          = 0xE7;// I2S/PCM RX Data Register
+                    +1  499     
+  00E1              +1  500     sfr SINTSR              = 0xE1;// Sub-System Interrupt Status Register
+  00E2              +1  501     sfr     SSCIR           = 0xE2;// Sub-System Command Index Register
+  00E3              +1  502     sfr     SSDR            = 0xE3;// Sub-System Data Register
+  00E4              +1  503     sfr     MBCIR           = 0xE4;// The indirect addressing to MII Bridge other registers.
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE     9
+
+  00E5              +1  504     sfr     MBDR            = 0xE5;// The data port to or from MII bridge internal register.
+  00E6              +1  505     sfr     PBCIR           = 0xE6;// PCI Bridge Command Index Register
+  00E7              +1  506     sfr PBDR                = 0xE7;// PCI Bridge Data Register
+                    +1  507     
+  00E8              +1  508     sfr EIE                 = 0xE8;// External Interrupt Enable
+  00E9              +1  509     sfr STATUS              = 0xE9;// Status Register
+  00EA              +1  510     sfr MXAX                = 0xEA;// MOVX @Ri Extended Register
+  00EB              +1  511     sfr TA                  = 0xEB;// Timed Access Protection
+                    +1  512     
+  00EC              +1  513     sfr U2CIR               = 0xEC;// UART2 Command Index Register
+  00ED              +1  514     sfr U2DR                = 0xED;// UART2 Data Register
+  00EE              +1  515     sfr U3CIR               = 0xEE;// UART3 Command Index Register
+  00EF              +1  516     sfr U3DR                = 0xEF;// UART3 Data Register
+                    +1  517     
+  00EC              +1  518     sfr MOP                 = 0xEC;// Math Operation Register
+  00ED              +1  519     sfr MD                  = 0xED;// Math Data Register
+  00EE              +1  520     sfr RNO                 = 0xEE;// Random Number Operation Register
+  00EF              +1  521     sfr RNDP                = 0xEF;// Random Number Data Port Register
+                    +1  522     
+                    +1  523     
+  00F0              +1  524     sfr B                   = 0xF0;// B Working Register
+  00F1              +1  525     sfr     RC0                     = 0xF1;// Read Command Register 0
+  00F2              +1  526     sfr     RC1                     = 0xF2;// Read Command Register 1
+  00F3              +1  527     sfr     RC2                     = 0xF3;// Read Command Register 2
+  00F4              +1  528     sfr     RC3                     = 0xF4;// Read Command Register 3
+  00F5              +1  529     sfr     RC4                     = 0xF5;// Read Command Register 4
+  00F6              +1  530     sfr PCCR                = 0xF6;// Power Saving Control Register
+  00F7              +1  531     sfr     PCDR            = 0xF7;// Power Saving Data Register
+  00F8              +1  532     sfr EIP                 = 0xF8;// Extended Interrupt Priority Register
+  00F9              +1  533     sfr WC0                 = 0xF9;// Write Command Register 0
+  00FA              +1  534     sfr WC1                 = 0xFA;// Write Command Register 1
+  00FB              +1  535     sfr WC2                 = 0xFB;// Write Command Register 2
+  00FC              +1  536     sfr WC3                 = 0xFC;// Write Command Register 3
+  00FD              +1  537     sfr WC4                 = 0xFD;// Write Command Register 4
+  00FE              +1  538     sfr CCTRL               = 0xFE;// Command Control Register
+  00FF              +1  539     sfr CSSR                = 0xFF;// Command Status Register
+                    +1  540     
+                    +1  541     
+                    +1  542     
+                    +1  543     
+                    +1  544     
+0080.0              +1  545     sbit P0_0               = 0x80;
+0080.1              +1  546     sbit P0_1               = 0x81;
+0080.2              +1  547     sbit P0_2               = 0x82;
+0080.3              +1  548     sbit P0_3               = 0x83;
+0080.4              +1  549     sbit P0_4               = 0x84;
+0080.5              +1  550     sbit P0_5               = 0x85;
+0080.6              +1  551     sbit P0_6               = 0x86;
+0080.7              +1  552     sbit P0_7               = 0x87;
+                    +1  553     
+                    +1  554     
+                    +1  555     
+                    +1  556     
+                    +1  557     
+                    +1  558     
+                    +1  559     
+                    +1  560     
+                    +1  561     
+                    +1  562     
+                    +1  563     
+                    +1  564     
+                    +1  565     
+                    +1  566     
+                    +1  567     
+                    +1  568     
+                    +1  569     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    10
+
+                    +1  570     
+                    +1  571     
+                    +1  572     
+                    +1  573     
+                    +1  574     
+                    +1  575     
+                    +1  576     
+0088.0              +1  577     sbit    IT0             = 0x88;
+0088.1              +1  578     sbit    IE0             = 0x89;
+0088.2              +1  579     sbit    IT1             = 0x8A;
+0088.3              +1  580     sbit    IE1             = 0x8B;
+0088.4              +1  581     sbit    TR0             = 0x8C;
+0088.5              +1  582     sbit    TF0             = 0x8D;
+0088.6              +1  583     sbit    TR1             = 0x8E;
+0088.7              +1  584     sbit    TF1             = 0x8F;
+                    +1  585     
+                    +1  586     
+                    +1  587     
+                    +1  588     
+                    +1  589     
+                    +1  590     
+                    +1  591     
+                    +1  592     
+                    +1  593     
+                    +1  594     
+                    +1  595     
+                    +1  596     
+                    +1  597     
+                    +1  598     
+                    +1  599     
+                    +1  600     
+                    +1  601     
+                    +1  602     
+                    +1  603     
+                    +1  604     
+                    +1  605     
+                    +1  606     
+                    +1  607     
+                    +1  608     
+                    +1  609     
+                    +1  610     
+                    +1  611     
+                    +1  612     
+                    +1  613     
+                    +1  614     
+                    +1  615     
+                    +1  616     
+                    +1  617     
+                    +1  618     
+                    +1  619     
+                    +1  620     
+                    +1  621     
+                    +1  622     
+                    +1  623     
+                    +1  624     
+                    +1  625     
+                    +1  626     
+                    +1  627     
+                    +1  628     
+                    +1  629     
+                    +1  630     
+0090.0              +1  631     sbit P1_0               = 0x90;
+0090.1              +1  632     sbit P1_1               = 0x91;
+0090.2              +1  633     sbit P1_2               = 0x92;
+0090.3              +1  634     sbit P1_3               = 0x93;
+0090.4              +1  635     sbit P1_4               = 0x94;
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    11
+
+0090.5              +1  636     sbit P1_5               = 0x95;
+0090.6              +1  637     sbit P1_6               = 0x96;
+0090.7              +1  638     sbit P1_7               = 0x97;
+                    +1  639     
+                    +1  640     
+                    +1  641     
+                    +1  642     
+                    +1  643     
+                    +1  644     
+                    +1  645     
+                    +1  646     
+                    +1  647     
+                    +1  648     
+                    +1  649     
+                    +1  650     
+                    +1  651     
+                    +1  652     
+                    +1  653     
+                    +1  654     
+                    +1  655     
+                    +1  656     
+                    +1  657     
+                    +1  658     
+                    +1  659     
+                    +1  660     
+                    +1  661     
+                    +1  662     
+                    +1  663     
+                    +1  664     
+                    +1  665     
+                    +1  666     
+                    +1  667     
+0098.0              +1  668     sbit RI0                        = 0x98;
+0098.1              +1  669     sbit TI0                        = 0x99;
+0098.2              +1  670     sbit RB08                       = 0x9A;
+0098.3              +1  671     sbit TB08                       = 0x9B;
+0098.4              +1  672     sbit REN0                       = 0x9C;
+0098.5              +1  673     sbit SM02                       = 0x9D;
+0098.6              +1  674     sbit SM01                       = 0x9E;
+0098.7              +1  675     sbit SM00                       = 0x9F;
+                    +1  676     
+                    +1  677     
+                    +1  678     
+                    +1  679     
+                    +1  680     
+                    +1  681     
+                    +1  682     
+                    +1  683     
+                    +1  684     
+                    +1  685     
+                    +1  686     
+                    +1  687     
+                    +1  688     
+                    +1  689     
+                    +1  690     
+                    +1  691     
+                    +1  692     
+                    +1  693     
+                    +1  694     
+                    +1  695     
+                    +1  696     
+                    +1  697     
+                    +1  698     
+                    +1  699     
+                    +1  700     
+                    +1  701     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    12
+
+                    +1  702     
+                    +1  703     
+                    +1  704     
+                    +1  705     
+                    +1  706     
+                    +1  707     
+                    +1  708     
+                    +1  709     
+                    +1  710     
+                    +1  711     
+                    +1  712     
+                    +1  713     
+                    +1  714     
+                    +1  715     
+                    +1  716     
+                    +1  717     
+                    +1  718     
+                    +1  719     
+                    +1  720     
+                    +1  721     
+                    +1  722     
+                    +1  723     
+                    +1  724     
+                    +1  725     
+                    +1  726     
+                    +1  727     
+                    +1  728     
+                    +1  729     
+                    +1  730     
+                    +1  731     
+00A0.0              +1  732     sbit P2_0               = 0xA0;
+00A0.1              +1  733     sbit P2_1               = 0xA1;
+00A0.2              +1  734     sbit P2_2               = 0xA2;
+00A0.3              +1  735     sbit P2_3               = 0xA3;
+00A0.4              +1  736     sbit P2_4               = 0xA4;
+00A0.5              +1  737     sbit P2_5               = 0xA5;
+00A0.6              +1  738     sbit P2_6               = 0xA6;
+00A0.7              +1  739     sbit P2_7               = 0xA7;
+                    +1  740     
+                    +1  741     
+                    +1  742     
+                    +1  743     
+00A8.0              +1  744     sbit EX0                = 0xA8;       /* 1=Enable External interrupt 0 */
+00A8.1              +1  745     sbit ET0                = 0xA9;       /* 1=Enable Timer 0 interrupt */
+00A8.2              +1  746     sbit EX1                = 0xAA;       /* 1=Enable External interrupt 1 */
+00A8.3              +1  747     sbit ET1                = 0xAB;       /* 1=Enable Timer 1 interrupt */
+00A8.4              +1  748     sbit ES0                = 0xAC;       /* 1=Enable Serial port 0 interrupt */
+00A8.5              +1  749     sbit ET2                = 0xAD;       /* 1=Enable Timer 2 interrupt */
+00A8.6              +1  750     sbit ES1                = 0xAE;       /* 1=Enable Serial port 1 interrupt */
+00A8.7              +1  751     sbit EA                 = 0xAF;       /* 0=Disable all interrupts */
+                    +1  752     
+                    +1  753     
+                    +1  754     
+                    +1  755     
+00B0.0              +1  756     sbit P3_0               = 0xB0;
+00B0.1              +1  757     sbit P3_1               = 0xB1;
+00B0.2              +1  758     sbit P3_2               = 0xB2;
+00B0.3              +1  759     sbit P3_3               = 0xB3;
+00B0.4              +1  760     sbit P3_4               = 0xB4;
+00B0.5              +1  761     sbit P3_5               = 0xB5;
+00B0.6              +1  762     sbit P3_6               = 0xB6;
+00B0.7              +1  763     sbit P3_7               = 0xB7;
+                    +1  764     
+00B0.0              +1  765     sbit RXD                = 0xB0;       /* Serial data input */
+00B0.1              +1  766     sbit TXD                = 0xB1;       /* Serial data output */
+00B0.2              +1  767     sbit INT0               = 0xB2;       /* External interrupt 0 */
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    13
+
+00B0.3              +1  768     sbit INT1               = 0xB3;       /* External interrupt 1 */
+00B0.4              +1  769     sbit T0                 = 0xB4;       /* Timer 0 external input */
+00B0.5              +1  770     sbit T1                 = 0xB5;       /* Timer 1 external input */
+00B0.6              +1  771     sbit WR                 = 0xB6;       /* External data memory write strobe */
+00B0.7              +1  772     sbit RD                 = 0xB7;       /* External data memory read strobe */
+                    +1  773     
+                    +1  774     
+                    +1  775     
+                    +1  776     
+00B8.0              +1  777     sbit PX0                = 0xB8;
+00B8.1              +1  778     sbit PT0                = 0xB9;
+00B8.2              +1  779     sbit PX1                = 0xBA;
+00B8.3              +1  780     sbit PT1                = 0xBB;
+00B8.4              +1  781     sbit PS0                = 0xBC;
+00B8.5              +1  782     sbit PT2                = 0xBD;
+00B8.6              +1  783     sbit PS1                = 0xBE;
+                    +1  784     
+                    +1  785     
+                    +1  786     
+                    +1  787     
+00C0.0              +1  788     sbit RI1                = 0xC0;
+00C0.1              +1  789     sbit TI1                = 0xC1;
+00C0.2              +1  790     sbit RB18               = 0xC2;
+00C0.3              +1  791     sbit TB18               = 0xC3;
+00C0.4              +1  792     sbit REN1               = 0xC4;
+00C0.5              +1  793     sbit SM12               = 0xC5;
+00C0.6              +1  794     sbit SM11               = 0xC6;
+00C0.7              +1  795     sbit SM10               = 0xC7;
+                    +1  796     
+                    +1  797     
+                    +1  798     
+                    +1  799     
+                    +1  800     
+                    +1  801     
+                    +1  802     
+                    +1  803     
+                    +1  804     
+                    +1  805     
+                    +1  806     
+                    +1  807     
+                    +1  808     
+                    +1  809     
+                    +1  810     
+                    +1  811     
+                    +1  812     
+                    +1  813     
+                    +1  814     
+                    +1  815     
+                    +1  816     
+                    +1  817     
+                    +1  818     
+                    +1  819     
+                    +1  820     
+00C8.0              +1  821     sbit CPRL2              = 0xC8;
+00C8.1              +1  822     sbit CT2                = 0xC9;
+00C8.2              +1  823     sbit TR2                = 0xCA;
+00C8.3              +1  824     sbit EXEN2              = 0xCB;
+00C8.4              +1  825     sbit TCLK               = 0xCC;
+00C8.5              +1  826     sbit RCLK               = 0xCD;
+00C8.6              +1  827     sbit EXF2               = 0xCE;
+00C8.7              +1  828     sbit TF2                = 0xCF;
+                    +1  829     
+                    +1  830     
+                    +1  831     
+                    +1  832     
+00D0.0              +1  833     sbit P                  = 0xD0;
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    14
+
+00D0.1              +1  834     sbit F1                 = 0xD1;
+00D0.2              +1  835     sbit OV                 = 0xD2;
+00D0.3              +1  836     sbit RS0                = 0xD3;
+00D0.4              +1  837     sbit RS1                = 0xD4;
+00D0.5              +1  838     sbit F0                 = 0xD5;
+00D0.6              +1  839     sbit AC                 = 0xD6;
+00D0.7              +1  840     sbit CY                 = 0xD7;
+                    +1  841     
+                    +1  842     
+                    +1  843     
+                    +1  844     
+                    +1  845     
+                    +1  846     
+                    +1  847     
+                    +1  848     
+                    +1  849     
+                    +1  850     
+                    +1  851     
+                    +1  852     
+                    +1  853     
+                    +1  854     
+                    +1  855     
+                    +1  856     
+                    +1  857     
+                    +1  858     
+00D8.0              +1  859     sbit RWT                = 0xD8;
+00D8.1              +1  860     sbit EWT                = 0xD9;
+00D8.2              +1  861     sbit WTRF               = 0xDA;
+00D8.3              +1  862     sbit WDIF               = 0xDB;
+                    +1  863     
+                    +1  864     
+                    +1  865     
+                    +1  866     
+                    +1  867     
+                    +1  868     
+                    +1  869     
+                    +1  870     
+                    +1  871     
+                    +1  872     
+                    +1  873     
+                    +1  874     
+                    +1  875     
+                    +1  876     
+                    +1  877     
+                    +1  878     
+                    +1  879     
+                    +1  880     
+                    +1  881     
+                    +1  882     
+                    +1  883     
+                    +1  884     
+                    +1  885     
+                    +1  886     
+                    +1  887     
+                    +1  888     
+                    +1  889     
+                    +1  890     
+                    +1  891     
+                    +1  892     
+                    +1  893     
+                    +1  894     
+                    +1  895     
+                    +1  896     
+                    +1  897     
+                    +1  898     
+                    +1  899     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    15
+
+                    +1  900     
+                    +1  901     
+                    +1  902     
+                    +1  903     
+                    +1  904     
+                    +1  905     
+                    +1  906     
+                    +1  907     
+                    +1  908     
+                    +1  909     
+                    +1  910     
+                    +1  911     
+                    +1  912     
+                    +1  913     
+                    +1  914     
+                    +1  915     
+                    +1  916     
+                    +1  917     
+                    +1  918     
+                    +1  919     
+                    +1  920     
+                    +1  921     
+                    +1  922     
+                    +1  923     
+                    +1  924     
+                    +1  925     
+                    +1  926     
+                    +1  927     
+                    +1  928     
+                    +1  929     
+                    +1  930     
+                    +1  931     
+                    +1  932     
+                    +1  933     
+                    +1  934     
+                    +1  935     
+                    +1  936     
+                    +1  937     
+                    +1  938     
+                    +1  939     
+                    +1  940     
+                    +1  941     
+                    +1  942     
+                    +1  943     
+                    +1  944     
+                    +1  945     
+                    +1  946     
+                    +1  947     
+00E8.0              +1  948     sbit EINT2              = 0xE8;
+00E8.1              +1  949     sbit EINT3              = 0xE9;
+00E8.2              +1  950     sbit EINT4              = 0xEA;
+00E8.3              +1  951     sbit EINT5              = 0xEB;
+00E8.4              +1  952     sbit EINT6              = 0xEC;
+00E8.5              +1  953     sbit EWDI               = 0xED;
+                    +1  954     
+                    +1  955     
+                    +1  956     
+                    +1  957     
+00F8.0              +1  958     sbit PINT2              = 0xF8;
+00F8.1              +1  959     sbit PINT3              = 0xF9;
+00F8.2              +1  960     sbit PINT4              = 0xFA;
+00F8.3              +1  961     sbit PINT5              = 0xFB;
+00F8.4              +1  962     sbit PINT6              = 0xFC;
+00F8.5              +1  963     sbit PWDI               = 0xFD;
+                    +1  964     
+                    +1  965     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    16
+
+                    +1  966     
+                    +1  967     
+                    +1  968     
+                    +1  969     
+                    +1  970     
+                    +1  971     
+                    +1  972     
+                    +1  973     
+                    +1  974     
+                    +1  975     
+                    +1  976     
+                    +1  977     
+                    +1  978     
+                    +1  979     
+                    +1  980     
+                    +1  981     
+                    +1  982     
+                    +1  983     
+                    +1  984       
+                    +1  985       
+                    +1  986       
+                    +1  987       
+                    +1  988       
+                    +1  989       
+                    +1  990       
+                    +1  991       
+                    +1  992       
+                    +1  993       
+                    +1  994       
+                    +1  995       
+                    +1  996       
+                    +1  997       
+                    +1  998       
+                    +1  999     
+                    +1 1000       
+                    +1 1001       
+                    +1 1002       
+                    +1 1003       
+                    +1 1004       
+                    +1 1005       
+                    +1 1006       
+                    +1 1007       
+                    +1 1008       
+                    +1 1009       
+                    +1 1010       
+                    +1 1011       
+                    +1 1012       
+                    +1 1013       
+                    +1 1014       
+                    +1 1015     
+                    +1 1016     
+                    +1 1017     
+                    +1 1018     
+                    +1 1019     
+                    +1 1020     
+                    +1 1021     
+                       1022     
+                       1023     
+                       1024                     NAME    ?C_STARTUP
+                       1025     
+------                 1026     ?C_C51STARTUP   SEGMENT         CODE
+                       1027     
+------                 1028     ?STACK  SEGMENT         IDATA
+------                 1029                     RSEG            ?STACK
+000000                 1030                     DS                      1
+                       1031     
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    17
+
+                       1032                     EXTRN CODE      (?C_START)
+                       1033                     PUBLIC          ?C_STARTUP
+                       1034     
+                       1035     $if  RuntimeCodeAt0KH
+                                ?C_CPURESET?0   SEGMENT CODE OFFS 0
+                                $elseif  RuntimeCodeAt32KH
+008020                 1038     ?C_CPURESET?0   SEGMENT CODE OFFS 0x8020
+                       1039     $endif 
+------                 1040                     RSEG    ?C_CPURESET?0   
+                       1041     
+008020                 1042     ?C_STARTUP LABEL        NEAR
+008020 02              1043                     DB              02H     ; LJMP in Classic 8051 Mode
+008021 0000       F    1044                     DW              WORD0 STARTUP1
+------                 1045                     RSEG    ?C_C51STARTUP
+                       1046     
+                       1047     $if  RuntimeCodeAt0KH
+                                                CSEG AT 2000H           ; Force the code to start from 0x2000H
+                                $endif 
+                       1050     
+000000                 1051     STARTUP1:     
+000000 75EBAA          1052                     MOV     TA,#0xAA        ; Enable access to ACON
+000003 75EB55          1053                     MOV     TA,#0x55
+000006 759D02          1054                     MOV     ACON,#0x02
+                       1055     
+                       1056     IF IDATALEN <> 0
+000009 787F            1057                     MOV             R0,#IDATALEN - 1
+00000B E4              1058                     CLR             A
+00000C                 1059     IDATALOOP:
+00000C F6              1060                     MOV             @R0,A
+00000D D8FD            1061                     DJNZ    R0,IDATALOOP
+                       1062     ENDIF
+                       1063     
+                       1064     IF XDATALEN <> 0
+00000F 90000000        1065                     MOV             DPTR,#XDATASTART
+000013 7F00            1066                     MOV             R7,#BYTE0 (XDATALEN)
+                       1067       IF (BYTE0 (XDATALEN)) <> 0
+                                                MOV             R6,#(BYTE1 XDATALEN) +1
+                                  ELSE
+000015 7E00            1070                     MOV             R6,#BYTE1 (XDATALEN)
+                       1071       ENDIF
+                       1072       IF (BYTE1 (XDATALEN)) <> 0
+                                                MOV             R5,#(BYTE2 XDATALEN) +1
+                                  ELSE
+000017 7D01            1075                     MOV             R5,#BYTE2 (XDATALEN)
+                       1076       ENDIF
+000019 E4              1077                     CLR             A
+00001A                 1078     XDATALOOP:
+00001A F0              1079                     MOVX    @DPTR,A
+00001B A3              1080                     INC             DPTR
+00001C DFFC            1081                     DJNZ    R7,XDATALOOP
+00001E DEFA            1082                     DJNZ    R6,XDATALOOP
+000020 DDF8            1083                     DJNZ    R5,XDATALOOP
+                       1084     ENDIF
+                       1085     
+                       1086     IF PPAGEENABLE <> 0
+                                                MOV     P2,#PPAGE
+                                                MOV     MXAX,#0
+                                ENDIF
+                       1090     
+                       1091     IF PDATALEN <> 0
+                                                MOV             R0,#PDATASTART
+                                                MOV             R7,#LOW (PDATALEN)
+                                                CLR             A
+                                PDATALOOP:
+                                                MOVX    @R0,A
+                                                INC             R0
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    18
+
+                                                DJNZ    R7,PDATALOOP
+                                ENDIF
+                       1100     
+                       1101     IF IBPSTACK <> 0
+                                EXTRN DATA (?C_IBP)
+                                
+                                                MOV             ?C_IBP,#LOW IBPSTACKTOP
+                                ENDIF
+                       1106     
+                       1107     IF XBPSTACK <> 0
+                       1108     EXTRN DATA (?C_XBP)
+                       1109     
+000022 750056     E    1110                     MOV             ?C_XBP,#HIGH XBPSTACKTOP
+000025 7500FF     E    1111                     MOV             ?C_XBP+1,#LOW XBPSTACKTOP
+                       1112     ENDIF
+                       1113     
+                       1114     IF PBPSTACK <> 0
+                                EXTRN DATA (?C_PBP)
+                                                MOV             ?C_PBP,#LOW PBPSTACKTOP
+                                ENDIF
+                       1118     
+000028 758100     F    1119                     MOV             SP,#?STACK-1
+00002B 02000000   E    1120                     LJMP    ?C_START
+                       1121     
+                       1122     $if  RuntimeCodeAt0KH
+                                MCB             SEGMENT CODE    AT 3FFFH ; MCPU Code End Block Number
+                                                RSEG    MCB
+                                BlockNumM:
+                                                DB              MCPU_CODEBLOCK
+                                
+                                WCB             SEGMENT CODE    AT 3FFEH ; WCPU Code Start Block Number
+                                                RSEG    WCB
+                                BlockNumW:
+                                                DB              WCPU_CODEBLOCK
+                                
+                                $endif 
+                       1134     
+                       1135                     END
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    19
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                        T Y P E  V A L U E     ATTRIBUTES
+
+?C_C51STARTUP . . . . . . . .  C  SEG   00002FH       REL=UNIT, ALN=BYTE
+?C_CPURESET?0 . . . . . . . .  C  SEG   008023H       REL=OFS, ALN=BYTE
+?C_START. . . . . . . . . . .  C  ADDR  -------       EXT
+?C_STARTUP. . . . . . . . . .  C  ADDR  8020H     R   SEG=?C_CPURESET?0
+?C_XBP. . . . . . . . . . . .  D  ADDR  -------       EXT
+?STACK. . . . . . . . . . . .  I  SEG   000001H       REL=UNIT, ALN=BYTE
+AC. . . . . . . . . . . . . .  B  ADDR  00D0H.6   A   
+ACC . . . . . . . . . . . . .  D  ADDR  00E0H     A   
+ACON. . . . . . . . . . . . .  D  ADDR  009DH     A   
+B . . . . . . . . . . . . . .  D  ADDR  00F0H     A   
+CCAPH0. . . . . . . . . . . .  D  ADDR  00B9H     A   
+CCAPH1. . . . . . . . . . . .  D  ADDR  00BAH     A   
+CCAPH2. . . . . . . . . . . .  D  ADDR  00BBH     A   
+CCAPH3. . . . . . . . . . . .  D  ADDR  00BCH     A   
+CCAPH4. . . . . . . . . . . .  D  ADDR  00BDH     A   
+CCAPL0. . . . . . . . . . . .  D  ADDR  00B1H     A   
+CCAPL1. . . . . . . . . . . .  D  ADDR  00B2H     A   
+CCAPL2. . . . . . . . . . . .  D  ADDR  00B3H     A   
+CCAPL3. . . . . . . . . . . .  D  ADDR  00B4H     A   
+CCAPL4. . . . . . . . . . . .  D  ADDR  00B5H     A   
+CCAPM0. . . . . . . . . . . .  D  ADDR  00D1H     A   
+CCAPM1. . . . . . . . . . . .  D  ADDR  00D2H     A   
+CCAPM2. . . . . . . . . . . .  D  ADDR  00D3H     A   
+CCAPM3. . . . . . . . . . . .  D  ADDR  00D4H     A   
+CCAPM4. . . . . . . . . . . .  D  ADDR  00D5H     A   
+CCON. . . . . . . . . . . . .  D  ADDR  00C3H     A   
+CCTRL . . . . . . . . . . . .  D  ADDR  00FEH     A   
+CH. . . . . . . . . . . . . .  D  ADDR  00C5H     A   
+CKCON . . . . . . . . . . . .  D  ADDR  008EH     A   
+CL. . . . . . . . . . . . . .  D  ADDR  00C4H     A   
+CMOD. . . . . . . . . . . . .  D  ADDR  00C2H     A   
+CPRL2 . . . . . . . . . . . .  B  ADDR  00C8H.0   A   
+CRR . . . . . . . . . . . . .  D  ADDR  00DFH     A   
+CSREPR. . . . . . . . . . . .  D  ADDR  008FH     A   
+CSSR. . . . . . . . . . . . .  D  ADDR  00FFH     A   
+CT2 . . . . . . . . . . . . .  B  ADDR  00C8H.1   A   
+CTRPH . . . . . . . . . . . .  D  ADDR  00B4H     A   
+CTRPL . . . . . . . . . . . .  D  ADDR  00B3H     A   
+CY. . . . . . . . . . . . . .  B  ADDR  00D0H.7   A   
+DCIR. . . . . . . . . . . . .  D  ADDR  00DAH     A   
+DDR . . . . . . . . . . . . .  D  ADDR  00DBH     A   
+DGCNT . . . . . . . . . . . .  D  ADDR  00A7H     A   
+DGCR. . . . . . . . . . . . .  D  ADDR  00A2H     A   
+DGLHR . . . . . . . . . . . .  D  ADDR  00A6H     A   
+DGLLR . . . . . . . . . . . .  D  ADDR  00A4H     A   
+DGLMR . . . . . . . . . . . .  D  ADDR  00A5H     A   
+DGMSR . . . . . . . . . . . .  D  ADDR  00A1H     A   
+DGSR. . . . . . . . . . . . .  D  ADDR  00A3H     A   
+DMAHR . . . . . . . . . . . .  D  ADDR  00ADH     A   
+DMALR . . . . . . . . . . . .  D  ADDR  00ABH     A   
+DMAMR . . . . . . . . . . . .  D  ADDR  00ACH     A   
+DPH . . . . . . . . . . . . .  D  ADDR  0083H     A   
+DPH0. . . . . . . . . . . . .  D  ADDR  0083H     A   
+DPH1. . . . . . . . . . . . .  D  ADDR  0085H     A   
+DPL . . . . . . . . . . . . .  D  ADDR  0082H     A   
+DPL0. . . . . . . . . . . . .  D  ADDR  0082H     A   
+DPL1. . . . . . . . . . . . .  D  ADDR  0084H     A   
+DPS . . . . . . . . . . . . .  D  ADDR  0086H     A   
+DPX . . . . . . . . . . . . .  D  ADDR  0093H     A   
+DPX0. . . . . . . . . . . . .  D  ADDR  0093H     A   
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    20
+
+DPX1. . . . . . . . . . . . .  D  ADDR  0095H     A   
+EA. . . . . . . . . . . . . .  B  ADDR  00A8H.7   A   
+EIE . . . . . . . . . . . . .  D  ADDR  00E8H     A   
+EIF . . . . . . . . . . . . .  D  ADDR  0091H     A   
+EINT2 . . . . . . . . . . . .  B  ADDR  00E8H.0   A   
+EINT3 . . . . . . . . . . . .  B  ADDR  00E8H.1   A   
+EINT4 . . . . . . . . . . . .  B  ADDR  00E8H.2   A   
+EINT5 . . . . . . . . . . . .  B  ADDR  00E8H.3   A   
+EINT6 . . . . . . . . . . . .  B  ADDR  00E8H.4   A   
+EIP . . . . . . . . . . . . .  D  ADDR  00F8H     A   
+EMDMR . . . . . . . . . . . .  D  ADDR  009AH     A   
+EPCR. . . . . . . . . . . . .  D  ADDR  00BEH     A   
+EPDR. . . . . . . . . . . . .  D  ADDR  00BFH     A   
+ES0 . . . . . . . . . . . . .  B  ADDR  00A8H.4   A   
+ES1 . . . . . . . . . . . . .  B  ADDR  00A8H.6   A   
+ET0 . . . . . . . . . . . . .  B  ADDR  00A8H.1   A   
+ET1 . . . . . . . . . . . . .  B  ADDR  00A8H.3   A   
+ET2 . . . . . . . . . . . . .  B  ADDR  00A8H.5   A   
+EWDI. . . . . . . . . . . . .  B  ADDR  00E8H.5   A   
+EWT . . . . . . . . . . . . .  B  ADDR  00D8H.1   A   
+EX0 . . . . . . . . . . . . .  B  ADDR  00A8H.0   A   
+EX1 . . . . . . . . . . . . .  B  ADDR  00A8H.2   A   
+EXEN2 . . . . . . . . . . . .  B  ADDR  00C8H.3   A   
+EXF2. . . . . . . . . . . . .  B  ADDR  00C8H.6   A   
+F0. . . . . . . . . . . . . .  B  ADDR  00D0H.5   A   
+F1. . . . . . . . . . . . . .  B  ADDR  00D0H.1   A   
+FCCR. . . . . . . . . . . . .  D  ADDR  00E2H     A   
+FCSR. . . . . . . . . . . . .  D  ADDR  00E3H     A   
+HASHCR. . . . . . . . . . . .  D  ADDR  00DAH     A   
+HASHDR. . . . . . . . . . . .  D  ADDR  00DBH     A   
+I2CCIR. . . . . . . . . . . .  D  ADDR  0096H     A   
+I2CDR . . . . . . . . . . . .  D  ADDR  0097H     A   
+I2SRCR. . . . . . . . . . . .  D  ADDR  00E6H     A   
+I2SRDR. . . . . . . . . . . .  D  ADDR  00E7H     A   
+I2STCR. . . . . . . . . . . .  D  ADDR  00E4H     A   
+I2STDR. . . . . . . . . . . .  D  ADDR  00E5H     A   
+IBPSTACK. . . . . . . . . . .  N  NUMB  0000H     A   
+IBPSTACKTOP . . . . . . . . .  N  NUMB  00FFH     A   
+IDATALEN. . . . . . . . . . .  N  NUMB  0080H     A   
+IDATALOOP . . . . . . . . . .  C  ADDR  000CH     R   SEG=?C_C51STARTUP
+IE. . . . . . . . . . . . . .  D  ADDR  00A8H     A   
+IE0 . . . . . . . . . . . . .  B  ADDR  0088H.1   A   
+IE1 . . . . . . . . . . . . .  B  ADDR  0088H.3   A   
+INT0. . . . . . . . . . . . .  B  ADDR  00B0H.2   A   
+INT1. . . . . . . . . . . . .  B  ADDR  00B0H.3   A   
+IP. . . . . . . . . . . . . .  D  ADDR  00B8H     A   
+IT0 . . . . . . . . . . . . .  B  ADDR  0088H.0   A   
+IT1 . . . . . . . . . . . . .  B  ADDR  0088H.2   A   
+LABLR . . . . . . . . . . . .  D  ADDR  00A7H     A   
+LCR . . . . . . . . . . . . .  D  ADDR  00A2H     A   
+LDAHR . . . . . . . . . . . .  D  ADDR  00A5H     A   
+LDALR . . . . . . . . . . . .  D  ADDR  00A4H     A   
+LDCSR . . . . . . . . . . . .  D  ADDR  00A6H     A   
+LDHR. . . . . . . . . . . . .  D  ADDR  00AAH     A   
+LDLR. . . . . . . . . . . . .  D  ADDR  00A9H     A   
+LMSR. . . . . . . . . . . . .  D  ADDR  00A1H     A   
+LSAIER. . . . . . . . . . . .  D  ADDR  00A1H     A   
+LSCR. . . . . . . . . . . . .  D  ADDR  00A2H     A   
+LSR . . . . . . . . . . . . .  D  ADDR  00A3H     A   
+LSSR. . . . . . . . . . . . .  D  ADDR  00A3H     A   
+MBCIR . . . . . . . . . . . .  D  ADDR  00E4H     A   
+MBDR. . . . . . . . . . . . .  D  ADDR  00E5H     A   
+MCIR. . . . . . . . . . . . .  D  ADDR  00B6H     A   
+MCPU_CODEBLOCK. . . . . . . .  N  NUMB  0090H     A   
+MD. . . . . . . . . . . . . .  D  ADDR  00EDH     A   
+MDR . . . . . . . . . . . . .  D  ADDR  00B7H     A   
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    21
+
+MIMR. . . . . . . . . . . . .  D  ADDR  00C3H     A   
+MISR. . . . . . . . . . . . .  D  ADDR  00C2H     A   
+MOP . . . . . . . . . . . . .  D  ADDR  00ECH     A   
+MR. . . . . . . . . . . . . .  D  ADDR  00DEH     A   
+MRBLH . . . . . . . . . . . .  D  ADDR  00BCH     A   
+MRBLL . . . . . . . . . . . .  D  ADDR  00BBH     A   
+MRBSAH. . . . . . . . . . . .  D  ADDR  00BEH     A   
+MRBSAL. . . . . . . . . . . .  D  ADDR  00BDH     A   
+MRCR. . . . . . . . . . . . .  D  ADDR  00BFH     A   
+MRPLH . . . . . . . . . . . .  D  ADDR  00BAH     A   
+MRPLL . . . . . . . . . . . .  D  ADDR  00B9H     A   
+MTWPH . . . . . . . . . . . .  D  ADDR  00B2H     A   
+MTWPL . . . . . . . . . . . .  D  ADDR  00B1H     A   
+MXAX. . . . . . . . . . . . .  D  ADDR  00EAH     A   
+OCGCR . . . . . . . . . . . .  D  ADDR  009BH     A   
+OV. . . . . . . . . . . . . .  B  ADDR  00D0H.2   A   
+OWCIR . . . . . . . . . . . .  D  ADDR  00D6H     A   
+OWDR. . . . . . . . . . . . .  D  ADDR  00D7H     A   
+P . . . . . . . . . . . . . .  B  ADDR  00D0H.0   A   
+P0. . . . . . . . . . . . . .  D  ADDR  0080H     A   
+P0_0. . . . . . . . . . . . .  B  ADDR  0080H.0   A   
+P0_1. . . . . . . . . . . . .  B  ADDR  0080H.1   A   
+P0_2. . . . . . . . . . . . .  B  ADDR  0080H.2   A   
+P0_3. . . . . . . . . . . . .  B  ADDR  0080H.3   A   
+P0_4. . . . . . . . . . . . .  B  ADDR  0080H.4   A   
+P0_5. . . . . . . . . . . . .  B  ADDR  0080H.5   A   
+P0_6. . . . . . . . . . . . .  B  ADDR  0080H.6   A   
+P0_7. . . . . . . . . . . . .  B  ADDR  0080H.7   A   
+P1. . . . . . . . . . . . . .  D  ADDR  0090H     A   
+P1_0. . . . . . . . . . . . .  B  ADDR  0090H.0   A   
+P1_1. . . . . . . . . . . . .  B  ADDR  0090H.1   A   
+P1_2. . . . . . . . . . . . .  B  ADDR  0090H.2   A   
+P1_3. . . . . . . . . . . . .  B  ADDR  0090H.3   A   
+P1_4. . . . . . . . . . . . .  B  ADDR  0090H.4   A   
+P1_5. . . . . . . . . . . . .  B  ADDR  0090H.5   A   
+P1_6. . . . . . . . . . . . .  B  ADDR  0090H.6   A   
+P1_7. . . . . . . . . . . . .  B  ADDR  0090H.7   A   
+P2. . . . . . . . . . . . . .  D  ADDR  00A0H     A   
+P2_0. . . . . . . . . . . . .  B  ADDR  00A0H.0   A   
+P2_1. . . . . . . . . . . . .  B  ADDR  00A0H.1   A   
+P2_2. . . . . . . . . . . . .  B  ADDR  00A0H.2   A   
+P2_3. . . . . . . . . . . . .  B  ADDR  00A0H.3   A   
+P2_4. . . . . . . . . . . . .  B  ADDR  00A0H.4   A   
+P2_5. . . . . . . . . . . . .  B  ADDR  00A0H.5   A   
+P2_6. . . . . . . . . . . . .  B  ADDR  00A0H.6   A   
+P2_7. . . . . . . . . . . . .  B  ADDR  00A0H.7   A   
+P3. . . . . . . . . . . . . .  D  ADDR  00B0H     A   
+P3_0. . . . . . . . . . . . .  B  ADDR  00B0H.0   A   
+P3_1. . . . . . . . . . . . .  B  ADDR  00B0H.1   A   
+P3_2. . . . . . . . . . . . .  B  ADDR  00B0H.2   A   
+P3_3. . . . . . . . . . . . .  B  ADDR  00B0H.3   A   
+P3_4. . . . . . . . . . . . .  B  ADDR  00B0H.4   A   
+P3_5. . . . . . . . . . . . .  B  ADDR  00B0H.5   A   
+P3_6. . . . . . . . . . . . .  B  ADDR  00B0H.6   A   
+P3_7. . . . . . . . . . . . .  B  ADDR  00B0H.7   A   
+PBCIR . . . . . . . . . . . .  D  ADDR  00E6H     A   
+PBDR. . . . . . . . . . . . .  D  ADDR  00E7H     A   
+PBIER . . . . . . . . . . . .  D  ADDR  00A7H     A   
+PBISR . . . . . . . . . . . .  D  ADDR  00AFH     A   
+PBPSTACK. . . . . . . . . . .  N  NUMB  0000H     A   
+PBPSTACKTOP . . . . . . . . .  N  NUMB  FFFFH     A   
+PBSR. . . . . . . . . . . . .  D  ADDR  00AEH     A   
+PCCR. . . . . . . . . . . . .  D  ADDR  00F6H     A   
+PCDR. . . . . . . . . . . . .  D  ADDR  00F7H     A   
+PCON. . . . . . . . . . . . .  D  ADDR  0087H     A   
+PDATALEN. . . . . . . . . . .  N  NUMB  0000H     A   
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    22
+
+PDATASTART. . . . . . . . . .  N  NUMB  0000H     A   
+PINT2 . . . . . . . . . . . .  B  ADDR  00F8H.0   A   
+PINT3 . . . . . . . . . . . .  B  ADDR  00F8H.1   A   
+PINT4 . . . . . . . . . . . .  B  ADDR  00F8H.2   A   
+PINT5 . . . . . . . . . . . .  B  ADDR  00F8H.3   A   
+PINT6 . . . . . . . . . . . .  B  ADDR  00F8H.4   A   
+PISSR1. . . . . . . . . . . .  D  ADDR  009EH     A   
+PISSR2. . . . . . . . . . . .  D  ADDR  009FH     A   
+PMAHR . . . . . . . . . . . .  D  ADDR  00A2H     A   
+PMALR . . . . . . . . . . . .  D  ADDR  00A1H     A   
+PMDR0 . . . . . . . . . . . .  D  ADDR  00A3H     A   
+PMDR1 . . . . . . . . . . . .  D  ADDR  00A4H     A   
+PMDR2 . . . . . . . . . . . .  D  ADDR  00A5H     A   
+PMDR3 . . . . . . . . . . . .  D  ADDR  00A6H     A   
+PPAGE . . . . . . . . . . . .  N  NUMB  00F4H     A   
+PPAGEENABLE . . . . . . . . .  N  NUMB  0000H     A   
+PS0 . . . . . . . . . . . . .  B  ADDR  00B8H.4   A   
+PS1 . . . . . . . . . . . . .  B  ADDR  00B8H.6   A   
+PSGR. . . . . . . . . . . . .  D  ADDR  0094H     A   
+PSW . . . . . . . . . . . . .  D  ADDR  00D0H     A   
+PT0 . . . . . . . . . . . . .  B  ADDR  00B8H.1   A   
+PT1 . . . . . . . . . . . . .  B  ADDR  00B8H.3   A   
+PT2 . . . . . . . . . . . . .  B  ADDR  00B8H.5   A   
+PWDI. . . . . . . . . . . . .  B  ADDR  00F8H.5   A   
+PWHR. . . . . . . . . . . . .  D  ADDR  00E1H     A   
+PX0 . . . . . . . . . . . . .  B  ADDR  00B8H.0   A   
+PX1 . . . . . . . . . . . . .  B  ADDR  00B8H.2   A   
+RB08. . . . . . . . . . . . .  B  ADDR  0098H.2   A   
+RB18. . . . . . . . . . . . .  B  ADDR  00C0H.2   A   
+RC0 . . . . . . . . . . . . .  D  ADDR  00F1H     A   
+RC1 . . . . . . . . . . . . .  D  ADDR  00F2H     A   
+RC2 . . . . . . . . . . . . .  D  ADDR  00F3H     A   
+RC3 . . . . . . . . . . . . .  D  ADDR  00F4H     A   
+RC4 . . . . . . . . . . . . .  D  ADDR  00F5H     A   
+RCLK. . . . . . . . . . . . .  B  ADDR  00C8H.5   A   
+RD. . . . . . . . . . . . . .  B  ADDR  00B0H.7   A   
+REN0. . . . . . . . . . . . .  B  ADDR  0098H.4   A   
+REN1. . . . . . . . . . . . .  B  ADDR  00C0H.4   A   
+RHPHR . . . . . . . . . . . .  D  ADDR  00AAH     A   
+RHPLR . . . . . . . . . . . .  D  ADDR  00A9H     A   
+RI0 . . . . . . . . . . . . .  B  ADDR  0098H.0   A   
+RI1 . . . . . . . . . . . . .  B  ADDR  00C0H.0   A   
+RLDH. . . . . . . . . . . . .  D  ADDR  00CBH     A   
+RLDL. . . . . . . . . . . . .  D  ADDR  00CAH     A   
+RNDP. . . . . . . . . . . . .  D  ADDR  00EFH     A   
+RNO . . . . . . . . . . . . .  D  ADDR  00EEH     A   
+RS0 . . . . . . . . . . . . .  B  ADDR  00D0H.3   A   
+RS1 . . . . . . . . . . . . .  B  ADDR  00D0H.4   A   
+RSPHR . . . . . . . . . . . .  D  ADDR  00ACH     A   
+RSPLR . . . . . . . . . . . .  D  ADDR  00ABH     A   
+RTCDR . . . . . . . . . . . .  D  ADDR  00C7H     A   
+RTCIR . . . . . . . . . . . .  D  ADDR  00C6H     A   
+RWT . . . . . . . . . . . . .  B  ADDR  00D8H.0   A   
+RXD . . . . . . . . . . . . .  B  ADDR  00B0H.0   A   
+SBUF0 . . . . . . . . . . . .  D  ADDR  0099H     A   
+SBUF1 . . . . . . . . . . . .  D  ADDR  00C1H     A   
+SCON0 . . . . . . . . . . . .  D  ADDR  0098H     A   
+SCON1 . . . . . . . . . . . .  D  ADDR  00C0H     A   
+SDSTSR. . . . . . . . . . . .  D  ADDR  00D9H     A   
+SFFEDR0 . . . . . . . . . . .  D  ADDR  00DCH     A   
+SFFEDR1 . . . . . . . . . . .  D  ADDR  00DDH     A   
+SFFEDR2 . . . . . . . . . . .  D  ADDR  00DEH     A   
+SFFEDR3 . . . . . . . . . . .  D  ADDR  00DFH     A   
+SFFSCR. . . . . . . . . . . .  D  ADDR  009EH     A   
+SFFSDR. . . . . . . . . . . .  D  ADDR  009FH     A   
+SINTMR. . . . . . . . . . . .  D  ADDR  00D9H     A   
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    23
+
+SINTSR. . . . . . . . . . . .  D  ADDR  00E1H     A   
+SM00. . . . . . . . . . . . .  B  ADDR  0098H.7   A   
+SM01. . . . . . . . . . . . .  B  ADDR  0098H.6   A   
+SM02. . . . . . . . . . . . .  B  ADDR  0098H.5   A   
+SM10. . . . . . . . . . . . .  B  ADDR  00C0H.7   A   
+SM11. . . . . . . . . . . . .  B  ADDR  00C0H.6   A   
+SM12. . . . . . . . . . . . .  B  ADDR  00C0H.5   A   
+SP. . . . . . . . . . . . . .  D  ADDR  0081H     A   
+SPICIR. . . . . . . . . . . .  D  ADDR  00CEH     A   
+SPIDR . . . . . . . . . . . .  D  ADDR  00CFH     A   
+SSCIR . . . . . . . . . . . .  D  ADDR  00E2H     A   
+SSDR. . . . . . . . . . . . .  D  ADDR  00E3H     A   
+STARTUP1. . . . . . . . . . .  C  ADDR  0000H     R   SEG=?C_C51STARTUP
+STATUS. . . . . . . . . . . .  D  ADDR  00E9H     A   
+T0. . . . . . . . . . . . . .  B  ADDR  00B0H.4   A   
+T1. . . . . . . . . . . . . .  B  ADDR  00B0H.5   A   
+T2CON . . . . . . . . . . . .  D  ADDR  00C8H     A   
+T2IF. . . . . . . . . . . . .  D  ADDR  00C9H     A   
+TA. . . . . . . . . . . . . .  D  ADDR  00EBH     A   
+TB08. . . . . . . . . . . . .  B  ADDR  0098H.3   A   
+TB18. . . . . . . . . . . . .  B  ADDR  00C0H.3   A   
+TCIR. . . . . . . . . . . . .  D  ADDR  00AEH     A   
+TCLK. . . . . . . . . . . . .  B  ADDR  00C8H.4   A   
+TCON. . . . . . . . . . . . .  D  ADDR  0088H     A   
+TDR . . . . . . . . . . . . .  D  ADDR  00AFH     A   
+TF0 . . . . . . . . . . . . .  B  ADDR  0088H.5   A   
+TF1 . . . . . . . . . . . . .  B  ADDR  0088H.7   A   
+TF2 . . . . . . . . . . . . .  B  ADDR  00C8H.7   A   
+TH0 . . . . . . . . . . . . .  D  ADDR  008CH     A   
+TH1 . . . . . . . . . . . . .  D  ADDR  008DH     A   
+TH2 . . . . . . . . . . . . .  D  ADDR  00CDH     A   
+TI0 . . . . . . . . . . . . .  B  ADDR  0098H.1   A   
+TI1 . . . . . . . . . . . . .  B  ADDR  00C0H.1   A   
+TL0 . . . . . . . . . . . . .  D  ADDR  008AH     A   
+TL1 . . . . . . . . . . . . .  D  ADDR  008BH     A   
+TL2 . . . . . . . . . . . . .  D  ADDR  00CCH     A   
+TMOD. . . . . . . . . . . . .  D  ADDR  0089H     A   
+TR0 . . . . . . . . . . . . .  B  ADDR  0088H.4   A   
+TR1 . . . . . . . . . . . . .  B  ADDR  0088H.6   A   
+TR2 . . . . . . . . . . . . .  B  ADDR  00C8H.2   A   
+TXBS. . . . . . . . . . . . .  D  ADDR  00B5H     A   
+TXD . . . . . . . . . . . . .  B  ADDR  00B0H.1   A   
+U2CIR . . . . . . . . . . . .  D  ADDR  00ECH     A   
+U2DR. . . . . . . . . . . . .  D  ADDR  00EDH     A   
+U3CIR . . . . . . . . . . . .  D  ADDR  00EEH     A   
+U3DR. . . . . . . . . . . . .  D  ADDR  00EFH     A   
+WBSR. . . . . . . . . . . . .  D  ADDR  008FH     A   
+WC0 . . . . . . . . . . . . .  D  ADDR  00F9H     A   
+WC1 . . . . . . . . . . . . .  D  ADDR  00FAH     A   
+WC2 . . . . . . . . . . . . .  D  ADDR  00FBH     A   
+WC3 . . . . . . . . . . . . .  D  ADDR  00FCH     A   
+WC4 . . . . . . . . . . . . .  D  ADDR  00FDH     A   
+WCPU_CODEBLOCK. . . . . . . .  N  NUMB  0019H     A   
+WDCON . . . . . . . . . . . .  D  ADDR  00D8H     A   
+WDIF. . . . . . . . . . . . .  B  ADDR  00D8H.3   A   
+WI2CCIR . . . . . . . . . . .  D  ADDR  00CEH     A   
+WI2CDR. . . . . . . . . . . .  D  ADDR  00CFH     A   
+WKUPSR. . . . . . . . . . . .  D  ADDR  009CH     A   
+WR. . . . . . . . . . . . . .  B  ADDR  00B0H.6   A   
+WSDDAH. . . . . . . . . . . .  D  ADDR  00D5H     A   
+WSDDAL. . . . . . . . . . . .  D  ADDR  00D4H     A   
+WSDLR0. . . . . . . . . . . .  D  ADDR  00D6H     A   
+WSDLR1. . . . . . . . . . . .  D  ADDR  00D7H     A   
+WSDSAH. . . . . . . . . . . .  D  ADDR  00D3H     A   
+WSDSAL. . . . . . . . . . . .  D  ADDR  00D2H     A   
+WSDSR . . . . . . . . . . . .  D  ADDR  00D1H     A   
+AX51 MACRO ASSEMBLER  START390                                                              03/08/12 11:00:54 PAGE    24
+
+WTRF. . . . . . . . . . . . .  B  ADDR  00D8H.2   A   
+WTST. . . . . . . . . . . . .  D  ADDR  0092H     A   
+XBPSTACK. . . . . . . . . . .  N  NUMB  0001H     A   
+XBPSTACKTOP . . . . . . . . .  N  NUMB  56FFH     A   
+XDATALEN. . . . . . . . . . .  N  NUMB  00010000H A   
+XDATALOOP . . . . . . . . . .  C  ADDR  001AH     R   SEG=?C_C51STARTUP
+XDATASTART. . . . . . . . . .  N  NUMB  0000H     A   
+XRXAR . . . . . . . . . . . .  D  ADDR  00A5H     A   
+XRXNR . . . . . . . . . . . .  D  ADDR  00A4H     A   
+XTXAR . . . . . . . . . . . .  D  ADDR  00A6H     A   
+XTXRR . . . . . . . . . . . .  D  ADDR  00A7H     A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S).

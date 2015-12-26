@@ -1,0 +1,688 @@
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE ADAPTER
+OBJECT MODULE PLACED IN .\adapter.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\madapter\adapter.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INC
+                    -DIR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\
+                    -mping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\
+                    -src\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt
+                    -32KH) VARBANKING DEBUG PRINT(.\adapter.lst) OBJECT(.\adapter.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: adapter.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: adapter.c,v $
+  18           *=============================================================================
+  19           */
+  20          
+  21          /* INCLUDE FILE DECLARATIONS */
+  22          #include "adapter.h"
+  23          #include "stoe.h"
+  24          #include "dma.h"
+  25          #include "tcpip.h"
+  26          #include "pppoe.h"
+  27          #include "mstimer.h"
+  28          
+  29          /* NAMING CONSTANT DECLARATIONS */
+  30          #define ETH_HEADER_LEN          14
+  31          #define ETH_NON_TRANSPARENT     0
+  32          #define ETH_TRANSPARENT         1
+  33          #define ETH_ARP_SEND_INTERVAL_TIME      180
+  34          
+  35          /* GLOBAL VARIABLES DECLARATIONS */
+  36          U8_T ETH_IsPppoe = 0;
+  37          U8_T ETH_DoDhcp = 0;
+  38          U8_T ETH_PppoeHeaderLen = 0;
+  39          U8_T ETH_DhcpArpReply = TRUE;
+  40          
+  41          
+  42          /* LOCAL VARIABLES DECLARATIONS */
+  43          static U8_T eth_EthHeadLen = 0;
+  44          static U16_T eth_PayLoadOffset = 0;
+  45          #if (!STOE_TRANSPARENT)
+              static BOOL eth_GatewayArpStaticFlag = FALSE;
+              #endif
+  48          static U32_T eth_ArpSendIntervalTime = 3;
+  49          static U32_T eth_ArpSendTime = 0;
+  50          
+  51          /* LOCAL SUBPROGRAM DECLARATIONS */
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 2   
+
+  52          static void eth_RcvHandle(U8_T XDATA*, U16_T, U8_T);
+  53          #if (!STOE_TRANSPARENT)
+              static BOOL eth_CheckGatewayIp(U8_T XDATA* pBuf);
+              #endif
+  56          
+  57          /*
+  58           * ----------------------------------------------------------------------------
+  59           * Function Name: ETH_Init
+  60           * Purpose:
+  61           * Params:
+  62           * Returns:
+  63           * Note:
+  64           * ----------------------------------------------------------------------------
+  65           */
+  66          void ETH_Init(void)
+  67          {
+  68   1              U8_T*           point;
+  69   1      
+  70   1              /* ethernet initiation */
+  71   1              STOE_Init(ETH_PHY_SENSE_TYPE);
+  72   1              STOE_RcvCallback = eth_RcvHandle;
+  73   1      
+  74   1      #if (STOE_TRANSPARENT)
+  75   1              /* Initialise TCP/UDP up-layer interfaces */
+  76   1              TCPIP_Init(ETH_TRANSPARENT);
+  77   1              eth_EthHeadLen = ETH_HEADER_LEN;
+  78   1      #else
+                      TCPIP_Init(ETH_NON_TRANSPARENT);
+                      eth_EthHeadLen = 0;
+              #endif
+  82   1              /* set IP address to tcpip module */
+  83   1              TCPIP_SetIPAddr(STOE_GetIPAddr());
+  84   1      
+  85   1              /* set mac address to tcpip module */
+  86   1              point = MAC_GetMacAddr();
+  87   1      
+  88   1              TCPIP_SetMacAddr(point);
+  89   1      
+  90   1              TCPIP_AssignLowlayerXmitFunc(ETH_Send);
+  91   1      
+  92   1              /* PPPoE initiation */
+  93   1              PPPOE_Init();
+  94   1      
+  95   1      } /* End of ETH_Init */
+  96          
+  97          /*
+  98           * ----------------------------------------------------------------------------
+  99           * Function Name: ETH_Start
+ 100           * Purpose:
+ 101           * Params:
+ 102           * Returns:
+ 103           * Note:
+ 104           * ----------------------------------------------------------------------------
+ 105           */
+ 106          void ETH_Start(void)
+ 107          {
+ 108   1              STOE_Start();
+ 109   1      
+ 110   1      } /* End of ETH_Start */
+ 111          
+ 112          /*
+ 113           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 3   
+
+ 114           * Function Name: eth_RcvHandle
+ 115           * Purpose:
+ 116           * Params:
+ 117           * Returns:
+ 118           * Note:
+ 119           * ----------------------------------------------------------------------------
+ 120           */
+ 121          void eth_RcvHandle(U8_T XDATA* pbuf, U16_T length, U8_T protocol)
+ 122          {
+ 123   1              /* copy packet into uIP buffer */
+ 124   1              DMA_GrantXdata(TCPIP_GetRcvBuffer(), pbuf, length);
+ 125   1      
+ 126   1              TCPIP_SetRcvLength(length);
+ 127   1      
+ 128   1      #if (STOE_TRANSPARENT == STOE_NON_TRANSPARENT_MODE)
+                      if (protocol == 0xff)
+                      {
+                              if ((*pbuf > 0x44) && (*pbuf < 0x50))
+                              {
+                                      protocol = *(pbuf + 9);
+                                      PBDP->STOE_RxInform.Protocol = protocol;
+                              }
+                      }
+              #endif
+ 138   1      
+ 139   1              switch (protocol)
+ 140   1              {
+ 141   2              default:
+ 142   2                      break;
+ 143   2              case 1:
+ 144   2              case 2:
+ 145   2              case 6:
+ 146   2              case 17:
+ 147   2      #if STOE_TRANSPARENT
+ 148   2                      if (ETH_IsPppoe)
+ 149   2                      {
+ 150   3                              if (!PPPOE_Receive(TCPIP_GetRcvBuffer(), length))
+ 151   3                                      return;
+ 152   3                      }
+ 153   2                      else if (ETH_DoDhcp == 0)
+ 154   2                              uip_arp_ipin();
+ 155   2      #endif
+ 156   2                      TCPIP_Receive();
+ 157   2                      if(TCPIP_GetXmitLength() > 0)
+ 158   2                      {
+ 159   3      #if STOE_TRANSPARENT
+ 160   3                              if (!ETH_IsPppoe)
+ 161   3                                      uip_arp_out();
+ 162   3      #endif
+ 163   3                              ETH_Send(0);
+ 164   3                      }
+ 165   2                      break;
+ 166   2              case 0xff:
+ 167   2      #if STOE_TRANSPARENT
+ 168   2                      if (ETH_IsPppoe)
+ 169   2                      {
+ 170   3                              if (!PPPOE_Receive(TCPIP_GetRcvBuffer(), length))
+ 171   3                                      return;
+ 172   3                      }
+ 173   2                      else
+ 174   2                      {
+ 175   3                              if(pbuf[12] == 0x08 && pbuf[13] == 0x06)
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 4   
+
+ 176   3                              {
+ 177   4                                      uip_arp_arpin();
+ 178   4                                      if(TCPIP_GetXmitLength() > 0)
+ 179   4                                              ETH_Send(TCPIP_GetXmitLength());
+ 180   4      
+ 181   4                                      if (TCPIP_GetGwMacAddrFlag())
+ 182   4                                              eth_ArpSendIntervalTime = ETH_ARP_SEND_INTERVAL_TIME;
+ 183   4                              }
+ 184   3                      }
+ 185   2      #else
+                              // receive a arp reply packet, check the ip.
+                              // If this ip is the gateway's ip, update the hardware arp table,
+                              // and set it static
+                              if(pbuf[12] == 0x08 && pbuf[13] == 0x06 && pbuf[21] == 0x02)
+                              {
+                                      if (eth_CheckGatewayIp(pbuf))
+                                      {
+                                              eth_GatewayArpStaticFlag = TRUE;
+                                              eth_ArpSendIntervalTime = ETH_ARP_SEND_INTERVAL_TIME;
+                                      }
+                              }
+              #endif
+ 198   2                      break;
+ 199   2              }  /* End of switch */
+ 200   1      
+ 201   1      } /* End of eth_RcvHandle */
+ 202          
+ 203          /*
+ 204          * -----------------------------------------------------------------------------
+ 205           * Function Name: ETH_Send
+ 206           * Purpose: Copy Data to Mac ram and send to Ethernet.
+ 207           * Params: 
+ 208           * Returns: none
+ 209           * Note:
+ 210           * ----------------------------------------------------------------------------
+ 211           */
+ 212          void ETH_Send(U16_T     payloadOffset)
+ 213          {
+ 214   1              U16_T   length = TCPIP_GetXmitLength();
+ 215   1      
+ 216   1              if (!length)
+ 217   1                      return;
+ 218   1      
+ 219   1              eth_PayLoadOffset = payloadOffset;
+ 220   1      
+ 221   1      #if STOE_TRANSPARENT
+ 222   1              if (ETH_IsPppoe)
+ 223   1              {
+ 224   2                      length += (eth_EthHeadLen + ETH_PppoeHeaderLen);
+ 225   2                      if (!PPPOE_GetState())
+ 226   2                              return;
+ 227   2      
+ 228   2                      PPPOE_Send (TCPIP_GetXmitBuffer(), length);
+ 229   2              }
+ 230   1      #endif
+ 231   1      
+ 232   1              ETH_SendPkt(TCPIP_GetXmitBuffer(), length);
+ 233   1                      
+ 234   1      } /* End of ETH_Send() */
+ 235          
+ 236          /*
+ 237          * -----------------------------------------------------------------------------
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 5   
+
+ 238           * Function Name: ETH_SendPkt
+ 239           * Purpose: Copy Data to Mac ram and send to Ethernet.
+ 240           * Params: none
+ 241           * Returns: none
+ 242           * Note:
+ 243           * ----------------------------------------------------------------------------
+ 244           */
+ 245          void ETH_SendPkt(U8_T XDATA* psour, U16_T length)
+ 246          {
+ 247   1              U8_T XDATA* pBuf;
+ 248   1              U8_T XDATA* point;
+ 249   1              U16_T           len;
+ 250   1              U16_T           addr;
+ 251   1              U8_T            isPppoeIp = 0;
+ 252   1              U16_T           totalLen = length;
+ 253   1      
+ 254   1      #if (MAC_ARBIT_MODE == MAC_ARBIT_ETH)
+                      if (!(STOE_ConnectState & STOE_ETHERNET_LINK))
+                              return;
+              #else /* MAC_ARBIT_MODE == MAC_ARBIT_WIFI */
+ 258   1              if (!(STOE_ConnectState & STOE_WIRELESS_LINK))
+ 259   1                      return;
+ 260   1      #endif
+ 261   1      
+ 262   1              pBuf = STOE_AssignSendBuf(length + MAC_TX_RX_HEADER);
+ 263   1              if (!pBuf)
+ 264   1                      return;
+ 265   1      
+ 266   1              point = pBuf + MAC_TX_RX_HEADER;
+ 267   1      
+ 268   1      #if STOE_TRANSPARENT
+ 269   1              if (ETH_IsPppoe)
+ 270   1              {
+ 271   2                      if ((*(psour + 12) == 0x88) && (*(psour + 13) == 0x64) && (*(psour + 20) == 0) && (*(psour + 21) == 0x21
+             -))
+ 272   2                      {
+ 273   3                              isPppoeIp = 1;
+ 274   3                              PBDP->STOE_TxInform.Protocol = *(psour + 31);
+ 275   3                      }
+ 276   2                      else
+ 277   2                      {
+ 278   3                              eth_PayLoadOffset = length;
+ 279   3                              PBDP->STOE_TxInform.Protocol = 0xff;
+ 280   3                      }
+ 281   2              }
+ 282   1              else
+ 283   1      #endif
+ 284   1              {
+ 285   2      #if STOE_TRANSPARENT
+ 286   2                      if ((*(psour + 12) == 8) && (*(psour + 13) == 0))
+ 287   2                              PBDP->STOE_TxInform.Protocol = *(psour + 23);
+ 288   2                      else
+ 289   2                              PBDP->STOE_TxInform.Protocol = 0xff;
+ 290   2      #else
+                              if (*psour == 0x45)
+                                      PBDP->STOE_TxInform.Protocol = *(psour + 9);
+                              else
+                                      PBDP->STOE_TxInform.Protocol = 0xff;
+              #endif
+ 296   2              }
+ 297   1      
+ 298   1              if (pBuf)
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 6   
+
+ 299   1              {
+ 300   2                      if (eth_PayLoadOffset)
+ 301   2                              len = eth_PayLoadOffset;
+ 302   2                      else
+ 303   2                      {
+ 304   3      #if STOE_TRANSPARENT
+ 305   3                              if (ETH_IsPppoe)
+ 306   3                                      len = 48 + eth_EthHeadLen;
+ 307   3                              else
+ 308   3      #endif
+ 309   3                                      len = 40 + eth_EthHeadLen;
+ 310   3                      }
+ 311   2      
+ 312   2                      if (length > len)
+ 313   2                      {
+ 314   3                              /* Do software DMA */
+ 315   3                              DMA_GrantXdata(point, TCPIP_GetXmitBuffer(), len);
+ 316   3      
+ 317   3                              point += len;
+ 318   3                              length -= len;
+ 319   3      
+ 320   3                              addr = (U32_T)(TCPIP_GetPayloadBuffer()) >> 8;
+ 321   3      
+ 322   3                              if(addr > 0x8000)       /*if(flag_dataincode)*/
+ 323   3                                      DMA_ProgramToData((U32_T)TCPIP_GetPayloadBuffer()- 0x810000, (U32_T)point, length);
+ 324   3      #if (DMA_SRAM_RANGE == DMA_COPY_LARGE_THAN_64K)
+ 325   3                              else if (addr >= 0x100)
+ 326   3                                      DMA_Grant(point, TCPIP_GetPayloadBuffer(), length);
+ 327   3      #endif
+ 328   3                              else
+ 329   3                                      DMA_GrantXdata(point, TCPIP_GetPayloadBuffer(), length);
+ 330   3                      }
+ 331   2                      else
+ 332   2                      {
+ 333   3                              /* Do software DMA */
+ 334   3                              DMA_GrantXdata(point, TCPIP_GetXmitBuffer(), len);
+ 335   3                      } /* End of if (length > len) */
+ 336   2      
+ 337   2      #if STOE_TRANSPARENT
+ 338   2                      if (isPppoeIp)
+ 339   2                              pBuf[5] = 0x80;
+ 340   2                      else
+ 341   2      #endif
+ 342   2                              pBuf[5] = 0;
+ 343   2                      STOE_Send(pBuf, totalLen, PBDP->STOE_TxInform.Protocol);
+ 344   2              }
+ 345   1      
+ 346   1              eth_PayLoadOffset = 0; /* clear offset flag */
+ 347   1      
+ 348   1      } /* End of ETH_SendPkt() */
+ 349          
+ 350          /*
+ 351          * -----------------------------------------------------------------------------
+ 352           * Function Name: eth_CheckGatewayIp
+ 353           * Purpose: Copy Data to Mac ram and send to Ethernet.
+ 354           * Params: none
+ 355           * Returns: none
+ 356           * Note:
+ 357           * ----------------------------------------------------------------------------
+ 358           */
+ 359          BOOL eth_CheckGatewayIp(U8_T XDATA* pBuf)
+ 360          {
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 7   
+
+ 361   1              U32_T   gatewayIp, receiveIp;
+ 362   1      
+ 363   1              gatewayIp = STOE_GetGateway();
+ 364   1              if (!gatewayIp)
+ 365   1              {
+ 366   2                      return FALSE;
+ 367   2              }
+ 368   1      
+ 369   1              receiveIp = *(U32_T *)&pBuf[28];
+ 370   1              if (gatewayIp != receiveIp)
+ 371   1              {
+ 372   2                      return FALSE;
+ 373   2              }
+ 374   1      
+ 375   1              return TRUE;
+ 376   1      }
+ 377          
+ 378          /*
+ 379          * -----------------------------------------------------------------------------
+ 380           * Function Name: ETH_SendArpToGateway
+ 381           * Purpose: send arp request to gateway
+ 382           * Params: none
+ 383           * Returns: none
+ 384           * Note:
+ 385           * ----------------------------------------------------------------------------
+ 386           */
+ 387          void ETH_SendArpToGateway(BOOL StopSendAfterRcvReply)
+ 388          {
+ 389   1              U32_T   gateway, ip, TempTime;
+ 390   1              U8_T    *buf = uip_buf;
+ 391   1              U8_T*   point;
+ 392   1      
+ 393   1              if (StopSendAfterRcvReply)
+ 394   1              {
+ 395   2      #if (STOE_TRANSPARENT)
+ 396   2                      if (TCPIP_GetGwMacAddrFlag())
+ 397   2                              return;
+ 398   2      #else
+                              if (eth_GatewayArpStaticFlag)
+                                      return;
+              #endif
+ 402   2              }
+ 403   1      
+ 404   1              // first check stoe gateway setting
+ 405   1              gateway = STOE_GetGateway();
+ 406   1              if (!gateway)
+ 407   1                      return;
+ 408   1      
+ 409   1              // check stoe source ip setting
+ 410   1              ip = STOE_GetIPAddr();
+ 411   1              if (!ip)
+ 412   1                      return;
+ 413   1      
+ 414   1              // check is it time to send arp request
+ 415   1              TempTime = SWTIMER_Tick();
+ 416   1              if ((TempTime - eth_ArpSendTime) < (eth_ArpSendIntervalTime * SWTIMER_COUNT_SECOND))
+ 417   1                      return;
+ 418   1      
+ 419   1              // update time
+ 420   1              eth_ArpSendTime = TempTime;
+ 421   1      
+ 422   1      #if (STOE_TRANSPARENT)
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 8   
+
+ 423   1              if (TCPIP_GetGwMacAddrFlag())
+ 424   1      #else
+                      if (eth_GatewayArpStaticFlag)
+              #endif
+ 427   1              {
+ 428   2                      eth_ArpSendIntervalTime = ETH_ARP_SEND_INTERVAL_TIME;
+ 429   2              }
+ 430   1              else
+ 431   1              {
+ 432   2                      eth_ArpSendIntervalTime = 10;
+ 433   2              }
+ 434   1      
+ 435   1              // send arp request to gateway,
+ 436   1              // in order to get gateway MAC address.
+ 437   1              point = MAC_GetMacAddr();
+ 438   1              uip_len = 42;
+ 439   1      
+ 440   1              buf[0] = 0xFF;
+ 441   1              buf[1] = 0xFF;
+ 442   1              buf[2] = 0xFF;
+ 443   1              buf[3] = 0xFF;
+ 444   1              buf[4] = 0xFF;
+ 445   1              buf[5] = 0xFF;
+ 446   1              buf[6] = *(point);
+ 447   1              buf[7] = *(point + 1);
+ 448   1              buf[8] = *(point + 2);
+ 449   1              buf[9] = *(point + 3);
+ 450   1              buf[10] = *(point + 4);
+ 451   1              buf[11] = *(point + 5);
+ 452   1              buf[12] = 0x08; 
+ 453   1              buf[13] = 0x06;
+ 454   1      
+ 455   1              buf[14] = 0x00;
+ 456   1              buf[15] = 0x01;
+ 457   1              buf[16] = 0x08;
+ 458   1              buf[17] = 0x00;
+ 459   1              buf[18] = 0x06;
+ 460   1              buf[19] = 0x04;
+ 461   1              buf[20] = 0x00;
+ 462   1              buf[21] = 0x01;
+ 463   1      
+ 464   1              buf[22] = *(point);
+ 465   1              buf[23] = *(point + 1);
+ 466   1              buf[24] = *(point + 2);
+ 467   1              buf[25] = *(point + 3);
+ 468   1              buf[26] = *(point + 4);
+ 469   1              buf[27] = *(point + 5);
+ 470   1              *(U32_T *)&buf[28] = STOE_GetIPAddr();
+ 471   1              
+ 472   1              buf[32] = 0x00;
+ 473   1              buf[33] = 0x00;
+ 474   1              buf[34] = 0x00;
+ 475   1              buf[35] = 0x00;
+ 476   1              buf[36] = 0x00;
+ 477   1              buf[37] = 0x00;
+ 478   1              *(U32_T *)&buf[38] = gateway;
+ 479   1      
+ 480   1              ETH_Send(uip_len);
+ 481   1      
+ 482   1              return;
+ 483   1      
+ 484   1      } /* End of ETH_SendArpToGateway() */
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 9   
+
+ 485          
+ 486          /*
+ 487          * -----------------------------------------------------------------------------
+ 488           * Function Name: ETH_SendArpRequest
+ 489           * Purpose: send arp request to dstIp
+ 490           * Params: none
+ 491           * Returns: none
+ 492           * Note:
+ 493           * ----------------------------------------------------------------------------
+ 494           */
+ 495          void ETH_SendArpRequest(U32_T dstIp)
+ 496          {
+ 497   1              U8_T *buf = uip_buf;
+ 498   1              U8_T *point;
+ 499   1      
+ 500   1          // in order to get gateway MAC address.
+ 501   1              point = MAC_GetMacAddr();
+ 502   1      
+ 503   1              uip_len = 42;
+ 504   1      
+ 505   1              buf[0] = 0xFF;
+ 506   1              buf[1] = 0xFF;
+ 507   1              buf[2] = 0xFF;
+ 508   1              buf[3] = 0xFF;
+ 509   1              buf[4] = 0xFF;
+ 510   1              buf[5] = 0xFF;
+ 511   1              buf[6] = *(point);
+ 512   1              buf[7] = *(point + 1);
+ 513   1              buf[8] = *(point + 2);
+ 514   1              buf[9] = *(point + 3);
+ 515   1              buf[10] = *(point + 4);
+ 516   1              buf[11] = *(point + 5);
+ 517   1              buf[12] = 0x08; 
+ 518   1              buf[13] = 0x06;
+ 519   1      
+ 520   1              buf[14] = 0x00;
+ 521   1              buf[15] = 0x01;
+ 522   1              buf[16] = 0x08;
+ 523   1              buf[17] = 0x00;
+ 524   1              buf[18] = 0x06;
+ 525   1              buf[19] = 0x04;
+ 526   1              buf[20] = 0x00;
+ 527   1              buf[21] = 0x01;
+ 528   1      
+ 529   1              buf[22] = *(point);
+ 530   1              buf[23] = *(point + 1);
+ 531   1              buf[24] = *(point + 2);
+ 532   1              buf[25] = *(point + 3);
+ 533   1              buf[26] = *(point + 4);
+ 534   1              buf[27] = *(point + 5);
+ 535   1              *(U32_T *)&buf[28] = STOE_GetIPAddr();
+ 536   1              
+ 537   1              buf[32] = 0x00;
+ 538   1              buf[33] = 0x00;
+ 539   1              buf[34] = 0x00;
+ 540   1              buf[35] = 0x00;
+ 541   1              buf[36] = 0x00;
+ 542   1              buf[37] = 0x00;
+ 543   1              *(U32_T *)&buf[38] = dstIp;
+ 544   1      
+ 545   1              ETH_Send(0);
+ 546   1      
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 10  
+
+ 547   1              return;
+ 548   1      }
+ 549          
+ 550          /*
+ 551          * -----------------------------------------------------------------------------
+ 552           * Function Name: ETH_RestartSendArpToGateway
+ 553           * Purpose: Restart sending arp request to gateway
+ 554           * Params: none
+ 555           * Returns: none
+ 556           * Note:
+ 557           * ----------------------------------------------------------------------------
+ 558           */
+ 559          void ETH_RestartSendArpToGateway(void)
+ 560          {
+ 561   1      #if (STOE_TRANSPARENT)
+ 562   1              TCPIP_SetGwMacAddrFlag(FALSE);
+ 563   1      #else
+                      eth_GatewayArpStaticFlag = FALSE;
+              #endif
+ 566   1              eth_ArpSendIntervalTime = 3;
+ 567   1      }
+ 568          
+ 569          /*
+ 570          * -----------------------------------------------------------------------------
+ 571           * Function Name: ETH_SendDhcpArpRequest
+ 572           * Purpose: send arp request to gateway
+ 573           * Params: none
+ 574           * Returns: none
+ 575           * Note:
+ 576           * ----------------------------------------------------------------------------
+ 577           */
+ 578          void ETH_SendDhcpArpRequest(void)
+ 579          {
+ 580   1              U8_T    *buf = uip_buf;
+ 581   1              U8_T*   point;
+ 582   1      
+ 583   1              eth_ArpSendIntervalTime = 5;
+ 584   1      
+ 585   1              point = MAC_GetMacAddr();
+ 586   1      
+ 587   1              uip_len = 42;
+ 588   1      
+ 589   1              buf[0] = 0xFF;
+ 590   1              buf[1] = 0xFF;
+ 591   1              buf[2] = 0xFF;
+ 592   1              buf[3] = 0xFF;
+ 593   1              buf[4] = 0xFF;
+ 594   1              buf[5] = 0xFF;
+ 595   1              buf[6] = *(point);
+ 596   1              buf[7] = *(point + 1);
+ 597   1              buf[8] = *(point + 2);
+ 598   1              buf[9] = *(point + 3);
+ 599   1              buf[10] = *(point + 4);
+ 600   1              buf[11] = *(point + 5);
+ 601   1              buf[12] = 0x08; 
+ 602   1              buf[13] = 0x06;
+ 603   1      
+ 604   1              buf[14] = 0x00;
+ 605   1              buf[15] = 0x01;
+ 606   1              buf[16] = 0x08;
+ 607   1              buf[17] = 0x00;
+ 608   1              buf[18] = 0x06;
+C51 COMPILER V9.01   ADAPTER                                                               03/08/2012 11:01:02 PAGE 11  
+
+ 609   1              buf[19] = 0x04;
+ 610   1              buf[20] = 0x00;
+ 611   1              buf[21] = 0x01;
+ 612   1      
+ 613   1              buf[22] = *(point);
+ 614   1              buf[23] = *(point + 1);
+ 615   1              buf[24] = *(point + 2);
+ 616   1              buf[25] = *(point + 3);
+ 617   1              buf[26] = *(point + 4);
+ 618   1              buf[27] = *(point + 5);
+ 619   1              *(U32_T *)&buf[28] = STOE_GetIPAddr(); // Source IP address
+ 620   1              
+ 621   1              buf[32] = 0x00;
+ 622   1              buf[33] = 0x00;
+ 623   1              buf[34] = 0x00;
+ 624   1              buf[35] = 0x00;
+ 625   1              buf[36] = 0x00;
+ 626   1              buf[37] = 0x00;
+ 627   1              *(U32_T *)&buf[38] = STOE_GetIPAddr(); // Destination IP address
+ 628   1      
+ 629   1              ETH_DhcpArpReply = FALSE;
+ 630   1      
+ 631   1              ETH_Send(0);
+ 632   1      
+ 633   1              return;
+ 634   1      }
+ 635          
+ 636          /* End of adapter.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   5264    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     15      56
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

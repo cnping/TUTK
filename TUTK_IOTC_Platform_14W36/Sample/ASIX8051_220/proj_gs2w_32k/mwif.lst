@@ -1,0 +1,396 @@
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MWIF
+OBJECT MODULE PLACED IN .\mwif.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mwif\mwif.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(..\
+                    -src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mping;.
+                    -.\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\mht
+                    -tp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32KH) V
+                    -ARBANKING DEBUG PRINT(.\mwif.lst) OBJECT(.\mwif.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*=============================================================================
+  12           * Module Name: mwif.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: mwif.c,v $
+  18           * no message
+  19           *
+  20           *=============================================================================
+  21           */
+  22          
+  23          /* INCLUDE FILE DECLARATIONS */
+  24          #include "ax22000.H"
+  25          #include "mwif.h"
+  26          #include "mwioctl.h"
+  27          #include <string.h>
+  28          #if IO_CPU_TYPE
+  29          #include "mcpu.h"
+  30          #include "interrupt.h"
+  31          #include "mpsave.h"
+  32          #include "uart0.h"
+  33          #include "printd.h"
+  34          #if MWIF_TASK_HOOKUP
+  35             #include "mwifapp.h"
+  36          #endif
+  37          #else
+              #include "wcpu.h"
+              #include "wpsave.h"
+              #include "uart.h"
+              #include <stdio.h>
+              #endif
+  43          
+  44          #if !IO_CPU_TYPE
+                      #define MAC_ARBIT_MODE  0
+                      #define MAC_ARBIT_WIFI  0
+              #endif
+  48          
+  49          #if (!IO_CPU_TYPE || (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)) /* WCPU or MCPU including WiFi */
+  50          
+  51          /* STATIC VARIABLE DECLARATIONS */
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 2   
+
+  52          static U8_T     XDATA   mwif_txbuf[MAX_MWIF_TX_BUFFER_SIZE];
+  53          static U8_T XDATA       mwif_txcmdlen;  // command length
+  54          static U8_T XDATA       mwif_rxbuf[MAX_MWIF_RX_BUFFER_SIZE];
+  55          static U8_T XDATA       mwif_rxcmdlen;  // command length
+  56          
+  57          /* GLOBAL VARIABLE DECLARATIONS */
+  58          
+  59          /* LOCAL SUBPROGRAM DECLARATIONS */
+  60          
+  61          /* GLOBAL SUBPROGRAM BODIES */
+  62          #if IO_CPU_TYPE /***** Begin of IO_CPU_TYPE, Below are for MCPU use *****/
+  63          /*
+  64           * ----------------------------------------------------------------------------
+  65           * Function Name: MWIF_DocdReset
+  66           * Purpose: To reset MWIF CPU communication module
+  67           * Params: none
+  68           * Returns: none
+  69           * Note: none
+  70           * ----------------------------------------------------------------------------
+  71           */
+  72          void MWIF_DocdReset(void)
+  73          {
+  74   1              U8_T XDATA      tmp;
+  75   1              
+  76   1              tmp = CSSR;     // clean data in CSSR
+  77   1              CCTRL &= ~CCTRL_WRITE_CMD_INTR_MASK;    //disable Read Command Interrupt from WCPU
+  78   1              CCTRL |= CCTRL_READ_CMD_INTR_MASK;      //enable Write Command Interrupt from WCPU
+  79   1              WC0 = 0;
+  80   1              WC1 = 0;
+  81   1              WC2 = 0;
+  82   1              WC3 = 0;
+  83   1              WC4 = 0;
+  84   1              RC0 = 0;
+  85   1              RC1 = 0;
+  86   1              RC2 = 0;
+  87   1              RC3 = 0;
+  88   1              RC4 = 0;
+  89   1              mwif_txcmdlen = 0;
+  90   1              mwif_rxcmdlen = 0;
+  91   1              
+  92   1      }       /* End of MWIF_DocdReset */
+  93          #endif                  /***** End of IO_CPU_TYPE macro *****/
+  94          
+  95          /*
+  96           * ----------------------------------------------------------------------------
+  97           * Function Name: MWIF_Init
+  98           * Purpose: To initiate "MCPU / WCPU interface" module
+  99           * Params: none
+ 100           * Returns: none
+ 101           * Note: none
+ 102           * ----------------------------------------------------------------------------
+ 103           */
+ 104          void MWIF_Init(void)
+ 105          {
+ 106   1              mwif_txcmdlen = 0;
+ 107   1              mwif_rxcmdlen = 0;
+ 108   1      
+ 109   1              IO_Init();
+ 110   1      #if POWER_SAVING
+ 111   1              PS_Init();
+ 112   1      #endif
+ 113   1      
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 3   
+
+ 114   1      }       /* End of MWIF_Init */
+ 115          
+ 116          /*
+ 117           * ----------------------------------------------------------------------------
+ 118           * Function Name: MWIF_Start
+ 119           * Purpose: To start the "MCPU / WCPU interface" module.
+ 120           *                      The MWIF_Start() function will enable interrupt of "MCPU / WCPU interface"
+ 121           * Params: none
+ 122           * Returns: none
+ 123           * Note: none
+ 124           * ----------------------------------------------------------------------------
+ 125           */
+ 126          void MWIF_Start(void)
+ 127          {
+ 128   1              U8_T    tmp;
+ 129   1      
+ 130   1              tmp = CSSR;
+ 131   1      
+ 132   1              CCTRL &= ~CCTRL_WRITE_CMD_INTR_MASK;    //disable Write Command Interrupt
+ 133   1              CCTRL |= CCTRL_READ_CMD_INTR_MASK;              //enable Read Command Interrupt
+ 134   1      
+ 135   1      #if POWER_SAVING
+ 136   1              PS_Start();
+ 137   1      #endif
+ 138   1      
+ 139   1              EXTINT2(ON);    // Enable INT2 interrupt for MCPU-to-WCPU.
+ 140   1      
+ 141   1      }       /* End of MWIF_Start */
+ 142          
+ 143          /*
+ 144           * ----------------------------------------------------------------------------
+ 145           * Function Name: MWIF_Sys
+ 146           * Purpose: To check it receives any command message or not
+ 147           * Params: none
+ 148           * Returns: none
+ 149           * Note: none
+ 150           * ----------------------------------------------------------------------------
+ 151           */
+ 152          void MWIF_Sys(void)
+ 153          {
+ 154   1              U8_T    isr, i = 0;
+ 155   1              U8_T*   point;
+ 156   1      
+ 157   1              isr = EA;
+ 158   1              EA = 0;
+ 159   1              if (IO_RxHead != IO_RxTail)
+ 160   1              {
+ 161   2                      if (IO_RxBuf[IO_RxHead] == IO_REMAINDER_BUF_IS_TOO_SMALL)
+ 162   2                              IO_RxHead = 0;
+ 163   2      
+ 164   2                      if (IO_RxHead != IO_RxTail)
+ 165   2                      {
+ 166   3                              point = &IO_RxBuf[IO_RxHead];
+ 167   3                              EA = isr;
+ 168   3      #if MWIF_TASK_HOOKUP
+ 169   3                  i = MWIFAPP_TaskCmdRcv(point);
+ 170   3                      if (i == MWIFAPP_UPLAYER_NO_WAIT)
+ 171   3      #endif                  
+ 172   3                  {
+ 173   4                             if (IO_COMMAND_ERROR == IO_CmdParsing(point)) // it gets a incorrect command
+ 174   4                                 {
+ 175   5                                         printd("\nCPU internal command error!!");
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 4   
+
+ 176   5                                 }
+ 177   4                  }
+ 178   3                          isr = EA;
+ 179   3                          EA = 0;
+ 180   3      #if MWIF_TASK_HOOKUP                    
+ 181   3                  if (i != MWIFAPP_UPLAYER_BUSY)
+ 182   3      #endif
+ 183   3                  {
+ 184   4                                 IO_RxHead += (point[2] +3);
+ 185   4                                 if (IO_RxHead == MAX_IO_RX_BUFFER_SIZE)
+ 186   4                                 {
+ 187   5                                        IO_RxHead = 0;
+ 188   5                                 }
+ 189   4                  }                        
+ 190   3                      }
+ 191   2              }
+ 192   1      
+ 193   1              EA = isr;
+ 194   1      #if MWIF_TASK_HOOKUP    
+ 195   1              MWIFAPP_Task();
+ 196   1      #endif
+ 197   1      } /* End of MWIF_Sys() */
+ 198          
+ 199          /*
+ 200           * ----------------------------------------------------------------------------
+ 201           * Function Name: MWIF_Intr
+ 202           * Purpose: To read MCPU / WCPU data in the SFR RC0 ~ RC4
+ 203           * Params: none
+ 204           * Returns: none
+ 205           * Note: none
+ 206           * ----------------------------------------------------------------------------
+ 207           */
+ 208          void MWIF_Intr(void) interrupt 7 /* interrupt 2 */
+ 209          {
+ 210   1              U8_T IDATA      cssr;
+ 211   1      
+ 212   1              cssr = CSSR;
+ 213   1      
+ 214   1              while (1)
+ 215   1              {
+ 216   2      #if POWER_SAVING
+ 217   2                      if (cssr & PS_INTR_STATUS_DEFAULT)
+ 218   2                      {
+ 219   3      #if IO_CPU_TYPE /***** Begin of IO_CPU_TYPE, Below are for MCPU use *****/
+ 220   3                              if (cssr & PS_WCPU_CMD_WRITE)
+ 221   3                                      PS_Intr(PS_WCPU_CMD_WRITE);
+ 222   3                      }
+ 223   2                      cssr &= ~(PS_WCPU_CMD_WRITE | PS_WCPU_CMD_READ);
+ 224   2      #else                   /***** Middle of IO_CPU_TYPE, Below are for WCPU use *****/
+                                      if (cssr & PS_MCPU_CMD_WRITE)
+                                              PS_Intr(PS_MCPU_CMD_WRITE);
+                              }
+                              cssr &= ~(PS_MCPU_CMD_WRITE | PS_MCPU_CMD_READ);
+              #endif                  /***** End of IO_CPU_TYPE macro *****/
+ 230   2      
+ 231   2      #endif
+ 232   2      
+ 233   2                      if (cssr & CSR_READ_CMD_INTR)   // It issues a "Read" command
+ 234   2                      {
+ 235   3                              U8_T    rxOffset = 0;
+ 236   3      
+ 237   3                              if (!(CCTRL & CCTRL_READ_CMD_POLLING))
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 5   
+
+ 238   3                              {
+ 239   4                                      CCTRL |= CCTRL_READ_CMD_INTR_MASK;
+ 240   4                                      return;
+ 241   4                              }
+ 242   3      
+ 243   3                              mwif_rxcmdlen = RC2 + 3;
+ 244   3                              while (rxOffset < mwif_rxcmdlen)
+ 245   3                              {
+ 246   4                                      mwif_rxbuf[rxOffset++] = RC0;
+ 247   4                                      mwif_rxbuf[rxOffset++] = RC1;
+ 248   4                                      mwif_rxbuf[rxOffset++] = RC2;
+ 249   4                                      mwif_rxbuf[rxOffset++] = RC3;
+ 250   4                                      mwif_rxbuf[rxOffset++] = RC4;
+ 251   4      
+ 252   4                                      CCTRL |= CCTRL_READ_CMD_READY;
+ 253   4      
+ 254   4                                      if (rxOffset >= mwif_rxcmdlen)
+ 255   4                                              break;
+ 256   4      
+ 257   4                                      while (!(CCTRL & CCTRL_READ_CMD_POLLING));
+ 258   4                              }
+ 259   3      
+ 260   3                              if (IO_RxHead > IO_RxTail)
+ 261   3                              {
+ 262   4                                      if ((IO_RxHead - IO_RxTail) > mwif_rxcmdlen)
+ 263   4                                      {
+ 264   5                                              memcpy(&IO_RxBuf[IO_RxTail], mwif_rxbuf, mwif_rxcmdlen);
+ 265   5                                              IO_RxTail += mwif_rxcmdlen;
+ 266   5                                      }
+ 267   4                              }
+ 268   3                              else
+ 269   3                              {
+ 270   4                                      if ((MAX_IO_RX_BUFFER_SIZE - IO_RxTail) > mwif_rxcmdlen)
+ 271   4                                      {
+ 272   5                                              memcpy(&IO_RxBuf[IO_RxTail], mwif_rxbuf, mwif_rxcmdlen);
+ 273   5                                              IO_RxTail += mwif_rxcmdlen;
+ 274   5                                      }
+ 275   4                                      else if ((MAX_IO_RX_BUFFER_SIZE - IO_RxTail) == mwif_rxcmdlen)
+ 276   4                                      {
+ 277   5                                              if (IO_RxHead)
+ 278   5                                              {
+ 279   6                                                      memcpy(&IO_RxBuf[IO_RxTail], mwif_rxbuf, mwif_rxcmdlen);
+ 280   6                                                      IO_RxTail = 0;
+ 281   6                                              }
+ 282   5                                      }
+ 283   4                                      else
+ 284   4                                      {
+ 285   5                                              if (IO_RxHead > mwif_rxcmdlen)
+ 286   5                                              {
+ 287   6                                                      IO_RxBuf[IO_RxTail] = IO_REMAINDER_BUF_IS_TOO_SMALL;
+ 288   6                                                      memcpy(&IO_RxBuf[0], mwif_rxbuf, mwif_rxcmdlen);
+ 289   6                                                      IO_RxTail = mwif_rxcmdlen;
+ 290   6                                              }
+ 291   5                                      }
+ 292   4                              }
+ 293   3                      }
+ 294   2      
+ 295   2                      cssr = CSSR;
+ 296   2      #if POWER_SAVING
+ 297   2                      if (!(cssr & PS_INTR_STATUS_DEFAULT) && !(cssr & CSR_READ_CMD_INTR))
+ 298   2      #else
+                              if (!(cssr & CSR_READ_CMD_INTR))
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 6   
+
+              #endif
+ 301   2                              break;
+ 302   2              }
+ 303   1      
+ 304   1      }       /* End of MWIF_Intr */
+ 305          
+ 306          /*
+ 307           * ----------------------------------------------------------------------------
+ 308           * Function Name: MWIF_Send
+ 309           * Purpose: To write the command into the mwif_txbuf
+ 310           * Params: pinfo - the pointer where the data command is
+ 311           * Returns: none
+ 312           * Note: none
+ 313           * ----------------------------------------------------------------------------
+ 314           */
+ 315          void MWIF_Send(U8_T type, U8_T* pbuf, U8_T len)
+ 316          {
+ 317   1              U8_T    txOffset;
+ 318   1      
+ 319   1              mwif_txcmdlen = len + 3;
+ 320   1              mwif_txbuf[0] = type;
+ 321   1              mwif_txbuf[1] = ~type;
+ 322   1              mwif_txbuf[2] = len;
+ 323   1              if (len > 0)
+ 324   1              {
+ 325   2                      memcpy(mwif_txbuf +3, pbuf, len);
+ 326   2              }
+ 327   1              txOffset = 0;
+ 328   1      
+ 329   1              while (txOffset < mwif_txcmdlen)
+ 330   1              {
+ 331   2                      WC0 = mwif_txbuf[txOffset++];
+ 332   2                      WC1 = mwif_txbuf[txOffset++];
+ 333   2                      WC2 = mwif_txbuf[txOffset++];
+ 334   2                      WC3 = mwif_txbuf[txOffset++];
+ 335   2                      WC4 = mwif_txbuf[txOffset++];
+ 336   2                      CCTRL |= CCTRL_WRITE_CMD_READY;
+ 337   2      
+ 338   2      #if IO_CPU_TYPE
+ 339   2                      if (MCPU_WcpuReady)
+ 340   2      #else
+                              if (WCPU_McpuReady)
+              #endif
+ 343   2                      {
+ 344   3                              while (!(CCTRL & CCTRL_WRITE_CMD_POLLING)) /* had been read by another CPU */
+ 345   3                              {
+ 346   4                              }
+ 347   3                      }
+ 348   2              }
+ 349   1      }       /* End of MWIF_Send */
+ 350          
+ 351          #endif /* #if (!IO_CPU_TYPE || (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)) */
+ 352          
+ 353          /* LOCAL SUBPROGRAM BODIES */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1103    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =    258      13
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+C51 COMPILER V9.01   MWIF                                                                  03/08/2012 11:00:55 PAGE 7   
+
+   IDATA SIZE       =   ----       1
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

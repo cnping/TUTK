@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['rdt_5fer_5falready_5finitialized',['RDT_ER_ALREADY_INITIALIZED',['../_r_d_t_a_p_is_8h.html#a32fbbd0b92cb6cbab0b3fc47ff1de4c3',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fchannel_5foccupied',['RDT_ER_CHANNEL_OCCUPIED',['../_r_d_t_a_p_is_8h.html#a9beac0c9f59e6f3a415b545db06cca1d',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fexceed_5fmax_5fchannel',['RDT_ER_EXCEED_MAX_CHANNEL',['../_r_d_t_a_p_is_8h.html#a38a7e7052b63cf09a5bcd2a613d1fab2',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5ffail_5fcreate_5fmutex',['RDT_ER_FAIL_CREATE_MUTEX',['../_r_d_t_a_p_is_8h.html#af12c2675677c792f5273a61819e8d1bd',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5ffail_5fcreate_5fthread',['RDT_ER_FAIL_CREATE_THREAD',['../_r_d_t_a_p_is_8h.html#a2a62de18c9ded1823a4af85fb03570c8',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5finvalid_5farg',['RDT_ER_INVALID_ARG',['../_r_d_t_a_p_is_8h.html#a337c848af74ee5d1b18e57878fade7ed',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5finvalid_5frdt_5fid',['RDT_ER_INVALID_RDT_ID',['../_r_d_t_a_p_is_8h.html#a5dbe77ce4721dec0db5a47fd6ebd4d13',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5flocal_5fabort',['RDT_ER_LOCAL_ABORT',['../_r_d_t_a_p_is_8h.html#a0daa7ab8c8bc075364db960879a490f9',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5flocal_5fexit',['RDT_ER_LOCAL_EXIT',['../_r_d_t_a_p_is_8h.html#a7097f66ec14998e64ab6c4fb5b68f74c',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fmem_5finsuff',['RDT_ER_MEM_INSUFF',['../_r_d_t_a_p_is_8h.html#ac7a2a9ecc58910ba26cc425791db3741',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fno_5fpermission',['RDT_ER_NO_PERMISSION',['../_r_d_t_a_p_is_8h.html#a25315f50e9ecd0bca78da066ac9fc415',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fnoerror',['RDT_ER_NoERROR',['../_r_d_t_a_p_is_8h.html#a13f08093511a49382e899652a49727d1',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fnot_5finitialized',['RDT_ER_NOT_INITIALIZED',['../_r_d_t_a_p_is_8h.html#a01d03024cb753439ec711c719fb9639d',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5frcv_5fdata_5fend',['RDT_ER_RCV_DATA_END',['../_r_d_t_a_p_is_8h.html#a426e235eb9929d86a5ec014c3d9d5cd7',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5frdt_5fdestroyed',['RDT_ER_RDT_DESTROYED',['../_r_d_t_a_p_is_8h.html#a62b75d3f4feb7f91d1df2b84c1f04c41',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fremote_5fabort',['RDT_ER_REMOTE_ABORT',['../_r_d_t_a_p_is_8h.html#a5a60eb4b7a4ea9fb6ac4a89170dd01ec',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5fremote_5fexit',['RDT_ER_REMOTE_EXIT',['../_r_d_t_a_p_is_8h.html#a73aa41dcba3bc4f1da0e7b66d41d2aaa',1,'RDTAPIs.h']]],
+  ['rdt_5fer_5ftimeout',['RDT_ER_TIMEOUT',['../_r_d_t_a_p_is_8h.html#a783f99999a04ceb419cd92f7a061a627',1,'RDTAPIs.h']]]
+];

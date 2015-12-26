@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+    
+	<LinearLayout android:orientation="horizontal" 		
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="UID:"/>
+		<EditText android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:id="@+id/edt_uid" android:singleLine="true" 
+			android:capitalize="characters" android:maxLength="20"/>
+	</LinearLayout>
+	
+	<LinearLayout android:orientation="horizontal"
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+	    <RadioGroup android:layout_width="wrap_content" android:layout_height="wrap_content" 
+	    android:orientation="horizontal">
+			<RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			    android:id="@+id/radio_device" android:text="As Device" android:textSize="14sp"
+			    android:checked="true"/>
+			<RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			    android:id="@+id/radio_client" android:text="As Client" android:textSize="14sp"
+			    android:checked="false"/>
+		</RadioGroup>
+		<Button android:layout_width="75dp" android:layout_height="wrap_content"
+			android:id="@+id/btn_start" android:text="@string/title_btn_start1"/>
+		<Button android:layout_width="50dp" android:layout_height="wrap_content"
+			android:id="@+id/btn_stop" android:text="Stop"/>
+	</LinearLayout>
+
+	<LinearLayout android:orientation="horizontal" 		
+	    android:layout_width="fill_parent" android:layout_height="wrap_content">
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="IOTCAPIs Ver:" android:textColor="#ffff0000"/>
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			android:textColor="#ffff0000" android:id="@+id/txt_iotc_ver" android:paddingLeft="5dp"/>
+		    
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+		    android:text="| RDTAPIs Ver:" android:textColor="#ffff0000" 
+		    android:layout_marginLeft="5dp"/>
+		<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" 
+			android:textColor="#ffff0000" android:id="@+id/txt_iotcav_ver" android:paddingLeft="5dp"/>
+	</LinearLayout>
+	
+	<LinearLayout android:orientation="horizontal" android:layout_width="fill_parent" 
+			android:layout_height="wrap_content">
+		<EditText android:layout_width="wrap_content" android:layout_height="40dp" 
+			android:layout_marginTop="2dp"
+			android:id="@+id/edt_filename" android:singleLine="true" android:layout_weight="1"
+			android:text="/sdcard/2010Spring.jpg" android:hint="Input full filename"/>
+		<Button android:layout_width="60dp" android:layout_height="40dp"
+			android:id="@+id/btn_send" android:text="Send"/>
+	</LinearLayout>
+	
+    <TextView android:text="Log:" android:background="#ff808080"
+		android:singleLine="true" android:layout_width="fill_parent" android:layout_height="wrap_content"/>
+	
+    <TextView android:id="@+id/txt_log" android:paddingLeft="5dp" android:background="#20ffffff"
+		android:scrollbars="vertical" android:singleLine="false" android:maxLines="18"
+		android:layout_width="fill_parent" android:layout_height="wrap_content"/>
+</LinearLayout>

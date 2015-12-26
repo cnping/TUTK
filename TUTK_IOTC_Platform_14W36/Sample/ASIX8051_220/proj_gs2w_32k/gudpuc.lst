@@ -1,0 +1,433 @@
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE GUDPUC
+OBJECT MODULE PLACED IN .\gudpuc.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mgs2wifi\gudpuc.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCD
+                    -IR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\m
+                    -ping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\s
+                    -rc\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt3
+                    -2KH) VARBANKING DEBUG PRINT(.\gudpuc.lst) OBJECT(.\gudpuc.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: gudpuc.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: gudpuc.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include <string.h>
+  24          #include "ax22000.h"
+  25          #include "mcpu.h"
+  26          #include "adapter.h"
+  27          #include "gudpuc.h"
+  28          #include "gs2w.h"
+  29          #include "tcpip.h"
+  30          #include "mstimer.h"
+  31          #include "stoe.h"
+  32          #include "uart0.h"
+  33          #include "gconfig.h"
+  34          #include "mac.h"
+  35          #include "printd.h"
+  36          #include "gudpdat.h"
+  37          #include "gtcpdat.h"
+  38          #include "hsuart.h"
+  39          #include "hsuart2.h"
+  40          
+  41          
+  42          /* NAMING CONSTANT DECLARATIONS */
+  43          /* signature(8) commmand(1) option(1) devname(16) macAddr(6) */
+  44          #define GUDPUC_AUTHENTIC_HEADER_LEN 32
+  45          #define GUDPUC_MAX_CONNS                        1
+  46          #define GUDPUC_NO_NEW_CONN                      0xFF
+  47          
+  48          #define GUDPUC_STATE_FREE                       0
+  49          #define GUDPUC_STATE_WAIT                       1
+  50          #define GUDPUC_STATE_CONNECTED          2
+  51          
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 2   
+
+  52          /* GLOBAL VARIABLES DECLARATIONS */
+  53          
+  54          /* LOCAL VARIABLES DECLARATIONS */
+  55          static GUDPUC_CONN gudpuc_Conns[GUDPUC_MAX_CONNS];
+  56          static U8_T gudpuc_InterAppId;
+  57          GCONFIG_CFG_PKT gudpuc_ConfigRxPkt;
+  58          GCONFIG_MONITOR_PKT *gudpuc_MonitorPkt;
+  59          
+  60          /* LOCAL SUBPROGRAM DECLARATIONS */
+  61          void gudpuc_HandleSearchReq(U8_T id);
+  62          void gudpuc_HandleSetReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  63          void gudpuc_HandleUpgradeReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  64          void gudpuc_HandleResetReq(U8_T id);
+  65          void gudpuc_HandleRebootReq(U8_T XDATA* pData, U16_T length, U8_T id);
+  66          void gudpuc_RebootDevice(void);
+  67          void gudpuc_HandleMonitorReq(U8_T id);
+  68          
+  69          /*
+  70           * ----------------------------------------------------------------------------
+  71           * Function Name: GUDPUC_Task
+  72           * Purpose: 
+  73           * Params:
+  74           * Returns:
+  75           * Note:
+  76           * ----------------------------------------------------------------------------
+  77           */
+  78          void GUDPUC_Task(void)
+  79          {
+  80   1      
+  81   1      } /* End of GUDPUC_Task() */
+  82          
+  83          /*
+  84           * ----------------------------------------------------------------------------
+  85           * Function Name: GUDPUC_Init()
+  86           * Purpose: Initialization
+  87           * Params:
+  88           * Returns:
+  89           * Note:
+  90           * ----------------------------------------------------------------------------
+  91           */
+  92          void GUDPUC_Init(U16_T localPort)
+  93          {
+  94   1              U8_T    i;
+  95   1      
+  96   1              printd("UDP unicast init ok.\n\r");
+  97   1      
+  98   1              for (i = 0; i < GUDPUC_MAX_CONNS; i++)
+  99   1                      gudpuc_Conns[i].State = GUDPUC_STATE_FREE;
+ 100   1      
+ 101   1              gudpuc_InterAppId = TCPIP_Bind(GUDPUC_NewConn, GUDPUC_Event, GUDPUC_Receive);
+ 102   1              
+ 103   1              /* unicast packet */
+ 104   1              TCPIP_UdpListen(localPort, gudpuc_InterAppId);
+ 105   1      } /* End of GUDPUC_Init() */
+ 106          
+ 107          /*
+ 108           * ----------------------------------------------------------------------------
+ 109           * Function Name: GUDPUC_NewConn
+ 110           * Purpose: 
+ 111           * Params:
+ 112           * Returns:
+ 113           * Note:
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 3   
+
+ 114           * ----------------------------------------------------------------------------
+ 115           */
+ 116          U8_T GUDPUC_NewConn(U32_T XDATA* pip, U16_T remotePort, U8_T socket)
+ 117          {
+ 118   1              U8_T    i;
+ 119   1      
+ 120   1              for (i = 0; i < GUDPUC_MAX_CONNS; i++)
+ 121   1              {
+ 122   2                      gudpuc_Conns[i].State = GUDPUC_STATE_CONNECTED;
+ 123   2                      gudpuc_Conns[i].UdpSocket = socket;
+ 124   2                      return i;
+ 125   2              }
+ 126   1              
+ 127   1              return GUDPUC_NO_NEW_CONN;
+ 128   1      
+ 129   1      } /* End of GUDPUC_NewConn() */
+*** WARNING C280 IN LINE 116 OF ..\SRC\MGS2WIFI\GUDPUC.C: 'pip': unreferenced local variable
+*** WARNING C280 IN LINE 116 OF ..\SRC\MGS2WIFI\GUDPUC.C: 'remotePort': unreferenced local variable
+ 130          
+ 131          /*
+ 132           * ----------------------------------------------------------------------------
+ 133           * Function Name: GUDPUC_Event
+ 134           * Purpose: 
+ 135           * Params:
+ 136           * Returns:
+ 137           * Note:
+ 138           * ----------------------------------------------------------------------------
+ 139           */
+ 140          void GUDPUC_Event(U8_T id, U8_T event)
+ 141          {
+ 142   1              gudpuc_Conns[id].State = event;
+ 143   1      } /* End of GUDPUC_Event() */
+ 144          
+ 145          /*
+ 146           * ----------------------------------------------------------------------------
+ 147           * Function Name: GUDPUC_Receive
+ 148           * Purpose: 
+ 149           * Params:
+ 150           * Returns:
+ 151           * Note:
+ 152           * ----------------------------------------------------------------------------
+ 153           */
+ 154          void GUDPUC_Receive(U8_T XDATA* pData, U16_T length, U8_T id)
+ 155          {
+ 156   1              BOOL bValidReq = FALSE;
+ 157   1              GCONFIG_MAC_ADDR macAddr;
+ 158   1      
+ 159   1              if (length >= 9 && length <= sizeof(gudpuc_ConfigRxPkt)) // 9: search request packet
+ 160   1              {
+ 161   2                      memcpy(&gudpuc_ConfigRxPkt, pData, length);
+ 162   2      
+ 163   2                      if (memcmp(&GCONFIG_Gid, pData, sizeof(GCONFIG_GID)) == 0) // Valid data
+ 164   2                      {
+ 165   3                              macAddr = GCONFIG_GetMacAddress();      
+ 166   3      
+ 167   3                              if (length > GUDPUC_AUTHENTIC_HEADER_LEN)
+ 168   3                              {
+ 169   4                                      if (memcmp(&gudpuc_ConfigRxPkt.MacAddr, &macAddr, sizeof(macAddr)) == 0)
+ 170   4                                              bValidReq = TRUE;
+ 171   4                              }
+ 172   3      
+ 173   3                              switch (gudpuc_ConfigRxPkt.Opcode)
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 4   
+
+ 174   3                              {
+ 175   4                              case GCONFIG_OPCODE_SEARCH_REQ:
+ 176   4                  case GCONFIG_OPCODE_SEARCH_REQ1:
+ 177   4                                      {
+ 178   5                                              gudpuc_HandleSearchReq(id);
+ 179   5                                      }
+ 180   4                                      break;
+ 181   4      
+ 182   4                              case GCONFIG_OPCODE_SET_REQ:
+ 183   4                                      {
+ 184   5                                              if (bValidReq && length == sizeof(gudpuc_ConfigRxPkt))
+ 185   5                                                      gudpuc_HandleSetReq(pData, length, id);
+ 186   5                                      }
+ 187   4                                      break;
+ 188   4      
+ 189   4                              case GCONFIG_OPCODE_UPGRADE_REQ:
+ 190   4                                      {
+ 191   5                                              if (bValidReq)
+ 192   5                                                      gudpuc_HandleUpgradeReq(pData, length, id);
+ 193   5                                      }
+ 194   4                                      break;
+ 195   4      
+ 196   4                              case GCONFIG_OPCODE_RESET_REQ:
+ 197   4                                      {
+ 198   5                                              if (bValidReq)
+ 199   5                                                      gudpuc_HandleResetReq(id);
+ 200   5                                      }
+ 201   4                                      break;
+ 202   4                              case GCONFIG_OPCODE_REBOOT_REQ:
+ 203   4                                      {
+ 204   5                                              if (bValidReq)
+ 205   5                                                      gudpuc_HandleRebootReq(pData, length, id);
+ 206   5                                      }
+ 207   4                                      break;
+ 208   4                  case GCONFIG_OPCODE_MONITOR_REQ:
+ 209   4                                      {
+ 210   5                          gudpuc_HandleMonitorReq(id);
+ 211   5                                      }
+ 212   4                                      break;
+ 213   4      
+ 214   4                              default:
+ 215   4                                      break;  
+ 216   4                              }
+ 217   3                      }
+ 218   2              }
+ 219   1      
+ 220   1          TCPIP_UdpClose(gudpuc_Conns[id].UdpSocket);
+ 221   1      
+ 222   1      } /* End of GUDPUC_Receive() */
+ 223          
+ 224          /*
+ 225           * ----------------------------------------------------------------------------
+ 226           * Function Name: gudpuc_HandleSearchReq
+ 227           * Purpose: 
+ 228           * Params:
+ 229           * Returns:
+ 230           * Note:
+ 231           * ----------------------------------------------------------------------------
+ 232           */
+ 233          void gudpuc_HandleSearchReq(U8_T id) 
+ 234          {       
+ 235   1              GCONFIG_GetConfigPacket(&gudpuc_ConfigRxPkt);
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 5   
+
+ 236   1              gudpuc_ConfigRxPkt.Opcode = GCONFIG_OPCODE_SEARCH_ACK;
+ 237   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, (U8_T*) &gudpuc_ConfigRxPkt, sizeof(gudpuc_ConfigRxPkt));
+ 238   1      } /* End of gudpuc_HandleSearchReq() */
+ 239          
+ 240          /*
+ 241           * ----------------------------------------------------------------------------
+ 242           * Function Name: gudpuc_HandleSetReq
+ 243           * Purpose: 
+ 244           * Params:
+ 245           * Returns:
+ 246           * Note:
+ 247           * ----------------------------------------------------------------------------
+ 248           */
+ 249          void gudpuc_HandleSetReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 250          {
+ 251   1              U8_T reboot = (gudpuc_ConfigRxPkt.Option & GCONFIG_OPTION_ENABLE_REBOOT);
+ 252   1      
+ 253   1              GCONFIG_SetConfigPacket(&gudpuc_ConfigRxPkt);
+ 254   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_SET_ACK;
+ 255   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 256   1      
+ 257   1              if (reboot == GCONFIG_OPTION_ENABLE_REBOOT)
+ 258   1              {
+ 259   2                      gudpuc_RebootDevice();
+ 260   2              }       
+ 261   1      } /* End of gudpuc_HandleSetReq() */
+ 262          
+ 263          /*
+ 264           * ----------------------------------------------------------------------------
+ 265           * Function Name: gudpuc_HandleUpgradeReq
+ 266           * Purpose: 
+ 267           * Params:
+ 268           * Returns:
+ 269           * Note:
+ 270           * ----------------------------------------------------------------------------
+ 271           */
+ 272          void gudpuc_HandleUpgradeReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 273          {       
+ 274   1          U8_T *pCfg = pData + GUDPUC_AUTHENTIC_HEADER_LEN;
+ 275   1          U32_T tftpSrvIp;
+ 276   1      
+ 277   1          /* Get tftp server ip */
+ 278   1          memcpy((char *)&tftpSrvIp, (char *)pCfg, 4);
+ 279   1          GCONFIG_SetTftpServerIp(tftpSrvIp);
+ 280   1      
+ 281   1          /* point to filename */
+ 282   1          pCfg += 4;
+ 283   1          GCONFIG_SetFilename(pCfg, strlen(pCfg));
+ 284   1      
+ 285   1              GCONFIG_EnableFirmwareUpgrade();
+ 286   1              GCONFIG_WriteConfigData();
+ 287   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_UPGRADE_ACK;          
+ 288   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 289   1              gudpuc_RebootDevice();
+ 290   1      } /* End of gudpuc_HandleUpgradeReq() */
+ 291          
+ 292          /*
+ 293           * ----------------------------------------------------------------------------
+ 294           * Function Name: gudpuc_HandleResetReq
+ 295           * Purpose: 
+ 296           * Params:
+ 297           * Returns:
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 6   
+
+ 298           * Note:
+ 299           * ----------------------------------------------------------------------------
+ 300           */
+ 301          void gudpuc_HandleResetReq(U8_T id)
+ 302          {
+ 303   1              U8_T reboot = (gudpuc_ConfigRxPkt.Option & GCONFIG_OPTION_ENABLE_REBOOT);
+ 304   1              
+ 305   1              GCONFIG_ReadDefaultConfigData();
+ 306   1              GCONFIG_WriteConfigData();
+ 307   1              GCONFIG_GetConfigPacket(&gudpuc_ConfigRxPkt);
+ 308   1              gudpuc_ConfigRxPkt.Opcode = GCONFIG_OPCODE_RESET_ACK;
+ 309   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, (U8_T*) &gudpuc_ConfigRxPkt, sizeof(gudpuc_ConfigRxPkt));
+ 310   1      
+ 311   1              if (reboot == GCONFIG_OPTION_ENABLE_REBOOT)
+ 312   1              {
+ 313   2                      gudpuc_RebootDevice();
+ 314   2              }       
+ 315   1      } /* End of gudpuc_HandleResetReq() */
+ 316          
+ 317          /*
+ 318           * ----------------------------------------------------------------------------
+ 319           * Function Name: gudpuc_HandleRebootReq
+ 320           * Purpose: 
+ 321           * Params:
+ 322           * Returns:
+ 323           * Note:
+ 324           * ----------------------------------------------------------------------------
+ 325           */
+ 326          void gudpuc_HandleRebootReq(U8_T XDATA* pData, U16_T length, U8_T id)
+ 327          {
+ 328   1              *(pData + GCONFIG_OPCODE_OFFSET) = GCONFIG_OPCODE_REBOOT_ACK;   
+ 329   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, pData, length);
+ 330   1              gudpuc_RebootDevice(); 
+ 331   1      }
+ 332          /* End of gudpuc_HandleRebootReq() */
+ 333          
+ 334          /*
+ 335           * ----------------------------------------------------------------------------
+ 336           * Function Name: gudpuc_RebootDevice
+ 337           * Purpose: Delay 10 ms before reboot
+ 338           * Params:
+ 339           * Returns:
+ 340           * Note:
+ 341           * ----------------------------------------------------------------------------
+ 342           */
+ 343          void gudpuc_RebootDevice(void)
+ 344          {
+ 345   1              U32_T timeStart = SWTIMER_Tick();
+ 346   1              U32_T timeEnd = timeStart;      
+ 347   1      
+ 348   1              while (timeEnd == timeStart)
+ 349   1              {
+ 350   2                      timeEnd = SWTIMER_Tick();
+ 351   2              }
+ 352   1      
+ 353   1              MCPU_SoftReboot();
+ 354   1      } /* End of gudpuc_RebootDevice() */
+ 355          
+ 356          /*
+ 357           * ----------------------------------------------------------------------------
+ 358           * Function Name: gudpuc_HandleMonitorReq
+ 359           * Purpose: 
+C51 COMPILER V9.01   GUDPUC                                                                03/08/2012 11:01:10 PAGE 7   
+
+ 360           * Params:
+ 361           * Returns:
+ 362           * Note:
+ 363           * ----------------------------------------------------------------------------
+ 364           */
+ 365          void gudpuc_HandleMonitorReq(U8_T id)
+ 366          {
+ 367   1          gudpuc_MonitorPkt = (GCONFIG_MONITOR_PKT *)&gudpuc_ConfigRxPkt;
+ 368   1              
+ 369   1              gudpuc_MonitorPkt->Gid = GCONFIG_Gid;
+ 370   1          gudpuc_MonitorPkt->Opcode = GCONFIG_OPCODE_MONITOR_ACK;
+ 371   1          gudpuc_MonitorPkt->ModemStatus = HSUR2_GetModemStatus(1);
+ 372   1          strcpy((char *)gudpuc_MonitorPkt->VerStr , GCONFIG_VERSION_STRING);
+ 373   1          if (GS2W_CONN_UDP == GS2W_GetConnType())
+ 374   1          {
+ 375   2              gudpuc_MonitorPkt->TxBytes = GUDPDAT_GetTxBytes(0);
+ 376   2              gudpuc_MonitorPkt->RxBytes = GUDPDAT_GetRxBytes(0);
+ 377   2          }
+ 378   1          else
+ 379   1          {
+ 380   2              gudpuc_MonitorPkt->TxBytes = GTCPDAT_GetTxBytes(0);
+ 381   2              gudpuc_MonitorPkt->RxBytes = GTCPDAT_GetRxBytes(0);
+ 382   2          }
+ 383   1      
+ 384   1              TCPIP_UdpSend(gudpuc_Conns[id].UdpSocket, 0, 0, (U8_T *)gudpuc_MonitorPkt, sizeof(GCONFIG_MONITOR_PKT));
+ 385   1      
+ 386   1      } /* End of gudpuc_HandleMonitorReq() */
+ 387          
+ 388          /* End of gudpuc.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1689    ----
+   CONSTANT SIZE    =     29    ----
+   XDATA SIZE       =    584      53
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

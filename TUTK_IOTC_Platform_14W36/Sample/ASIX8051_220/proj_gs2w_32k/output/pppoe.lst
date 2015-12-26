@@ -1,0 +1,903 @@
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE PPPOE
+OBJECT MODULE PLACED IN .\pppoe.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mpppoe\pppoe.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(
+                    -..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mpin
+                    -g;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\
+                    -mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\..
+                    -\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\pppoe.lst) OBJECT(.\pppoe.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: pppoe.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: pppoe.c,v $
+  18           *=============================================================================
+  19           */
+  20          
+  21          #include "tcpip.h"
+  22          #include "pppoe.h"
+  23          #include "stoe.h"
+  24          #include "adapter.h"
+  25          #include "uart0.h"
+  26          #include "printd.h"
+  27          #include <string.h>
+  28          
+  29          /* NAMING CONSTANT DECLARATIONS */
+  30          #define UIP_ETHTYPE_PPPOE_SESSION       0x8864
+  31          #define UIP_ETHTYPE_PPPOE_DISCOVERY     0x8863
+  32          
+  33          /* LOCAL VARIABLES DECLARATIONS */
+  34          U8_T PPPOE_GetDnsFlag = 0;
+  35          
+  36          /* Pointer of PPPOE_INFO type */
+  37          static PPPOE_INFO       pppoe_info;
+  38          
+  39          /* Local static variables */
+  40          static U8_T             ac_cookie[32];
+  41          static U8_T             service_name[32];
+  42          static U16_T    as_length[2];
+  43          static U8_T             host_uniq_from_PADO[8];
+  44          static U16_T    session_id;
+  45          static U8_T             magic_number_server[4];
+  46          static U8_T             magic_number_client[4];
+  47          static U8_T             pppoe_identification_1[11] = "MSRAVS5.10";
+  48          static U8_T             pppoe_identification_2[13] = "MSRAV-0-ASIX";
+  49          static U8_T             pppoe_username[33] = "username"; //User name
+  50          static U8_T             pppoe_password[33] = "password"; //Password
+  51          static U8_T             pppoe_server_ip[4];
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 2   
+
+  52          static U8_T             pppoe_ip[4];
+  53          static U8_T             pppoe_pri_dns[4];
+  54          static U8_T             pppoe_sec_dns[4];
+  55          static U8_T             pppoe_successful = 0;
+  56          static U8_T             pppoe_server_mac[6];
+  57          static U8_T             pppoe_MacAddr[6];
+  58          
+  59          /* LOCAL SUBPROGRAM DECLARATIONS */
+  60          static void     Analysis_Tags(U8_T *tags, U16_T length);
+  61          static U8_T     PPPOE_Discovery_Handle(U8_T*, U8_T state);
+  62          static U8_T     PPPOE_Session_Handle(U8_T*, U16_T state);
+  63          static U8_T     Check_Magic(U8_T *magic, U8_T sc);
+  64          static U8_T     PPPOE_Process(U8_T *buf, U16_T length);
+  65          static U8_T     Check_Echo(U8_T *buf);
+  66          static U8_T     Check_Terminate(U8_T *buf);
+  67          static U16_T PPPOE_Get_Session(void);
+  68          
+  69          /*
+  70           * ----------------------------------------------------------------------------
+  71           * Function Name: PPPOE_Receive
+  72           * Purpose: If connection type is PPPoE, this function maintain any packets
+  73           *              while receiving data.
+  74           * Params:  *buf: Pointer of packet / length: Length of packet
+  75           * Returns: 1: Useful packet / 0: Drop the packet
+  76           * Note:
+  77           * ----------------------------------------------------------------------------
+  78           */
+  79          U8_T PPPOE_Receive(U8_T *buf, U16_T length)
+  80          {
+  81   1              pppoe_hdr*      PPPOEBUF = (pppoe_hdr*)buf;
+  82   1      
+  83   1              if(PPPOEBUF->ether_type == 0x8863 || PPPOEBUF->ether_type == 0x8864)
+  84   1              {
+  85   2                      return PPPOE_Process((U8_T*)PPPOEBUF, length);
+  86   2              }
+  87   1              else
+  88   1              {
+  89   2                      return 0;
+  90   2              }
+  91   1      }
+  92          
+  93          /*
+  94           * ----------------------------------------------------------------------------
+  95           * Function Name: PPPOE_GetState
+  96           * Purpose: Called by system, let it know if PPPoE connection is successful
+  97           * Params: 
+  98           * Returns: 0: Connection not successful / 1: Connection successful
+  99           * Note:
+ 100           * ----------------------------------------------------------------------------
+ 101           */
+ 102          U8_T PPPOE_GetState(void)
+ 103          {
+ 104   1              return pppoe_successful;
+ 105   1      }
+ 106          
+ 107          /*
+ 108           * ----------------------------------------------------------------------------
+ 109           * Function Name: PPPOE_Send
+ 110           * Purpose: Called by system while packet to send in PPPoE mode
+ 111           * Params:
+ 112           * Returns:
+ 113           * Note:
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 3   
+
+ 114           * ----------------------------------------------------------------------------
+ 115           */
+ 116          void PPPOE_Send(U8_T* buf, U16_T length)
+ 117          {
+ 118   1              pppoe_hdr*      PPPOEBUF = (pppoe_hdr*)buf;
+ 119   1      
+ 120   1              /* Ethernet header */
+ 121   1              memcpy(PPPOEBUF->dest_addr, pppoe_server_mac, 6);
+ 122   1              memcpy(PPPOEBUF->src_addr, pppoe_MacAddr, 6);
+ 123   1              PPPOEBUF->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 124   1      
+ 125   1              /* PPPoE header */
+ 126   1              PPPOEBUF->vhl = 0x11;
+ 127   1              PPPOEBUF->pppoe_code = PPPOE_CODE_SESS;
+ 128   1              PPPOEBUF->session_id = session_id;
+ 129   1              PPPOEBUF->payload_length = length - 20;
+ 130   1      
+ 131   1              /* Point-to-Point Protocol */
+ 132   1              *(U16_T*)PPPOEBUF->payload_data = 0x0021;
+ 133   1      }
+ 134          
+ 135          /*
+ 136           * ----------------------------------------------------------------------------
+ 137           * Function Name: PPPOE_Init
+ 138           * Purpose: Initialize state & identifier of pppoe_info.
+ 139           * Params:
+ 140           * Returns:
+ 141           * Note:
+ 142           * ----------------------------------------------------------------------------
+ 143           */
+ 144          void PPPOE_Init(void)
+ 145          {
+ 146   1              U8_T*   point = MAC_GetMacAddr();
+ 147   1      
+ 148   1              pppoe_info.state = 0;
+ 149   1              pppoe_info.identifier = 0;
+ 150   1              pppoe_info.wait_count_master = 0;
+ 151   1              pppoe_info.wait_count_slave = 0;
+ 152   1              memcpy(pppoe_MacAddr, point, 6);
+ 153   1      }
+ 154          
+ 155          /*
+ 156           * ----------------------------------------------------------------------------
+ 157           * Function Name: PPPOE_Command
+ 158           * Purpose: Called by main() of adapter.c, this is a state machine function
+ 159           * Params:
+ 160           * Returns:
+ 161           * Note:
+ 162           * ----------------------------------------------------------------------------
+ 163           */
+ 164          void PPPOE_Command(void)
+ 165          {
+ 166   1              /* Do process by checking internal state */
+ 167   1              switch(pppoe_info.state)
+ 168   1              {
+ 169   2                      case 0:
+ 170   2                              /* Send PADI packet in discovery stage */
+ 171   2                              PPPOE_Discovery_Handle(TCPIP_GetXmitBuffer(), PPPOE_CODE_PADI);
+ 172   2                              break;
+ 173   2                      case PPPOE_CODE_PADI:
+ 174   2                              /* Send PADI every 5 seconds while no PADO received */
+ 175   2                              pppoe_info.wait_count_slave++;
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 4   
+
+ 176   2                              if(pppoe_info.wait_count_slave > 45644)
+ 177   2                              {
+ 178   3                                      pppoe_info.wait_count_slave = 0;
+ 179   3                                      pppoe_info.wait_count_master++;
+ 180   3                                      if(pppoe_info.wait_count_master > 4)
+ 181   3                                      {
+ 182   4                                              pppoe_info.wait_count_master = 0;
+ 183   4                                              PPPOE_Discovery_Handle(TCPIP_GetXmitBuffer(), PPPOE_CODE_PADI);
+ 184   4                                      }
+ 185   3                              }
+ 186   2                              break;
+ 187   2                      case PPPOE_CODE_PADS_1:
+ 188   2                              /* Send LCP request in session stage */
+ 189   2                              PPPOE_Session_Handle(TCPIP_GetXmitBuffer(), 2);
+ 190   2                              break;
+ 191   2                      case PPPOE_CODE_PADS_3:
+ 192   2                              /* Send Identification_1 packet */
+ 193   2                              PPPOE_Session_Handle(TCPIP_GetXmitBuffer(), 4);
+ 194   2                              /* Send Identification_2 packet */
+ 195   2                              PPPOE_Session_Handle(TCPIP_GetXmitBuffer(), 5);
+ 196   2                              /* Create Authentication packet */
+ 197   2                              PPPOE_Session_Handle(TCPIP_GetXmitBuffer(), 6);
+ 198   2                              break;
+ 199   2                      case PPPOE_CODE_PADS_5:
+ 200   2                              /* Send ICPC request */
+ 201   2                              PPPOE_Session_Handle(TCPIP_GetXmitBuffer(), 8);
+ 202   2                              break;
+ 203   2                      default:
+ 204   2                              break;
+ 205   2              }
+ 206   1      }
+ 207          
+ 208          /*
+ 209           * ----------------------------------------------------------------------------
+ 210           * Function Name: PPPOE_Process
+ 211           * Purpose: Called by PPPOE_Receive(), and process packet while system receive
+ 212           *                      packet
+ 213           * Params:  *buf: Pointer of packet / length: Length of the packet
+ 214           * Returns: 0: Not wanted packet / 1: Wanted packet, and process it
+ 215           * Note:
+ 216           * ----------------------------------------------------------------------------
+ 217           */
+ 218          U8_T PPPOE_Process(U8_T *buf, U16_T length)
+ 219          {
+ 220   1              pppoe_hdr*      PPPOEBUF = (pppoe_hdr*)buf;
+ 221   1      
+ 222   1              length = length;
+ 223   1      
+ 224   1              /* Always check Echo request first */
+ 225   1              if(Check_Echo((U8_T XDATA*)PPPOEBUF))
+ 226   1              {
+ 227   2                      return 1;
+ 228   2              }
+ 229   1      
+ 230   1              /* Check Terminate request */
+ 231   1              if(Check_Terminate((U8_T XDATA*)PPPOEBUF))
+ 232   1              {
+ 233   2                      return 1;
+ 234   2              }
+ 235   1      
+ 236   1              switch(pppoe_info.state)
+ 237   1              {
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 5   
+
+ 238   2                      case PPPOE_CODE_PADI:
+ 239   2                              /* Maintain ether type for PPPoE discovery */
+ 240   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_DISCOVERY && PPPOEBUF->pppoe_code == PPPOE_CODE_PADO)
+ 241   2                              {
+ 242   3                                      /* Send PADR while PADO received */
+ 243   3                                      return PPPOE_Discovery_Handle((U8_T*)PPPOEBUF, PPPOE_CODE_PADR);
+ 244   3                      }
+ 245   2                              return 0;
+ 246   2                      case PPPOE_CODE_PADR:
+ 247   2                              /* Wait for Confirm session */
+ 248   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_DISCOVERY && PPPOEBUF->pppoe_code == PPPOE_CODE_PADS)
+ 249   2                              {
+ 250   3                                      /* Check and keep session */
+ 251   3                                      return PPPOE_Discovery_Handle((U8_T*)PPPOEBUF, PPPOE_CODE_PADS);
+ 252   3                              }
+ 253   2                              return 0;
+ 254   2                      case PPPOE_CODE_PADS:
+ 255   2                              /* Reply LCP in session stage */
+ 256   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 257   2                              {
+ 258   3                                      return PPPOE_Session_Handle((U8_T*)PPPOEBUF, 1);
+ 259   3                              }
+ 260   2                              return 0;
+ 261   2                      case PPPOE_CODE_PADS_2:
+ 262   2                              /* Wait ACK from server */
+ 263   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 264   2                              {
+ 265   3                                      return PPPOE_Session_Handle((U8_T*)PPPOEBUF, 3);
+ 266   3                              }
+ 267   2                              return 0;
+ 268   2                      case PPPOE_CODE_PADS_4:
+ 269   2                              /* Wait ICPC request */
+ 270   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 271   2                              {
+ 272   3                                      return PPPOE_Session_Handle((U8_T*)PPPOEBUF, 7);
+ 273   3                              }
+ 274   2                              return 0;
+ 275   2                      case PPPOE_CODE_PADS_6:
+ 276   2                              /* Wait IPCP Nak packet */
+ 277   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 278   2                              {
+ 279   3                                      return PPPOE_Session_Handle((U8_T*)PPPOEBUF, 9);
+ 280   3                              }
+ 281   2                              return 0;
+ 282   2                      case PPPOE_CODE_PADS_7:
+ 283   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 284   2                              {
+ 285   3                                      return PPPOE_Session_Handle((U8_T*)PPPOEBUF, 10);
+ 286   3                              }
+ 287   2                              return 0;
+ 288   2                      case PPPOE_CODE_PADS_8:
+ 289   2                              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session())
+ 290   2                              {
+ 291   3                                      return 1;
+ 292   3                              }
+ 293   2                              return 0;
+ 294   2                      default:
+ 295   2                              return 0;
+ 296   2              }
+ 297   1      }
+ 298          
+ 299          /*
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 6   
+
+ 300           * ----------------------------------------------------------------------------
+ 301           * Function Name: PPPOE_Discovery_Handle
+ 302           * Purpose: Handle discovery stage of PPPoE
+ 303           * Params: *PPPOEBUF: Pointer of packet / state: internal state
+ 304           * Returns: 0: Not wanted packet / 1: Wanted packet, and process it
+ 305           * Note:
+ 306           * ----------------------------------------------------------------------------
+ 307           */
+ 308          U8_T PPPOE_Discovery_Handle(U8_T *PPPOEBUF, U8_T state)
+ 309          { 
+ 310   1              tag     *tags = (tag*)((pppoe_hdr*)PPPOEBUF)->payload_data;
+ 311   1              U8_T    i;
+ 312   1      
+ 313   1              switch(state)
+ 314   1              {
+ 315   2                      case PPPOE_CODE_PADI:
+ 316   2      
+ 317   2                              /* Create PADI packet */
+ 318   2                              for(i = 0; i < 6; i++)
+ 319   2                              {
+ 320   3                                      ((pppoe_hdr*)PPPOEBUF)->dest_addr[i] = 0xFF;
+ 321   3                              }
+ 322   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 323   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_DISCOVERY);
+ 324   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 325   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_PADI;
+ 326   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = PPPOE_CODE_SESS;
+ 327   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = 0x0010;
+ 328   2                              tags->name = PPPOE_TAG_SERVICE_NAME;
+ 329   2                              tags->length = 0;
+ 330   2                              *(U16_T*) tags->value = PPPOE_TAG_HOST_UNIQ;
+ 331   2                              *(U16_T*) (tags->value + 2) = 0x0008;
+ 332   2                              *(U32_T*) (tags->value + 4) = 0x06000000;
+ 333   2                              *(U32_T*) (tags->value + 8) = 0x0B000000;
+ 334   2      
+ 335   2                              /* Set Process state */
+ 336   2                              pppoe_info.state = PPPOE_CODE_PADI;
+ 337   2      
+ 338   2                              break;
+ 339   2                      case PPPOE_CODE_PADR:
+ 340   2                              /* Analysis PADO packet and record needed information */
+ 341   2                              Analysis_Tags((U8_T*)tags, ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 342   2      
+ 343   2                              if(host_uniq_from_PADO[0] != 0x06 && host_uniq_from_PADO[4] != 0x0b)
+ 344   2                              {
+ 345   3                                      return 0; /* If host uniq not for us, don't create/send PADR */
+ 346   3                              }
+ 347   2      
+ 348   2                              /* Keep mac of PPPoE server*/
+ 349   2                              memcpy(pppoe_server_mac, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 350   2      
+ 351   2                              /* Create PADR packet */
+ 352   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 353   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 354   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_DISCOVERY);
+ 355   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 356   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_PADR;
+ 357   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = PPPOE_CODE_SESS;
+ 358   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = (U16_T)as_length[0] + (U16_T)as_length[1] + 20;
+ 359   2                              tags->name = PPPOE_TAG_SERVICE_NAME;
+ 360   2                              tags->length = as_length[1];
+ 361   2                              memcpy(tags->value, service_name, tags->length);
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 7   
+
+ 362   2                              *(U16_T*) (tags->value + tags->length) = PPPOE_TAG_HOST_UNIQ;
+ 363   2                              *(U16_T*) (tags->value + tags->length + 2) = 0x0008;
+ 364   2                              *(U32_T*) (tags->value + tags->length + 4) = 0x06000000;
+ 365   2                              *(U32_T*) (tags->value + tags->length + 8) = 0x0C000000;
+ 366   2                              *(U16_T*) (tags->value + tags->length + 12) = PPPOE_TAG_AC_COOKIE;
+ 367   2                              *(U16_T*) (tags->value + tags->length + 14) = as_length[0];
+ 368   2      
+ 369   2                              memcpy((tags->value + tags->length + 16), ac_cookie, as_length[0]);
+ 370   2      
+ 371   2                              /* Set Process state */
+ 372   2                              pppoe_info.state = PPPOE_CODE_PADR;
+ 373   2                              break;
+ 374   2                      case PPPOE_CODE_PADS:
+ 375   2                              /* Analysis PADS packet and record needed information */
+ 376   2                              Analysis_Tags((U8_T*)tags, ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 377   2                              if(host_uniq_from_PADO[0] != 0x06 && host_uniq_from_PADO[4] != 0x0c)
+ 378   2                              {
+ 379   3                                      return 0; /* If host uniq not for us, don't process session stage */
+ 380   3                              }
+ 381   2                              /* Keep Session ID from PPPoE server */
+ 382   2                              session_id = ((pppoe_hdr*)PPPOEBUF)->session_id;
+ 383   2      
+ 384   2                              /* Set Process state */
+ 385   2                              pppoe_info.state = PPPOE_CODE_PADS;
+ 386   2      
+ 387   2                              return 1;
+ 388   2                      default:
+ 389   2                              printd("Nothing to do in Discovry of PPPoE !\r\n");
+ 390   2                              return 0;
+ 391   2              }
+ 392   1      
+ 393   1              /* Set uip length */
+ 394   1              TCPIP_SetXmitLength(20 + ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 395   1      
+ 396   1              /* Send packet */
+ 397   1              ETH_SendPkt((U8_T XDATA*)PPPOEBUF, TCPIP_GetXmitLength());
+ 398   1      
+ 399   1              return 1;
+ 400   1      }
+ 401          
+ 402          /*
+ 403           * ----------------------------------------------------------------------------
+ 404           * Function Name: PPPOE_Session_Handle
+ 405           * Purpose: Handle session stage of PPPoE
+ 406           * Params: *PPPOEBUF: Pointer of packet / state: internal state
+ 407           * Returns: 0: Not wanted packet / 1: Wanted packet, and process it
+ 408           * Note:
+ 409           * ----------------------------------------------------------------------------
+ 410           */
+ 411          U8_T PPPOE_Session_Handle(U8_T *PPPOEBUF, U16_T state)
+ 412          {
+ 413   1              ppp_handshake_session   *phs = (ppp_handshake_session*)&(((pppoe_hdr*)PPPOEBUF)->payload_data[0]);
+ 414   1      
+ 415   1              switch(state)
+ 416   1              {
+ 417   2                      case 1:
+ 418   2                              if(phs->protocol != LCP && phs->ppp_code == 0x01)
+ 419   2                              {
+ 420   3                                      return 0;
+ 421   3                              }
+ 422   2      
+ 423   2                              /* Create LCP ACK */
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 8   
+
+ 424   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 425   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 426   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 427   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 428   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+ 429   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 430   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 431   2                              phs->ppp_code = 0x02;
+ 432   2      
+ 433   2                              /* Save magic number from server */
+ 434   2                              /* Length of Hinet is 18, length of linux-pppoe is 14 */
+ 435   2                              if(phs->length == 14)
+ 436   2                              {
+ 437   3                                      pppoe_info.lcp_length = 14;
+ 438   3                                      memcpy(magic_number_server, &(phs->option[6]), 4);
+ 439   3                              }
+ 440   2                              else
+ 441   2                              {
+ 442   3                                      pppoe_info.lcp_length = 18;
+ 443   3                                      memcpy(magic_number_server, &(phs->option[10]), 4);
+ 444   3                              }
+ 445   2      
+ 446   2                              /* Copy the number to client and +1 */
+ 447   2                              memcpy(magic_number_client, magic_number_server, 4);
+ 448   2                              magic_number_client[3] += 1;
+ 449   2      
+ 450   2                              pppoe_info.state = PPPOE_CODE_PADS_1;
+ 451   2                          break;
+ 452   2                      case 2:
+ 453   2                              /* Create LCP request */
+ 454   2                              phs->protocol = LCP;
+ 455   2                              phs->ppp_code = 0x01;
+ 456   2                              phs->ppp_id = pppoe_info.identifier;
+ 457   2                              phs->length = 14;
+ 458   2                              *(U16_T*)phs->option = 0x0104;
+ 459   2                              *(U16_T*)(phs->option + 2) = 0x05c8;
+ 460   2                              if(pppoe_info.lcp_length != 14)
+ 461   2                              {
+ 462   3                                      phs->option[4] = 0x05;
+ 463   3                                      phs->option[5] = 0x06;
+ 464   3                              }
+ 465   2                              memcpy(phs->option + 6, magic_number_client, 4);
+ 466   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 467   2                              pppoe_info.state = PPPOE_CODE_PADS_2;
+ 468   2                              break;
+ 469   2                      case 3:
+ 470   2                              if(phs->protocol == LCP && Check_Magic(&(phs->option[6]), 1) == 1 && phs->ppp_code == 0x02 && phs->ppp_
+             -id == 0)
+ 471   2                              {
+ 472   3                                      pppoe_info.state = PPPOE_CODE_PADS_3;
+ 473   3                                      return 1;
+ 474   3                              }
+ 475   2                              else
+ 476   2                              {
+ 477   3                                      return 0;
+ 478   3                              }
+ 479   2                      case 4:
+ 480   2                              /* Create identification_1 packet */
+ 481   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, pppoe_server_mac, 6);
+ 482   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 483   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 484   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 9   
+
+ 485   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 486   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 487   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = 18 + 2;
+ 488   2                              phs->protocol = LCP;
+ 489   2                              phs->ppp_code = 0x0c;
+ 490   2                              phs->ppp_id = ++pppoe_info.identifier;
+ 491   2                              phs->length = 18;
+ 492   2                              memcpy(phs->option, magic_number_client, 4);
+ 493   2                              memcpy(&(phs->option[4]), pppoe_identification_1, 10);
+ 494   2      
+ 495   2                              break;
+ 496   2                      case 5:
+ 497   2                              /* Create identification_2 packet */
+ 498   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, pppoe_server_mac, 6);
+ 499   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 500   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 501   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+ 502   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 503   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 504   2                              phs->protocol = LCP;
+ 505   2                              phs->ppp_code = 0x0c;
+ 506   2                              phs->ppp_id = ++pppoe_info.identifier;
+ 507   2                              phs->length = 20;
+ 508   2                              memcpy(phs->option, magic_number_client, 4);
+ 509   2                              memcpy(&(phs->option[4]), pppoe_identification_2, 12);
+ 510   2      
+ 511   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 512   2      
+ 513   2                              break;
+ 514   2                      case 6:
+ 515   2                              /* Create Authentication request packet */
+ 516   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, pppoe_server_mac, 6);
+ 517   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 518   2                              ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 519   2                              ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+ 520   2                              ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 521   2                              ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 522   2                              phs->protocol = PAP;
+ 523   2                              phs->ppp_code = 0x01;
+ 524   2                              phs->ppp_id = ++pppoe_info.identifier;
+ 525   2                              phs->length = strlen(pppoe_username) + strlen(pppoe_password) + 6;
+ 526   2      
+ 527   2                              phs->option[0] = strlen(pppoe_username);
+ 528   2                              memcpy(&(phs->option[1]), pppoe_username, strlen(pppoe_username));
+ 529   2                              phs->option[1+strlen(pppoe_username)] = strlen(pppoe_password);
+ 530   2                              memcpy(&(phs->option[2 + strlen(pppoe_username)]), pppoe_password, strlen(pppoe_password));
+ 531   2      
+ 532   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 533   2                              pppoe_info.state = PPPOE_CODE_PADS_4;
+ 534   2                              break;
+ 535   2                      case 7:
+ 536   2                              /* Check if authentication successful */
+ 537   2                              if(phs->protocol == PAP && phs->ppp_code == 0x03)
+ 538   2                              {
+ 539   3                                      printd("PPPoE Account or Password not correct!\r\n");
+ 540   3                                      return 1;
+ 541   3                              }
+ 542   2      
+ 543   2                              /* Check if the packet is IPCP/Request */
+ 544   2                              if(phs->protocol != IPCP && phs->ppp_code != 0x01)
+ 545   2                              {
+ 546   3                                      return 0;
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 10  
+
+ 547   3                              }
+ 548   2                              /* Create IPCP/ACK packet */
+ 549   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 550   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 551   2                              phs->ppp_code = 0x02;
+ 552   2      
+ 553   2                              /* Keep the IP address of PPPoE server */
+ 554   2                              memcpy(pppoe_server_ip, &(phs->option[2]), 4);
+ 555   2      
+ 556   2                              /* Please careful below code's sequence */
+ 557   2                              pppoe_info.state = PPPOE_CODE_PADS_5;
+ 558   2                              break;
+ 559   2                      case 8:
+ 560   2                              /* Create IPCP request packet */
+ 561   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, pppoe_server_mac, 6);
+ 562   2                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 563   2                              phs->ppp_code = 0x01;
+ 564   2                              phs->ppp_id = ++pppoe_info.identifier;
+ 565   2                              phs->length = 22;
+ 566   2                              ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 567   2                              *(U16_T*)(phs->option) = 0x0306;
+ 568   2                              *(U32_T*)(phs->option + 2) = 0;
+ 569   2                              *(U16_T*)(phs->option + 6) = 0x8106;
+ 570   2                              *(U32_T*)(phs->option + 8) = 0;
+ 571   2                              *(U16_T*)(phs->option + 12) = 0x8306;
+ 572   2                              *(U32_T*)(phs->option + 14) = 0;
+ 573   2      
+ 574   2                              pppoe_info.state = PPPOE_CODE_PADS_6;
+ 575   2                              break;
+ 576   2                      case 9:
+ 577   2                              if(phs->protocol == IPCP && phs->ppp_code == 0x03)
+ 578   2                              {
+ 579   3                                      /* Create IPCP request with IP packet */
+ 580   3                                      memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 581   3                                      memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 582   3                                      phs->ppp_code = 0x01;
+ 583   3                                      phs->ppp_id = ++pppoe_info.identifier;
+ 584   3                                      phs->length = 22;
+ 585   3                                      ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 586   3      
+ 587   3                                      /* Keep IP, Primary/Secondary DNS */
+ 588   3                                      memcpy(pppoe_ip, &(phs->option[2]), 4);
+ 589   3                                      memcpy(pppoe_pri_dns, &(phs->option[8]), 4);
+ 590   3                                      memcpy(pppoe_sec_dns, &(phs->option[14]), 4);
+ 591   3      
+ 592   3                                      pppoe_info.state = PPPOE_CODE_PADS_7;
+ 593   3                                      break;
+ 594   3                              }
+ 595   2                              return 0;
+ 596   2                      case 10:
+ 597   2                              /* Check last IPCP Ack */
+ 598   2                              if(phs->protocol == IPCP && phs->ppp_code == 0x02 && phs->ppp_id == pppoe_info.identifier)
+ 599   2                              {
+ 600   3                                      /* Reset identifier */
+ 601   3                                      pppoe_info.identifier = 0;
+ 602   3      
+ 603   3                                      /* Set IP to latest IP from PPPoE server */
+ 604   3                                      STOE_SetIPAddr(*(U32_T*)pppoe_ip);
+ 605   3                                      TCPIP_SetIPAddr(*(U32_T*)pppoe_ip);
+ 606   3      
+ 607   3                                      /* Set PPPoE connection successful */
+ 608   3                                      pppoe_successful = 1;
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 11  
+
+ 609   3                                      PPPOE_GetDnsFlag = 1;
+ 610   3      
+ 611   3                                      pppoe_info.state = PPPOE_CODE_PADS_8;
+ 612   3                                      printd("Finish the PPP handshake !! %lx\r\n", *(U32_T*)pppoe_ip);
+ 613   3                                      return 1;
+ 614   3                              }
+ 615   2                              return 0;
+ 616   2                      default:
+ 617   2                              return 0;
+ 618   2              }
+ 619   1      
+ 620   1              /* Set uip length */
+ 621   1              TCPIP_SetXmitLength(20 + ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 622   1      
+ 623   1              /* Send packet */
+ 624   1              ETH_SendPkt((U8_T XDATA*)PPPOEBUF, TCPIP_GetXmitLength());
+ 625   1      
+ 626   1              return 1;
+ 627   1      }
+ 628          
+ 629          /*
+ 630           * ----------------------------------------------------------------------------
+ 631           * Function Name: PPPOE_Get_Session
+ 632           * Purpose: Called by other process and return session_id
+ 633           * Params:
+ 634           * Returns: Session ID that got from PPPoE server
+ 635           * Note:
+ 636           * ----------------------------------------------------------------------------
+ 637           */
+ 638          U16_T PPPOE_Get_Session(void)
+ 639          {
+ 640   1              return session_id;
+ 641   1      }
+ 642          
+ 643          /*
+ 644           * ----------------------------------------------------------------------------
+ 645           * Function Name: Analysis_Tags
+ 646           * Purpose: If connection type is PPPoE, this function maintain any packets
+ 647           *              while receiving data.
+ 648           * Params:  buf = Head pointer of packet, length = Length of packet
+ 649           * Returns: 1: Useful packet, 0: Drop the packet
+ 650           * Note:
+ 651           * ----------------------------------------------------------------------------
+ 652           */
+ 653          void Analysis_Tags(U8_T *tags, U16_T length)
+ 654          {
+ 655   1              U8_T    i;
+ 656   1      
+ 657   1              for(i = 0; i < length; i++)
+ 658   1              {
+ 659   2                      /* Service name */
+ 660   2                      if((*(tags + i) == 0x01) && (*(tags + i + 1) == 0x01))
+ 661   2                      {
+ 662   3                              as_length[1] = *(U16_T*)(tags+i+2);
+ 663   3                              memcpy(service_name, (tags + i + 4), *(U16_T*)(tags+i+2));
+ 664   3                      }
+ 665   2      
+ 666   2                      /* Host-uniq */
+ 667   2                      if((*(tags + i) == 0x01) && (*(tags + i + 1) == 0x03))
+ 668   2                      {
+ 669   3                              memcpy(host_uniq_from_PADO, (tags + i + 4), *(U16_T*)(tags+i+2));
+ 670   3                      }
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 12  
+
+ 671   2      
+ 672   2                      /* AC-Cookie */
+ 673   2                      if((*(tags + i) == 0x01) && (*(tags + i + 1) == 0x04))
+ 674   2                      {
+ 675   3                              as_length[0] = *(U16_T*)(tags+i+2);
+ 676   3                              memcpy(ac_cookie, (tags + i + 4), *(U16_T*)(tags+i+2));
+ 677   3                      }
+ 678   2              }
+ 679   1      }
+ 680          
+ 681          /*
+ 682           * ----------------------------------------------------------------------------
+ 683           * Function Name: Check_Magic
+ 684           * Purpose: Check if magic number as same as keeped.
+ 685           * Params: magic:Pointer of magic number / sc: 0(server), 1(client)
+ 686           * Returns: 0: different / 1: Same
+ 687           * Note: *magic is a pointer of magic number, sc is flag for checking server 
+ 688           *                      or client
+ 689           * ----------------------------------------------------------------------------
+ 690           */
+ 691          U8_T Check_Magic(U8_T *magic, U8_T sc)
+ 692          {
+ 693   1              U8_T    i;
+ 694   1              
+ 695   1              for(i = 0; i < 4; i++)
+ 696   1              {
+ 697   2                      if(sc)
+ 698   2                      {
+ 699   3                              if(magic[i] != magic_number_client[i])
+ 700   3                                      return 0;
+ 701   3                      }
+ 702   2                      else
+ 703   2                      {
+ 704   3                              if(magic[i] != magic_number_server[i])
+ 705   3                                      return 0;
+ 706   3                      }
+ 707   2              }
+ 708   1              return 1;
+ 709   1      }
+ 710          
+ 711          /*
+ 712           * ----------------------------------------------------------------------------
+ 713           * Function Name: Check_Echo
+ 714           * Purpose: Check if echo request sent from PPPoE server, reply echo
+ 715           * Params: U8_T *buf
+ 716           * Returns: 0: Not echo request / 1: echo request, and reply it
+ 717           * Note: 
+ 718           * ----------------------------------------------------------------------------
+ 719           */
+ 720          U8_T Check_Echo(U8_T *buf)
+ 721          {
+ 722   1              pppoe_hdr*      PPPOEBUF = (pppoe_hdr*)buf;
+ 723   1              ppp_handshake_session   *phs = (ppp_handshake_session*)&(((pppoe_hdr*)PPPOEBUF)->payload_data[0]);
+ 724   1      
+ 725   1              /* See if packet is echo request of PPPoE server and for us */
+ 726   1              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session()
+ 727   1                      && phs->protocol == LCP && Check_Magic(&(phs->option[0]), 0) == 1 && phs->ppp_code == 0x09)
+ 728   1              {
+ 729   2                      /* Create echo reply */
+ 730   2                      memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 731   2                      memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+ 732   2                      ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 13  
+
+ 733   2                      ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 734   2                      ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+ 735   2                      ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 736   2                      phs->ppp_code = 0x0a;
+ 737   2                      memcpy(phs->option, magic_number_client, 4);
+ 738   2                      ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 739   2      
+ 740   2                      /* Set uip length */
+ 741   2                      TCPIP_SetXmitLength(20 + ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 742   2      
+ 743   2                      /* Send packet */
+ 744   2                      ETH_SendPkt((U8_T XDATA*)PPPOEBUF, TCPIP_GetXmitLength());
+ 745   2      
+ 746   2                      return 1;
+ 747   2              }
+ 748   1              return 0;
+ 749   1      }
+ 750          
+ 751          /*
+ 752           * ----------------------------------------------------------------------------
+ 753           * Function Name: Check_Terminate
+ 754           * Purpose: Check if terminate request sent from PPPoE server, reply terminate
+ 755           *                      ack
+ 756           * Params: U8_T *buf
+ 757           * Returns: 0: Not terminate request / 1: terminate request, and reply ack
+ 758           * Note: 
+ 759           * ----------------------------------------------------------------------------
+ 760           */
+ 761          U8_T Check_Terminate(U8_T *buf)
+ 762          {
+ 763   1              pppoe_hdr*      PPPOEBUF = (pppoe_hdr*)buf;
+ 764   1              ppp_handshake_session   *phs = (ppp_handshake_session*)&(((pppoe_hdr*)PPPOEBUF)->payload_data[0]);
+ 765   1      
+ 766   1              /* See if packet is terminate request of PPPoE server and for us */
+ 767   1              if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_DISCOVERY && PPPOEBUF->session_id == PPPOE_Get_Session()
+ 768   1                      && PPPOEBUF->pppoe_code == 0xa7)        /* PADT in PPPoE */
+ 769   1              {
+ 770   2      #if 0
+                              /* Create PADT packet */
+                              memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+                              memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, uip_ethaddr.addr, 6);
+              
+                              /* Set uip length */
+                              TCPIP_SetXmitLength(20 + ((pppoe_hdr*)PPPOEBUF)->payload_length);
+              
+                              /* Send packet */
+                              ETH_SendPkt((U8_T XDATA*)PPPOEBUF, TCPIP_GetXmitLength());
+              #endif
+ 781   2                      /* Set PPPoE connection fail */
+ 782   2                      pppoe_successful = 0;
+ 783   2      
+ 784   2                      /* Reset internal state of PPPoE */
+ 785   2                      PPPOE_Init();
+ 786   2      
+ 787   2                      return 1;
+ 788   2              }
+ 789   1              else if(PPPOEBUF->ether_type == UIP_ETHTYPE_PPPOE_SESSION && PPPOEBUF->session_id == PPPOE_Get_Session()
+ 790   1                              && phs->protocol == LCP && phs->ppp_code == 0x05)       /* Terminate in PPP */
+ 791   1              {
+ 792   2                      /* Create Terminate ack */
+ 793   2                      memcpy(((pppoe_hdr*)PPPOEBUF)->dest_addr, ((pppoe_hdr*)PPPOEBUF)->src_addr, 6);
+ 794   2                      memcpy(((pppoe_hdr*)PPPOEBUF)->src_addr, pppoe_MacAddr, 6);
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 14  
+
+ 795   2                      ((pppoe_hdr*)PPPOEBUF)->ether_type = htons(UIP_ETHTYPE_PPPOE_SESSION);
+ 796   2                      ((pppoe_hdr*)PPPOEBUF)->vhl = 0x11;
+ 797   2                      ((pppoe_hdr*)PPPOEBUF)->pppoe_code = PPPOE_CODE_SESS;
+ 798   2                      ((pppoe_hdr*)PPPOEBUF)->session_id = session_id;
+ 799   2                      phs->ppp_code = 0x06;
+ 800   2                      ((pppoe_hdr*)PPPOEBUF)->payload_length = phs->length + 2;
+ 801   2      
+ 802   2                      /* Set uip length */
+ 803   2                      TCPIP_SetXmitLength(20 + ((pppoe_hdr*)PPPOEBUF)->payload_length);
+ 804   2      
+ 805   2                      /* Send packet */
+ 806   2                      ETH_SendPkt((U8_T XDATA*)PPPOEBUF, TCPIP_GetXmitLength());
+ 807   2      
+ 808   2                      return 1;
+ 809   2              }
+ 810   1              return 0;
+ 811   1      }
+ 812          
+ 813          /*
+ 814           * ----------------------------------------------------------------------------
+ 815           * Function Name: PPPOE_Setup_Account
+ 816           * Purpose: Setup username and password in PPPoE module.
+ 817           * Params: U8_T *username U8_T *password
+ 818           * Returns:
+ 819           * Note: 
+ 820           * ----------------------------------------------------------------------------
+ 821           */
+ 822          void PPPOE_Setup_Account(U8_T *username, U8_T *password)
+ 823          {
+ 824   1              /* Update username and password by external string */
+ 825   1              strcpy(pppoe_username, username);
+ 826   1              strcpy(pppoe_password, password);
+ 827   1              PPPOE_Init();   
+ 828   1      }
+ 829          
+ 830          /*
+ 831           * ----------------------------------------------------------------------------
+ 832           * Function Name: PPPOE_Get_DNS
+ 833           * Purpose: Get the DNS's ip address after connection successful.
+ 834           * Params: U8_T *pri_dns U8_T *sec_dns
+ 835           * Returns:
+ 836           * Note: 
+ 837           * ----------------------------------------------------------------------------
+ 838           */
+ 839          void PPPOE_Get_DNS(U8_T *pri_dns, U8_T *sec_dns)
+ 840          {
+ 841   1              memcpy(pri_dns, pppoe_pri_dns, 4);
+ 842   1              memcpy(sec_dns, pppoe_sec_dns, 4);
+ 843   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   7765    ----
+   CONSTANT SIZE    =    114    ----
+   XDATA SIZE       =    213      56
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+C51 COMPILER V9.01   PPPOE                                                                 08/29/2011 15:27:56 PAGE 15  
+
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,70 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>sysmsg</title>
+<head>
+<style type="text/css">
+<!--
+.title_0 {
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: italic;
+	color: #FFF;
+	font-weight: bold;
+}
+.title_1 {
+	font-family: "Courier New", Courier, monospace;
+	color: #F00;
+}
+.title_2 {
+	font-family: "Courier New", Courier, monospace;
+	color: #00F;
+}
+-->
+</style>
+</head>
+<body bgcolor="#333">
+<table border="0" align="center" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF">
+  <tr>
+    <td><table width="800" border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" bgcolor="#0088F7"><h2 class="title_0">AX220xx RS-232 to WiFi : status message</h2></td>
+      </tr>
+      <tr>
+        <td bgcolor="#EDEFEF">&nbsp;</td>
+      </tr>
+      <tr>
+        <td align="center" bgcolor="#EDEFEF"><h3 id="dst"></h3></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<script language="JavaScript" type="text/javascript">
+<!--
+var second=1000;
+var dst = document.getElementById("dst");
+var sysmsg_setting = document.getElementById("sysmsg_setting");
+var msg, countdown_timer, countdown_unit, countdown_display, redirect, style;
+if (sysmsg_setting != null) {var setting_item = sysmsg_setting.value.split("&");
+msg = setting_item[0];
+countdown_timer = setting_item[1];
+countdown_unit = setting_item[2];
+countdown_display = setting_item[3];
+redirect = setting_item[4];
+style = setting_item[5];
+if (style != null) dst.className = style;
+else dst.className = "title_1";
+	if (msg!=null) {
+if (countdown_timer == null || isNaN(countdown_timer)) dst.innerHTML = msg;
+else timer();}}
+function timer() {
+if (countdown_display == null || countdown_display=="off") dst.innerHTML=msg;
+else dst.innerHTML=msg+" "+countdown_timer+" "+countdown_unit;
+countdown_timer=countdown_timer-1;
+if(countdown_timer < 0) {
+if (redirect == null) location="./";
+else location=redirect;
+} else {setTimeout("timer()",second);}}
+//-->
+</script>
+</body>
+</html>

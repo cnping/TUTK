@@ -1,0 +1,257 @@
+C51 COMPILER V9.01   PRINTD                                                                08/29/2011 15:28:07 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE PRINTD
+OBJECT MODULE PLACED IN .\printd.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\mdebug\printd.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR
+                    -(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mpi
+                    -ng;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src
+                    -\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;..\..\.
+                    -.\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\printd.lst) OBJECT(.\printd.obj)
+
+line level    source
+
+   1          /*
+   2           *********************************************************************************
+   3           *     Copyright (c) 2010   ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           *********************************************************************************
+  10           */
+  11          /*================================================================================
+  12           * Module Name : printd.c
+  13           * Purpose     : AX22000 initialization and globe values setting.
+  14           * Author      : 
+  15           * Date        : 
+  16           * Notes       : 
+  17           *================================================================================
+  18           */
+  19          
+  20          /* INCLUDE FILE DECLARATIONS */
+  21          #include <stdarg.h>
+  22          #include "types.h"
+  23          #include "printd.h"
+  24          #include "uart0.h"
+  25          
+  26          /* GLOBAL VARIABLES DECLARATIONS */
+  27          U8_T DEBUG_MsgEnable = 1;
+  28          
+  29          /* STATIC VARIABLE DECLARATIONS */
+  30          
+  31          /* LOCAL SUBPROGRAM DECLARATIONS */
+  32          static int prints(const char *string, int width, int pad);
+  33          static int printi(long i, int b, int sg, int width, int pad, int letbase);
+  34          
+  35          /* LOCAL SUBPROGRAM BODIES */
+  36          
+  37          /*
+  38           *--------------------------------------------------------------------------------
+  39           * static int prints(const char *string, int width, int pad)
+  40           * Purpose : None
+  41           * Params  : None
+  42           * Returns : None
+  43           * Note    : None
+  44           *--------------------------------------------------------------------------------
+  45           */
+  46          static int prints(const char *string, int width, int pad)
+  47          {
+  48   1              register int pc = 0, padchar = ' ';
+  49   1      
+  50   1      
+  51   1              if (width > 0) {
+C51 COMPILER V9.01   PRINTD                                                                08/29/2011 15:28:07 PAGE 2   
+
+  52   2                      register int len = 0;
+  53   2                      register const char *ptr;
+  54   2                      for (ptr = string; *ptr; ++ptr) ++len;
+  55   2                      if (len >= width) width = 0;
+  56   2                      else width -= len;
+  57   2                      if (pad & PAD_ZERO) padchar = '0';
+  58   2              }
+  59   1              if (!(pad & PAD_RIGHT)) {
+  60   2                      for ( ; width > 0; --width) {
+  61   3                              DEBUG_PORT_PUTCHR(padchar);
+  62   3                              ++pc;
+  63   3                      }
+  64   2              }
+  65   1              
+  66   1              for ( ; *string ; ++string) {
+  67   2                      DEBUG_PORT_PUTCHR(*string);
+  68   2                      ++pc;
+  69   2              }
+  70   1              
+  71   1              for ( ; width > 0; --width) {
+  72   2                      DEBUG_PORT_PUTCHR ( padchar);
+  73   2                      ++pc;
+  74   2              }
+  75   1      
+  76   1              return pc;
+  77   1      }
+  78          
+  79          /*
+  80           *--------------------------------------------------------------------------------
+  81           * static int printi(long i, int b, int sg, int width, int pad, int letbase)
+  82           * Purpose : None
+  83           * Params  : None
+  84           * Returns : None
+  85           * Note    : None
+  86           *--------------------------------------------------------------------------------
+  87           */
+  88          static int printi(long i, int b, int sg, int width, int pad, int letbase)
+  89          {
+  90   1              char print_buf[PRINT_BUF_LEN];
+  91   1              register char *s;
+  92   1              register long t, neg = 0, pc = 0;
+  93   1              register unsigned long u = i;
+  94   1      
+  95   1              if (i == 0) {
+  96   2                      print_buf[0] = '0';
+  97   2                      print_buf[1] = '\0';
+  98   2                      return prints ( print_buf, width, pad);
+  99   2              }
+ 100   1      
+ 101   1              if (sg && b == 10 && i < 0) {
+ 102   2                      neg = 1;
+ 103   2                      u = -i;
+ 104   2              }
+ 105   1      
+ 106   1              s = print_buf + PRINT_BUF_LEN-1;
+ 107   1              *s = '\0';
+ 108   1      
+ 109   1              while (u) {
+ 110   2                      t = u % b;
+ 111   2                      if( t >= 10 )
+ 112   2                              t += letbase - '0' - 10;
+ 113   2                      *--s = t + '0';
+C51 COMPILER V9.01   PRINTD                                                                08/29/2011 15:28:07 PAGE 3   
+
+ 114   2                      u /= b;
+ 115   2              }
+ 116   1      
+ 117   1              if (neg) {
+ 118   2                      if( width && (pad & PAD_ZERO) ) {
+ 119   3                              DEBUG_PORT_PUTCHR ('-');
+ 120   3                              ++pc;
+ 121   3                              --width;
+ 122   3                      }
+ 123   2                      else {
+ 124   3                              *--s = '-';
+ 125   3                      }
+ 126   2              }
+ 127   1              return pc + prints ( s, width, pad);
+ 128   1      }
+ 129          
+ 130          
+ 131          /* EXPORTED SUBPROGRAM BODIES */
+ 132          /*
+ 133           *--------------------------------------------------------------------------------
+ 134           * int printd(const char *format, ...)
+ 135           * Purpose : None
+ 136           * Params  : None
+ 137           * Returns : None
+ 138           * Note    : None
+ 139           *--------------------------------------------------------------------------------
+ 140           */
+ 141          int printd(const char *format, ...)
+ 142          {
+ 143   1              register int width, pad;
+ 144   1              register int pc = 0;
+ 145   1              char scr[2];
+ 146   1              
+ 147   1          va_list args;
+ 148   1              
+ 149   1          if (DEBUG_MsgEnable == 0)
+ 150   1              return 0;
+ 151   1      
+ 152   1          va_start( args, format );
+ 153   1      
+ 154   1              for (; *format != 0; ++format) {
+ 155   2                      if (*format == '%') {
+ 156   3                              ++format;
+ 157   3                              width = pad = 0;
+ 158   3                              if (*format == '\0') break;
+ 159   3                              if (*format == '%') goto out;
+ 160   3                              if (*format == '-') {
+ 161   4                                      ++format;
+ 162   4                                      pad = PAD_RIGHT;
+ 163   4                              }
+ 164   3                              while (*format == '0') {
+ 165   4                                      ++format;
+ 166   4                                      pad |= PAD_ZERO;
+ 167   4                              }
+ 168   3                              for ( ; *format >= '0' && *format <= '9'; ++format) {
+ 169   4                                      width *= 10;
+ 170   4                                      width += *format - '0';
+ 171   4                              }
+ 172   3                              switch(*format)
+ 173   3                              {
+ 174   4                                      case 's':
+ 175   4                                          {
+C51 COMPILER V9.01   PRINTD                                                                08/29/2011 15:28:07 PAGE 4   
+
+ 176   5                                              register char *s = (char *)va_arg( args, char * );
+ 177   5                                              pc += prints ( s?s:"(null)", width, pad);
+ 178   5                                              continue;
+ 179   5                                              }
+ 180   4                                      case 'b':
+ 181   4                                              ++format;
+ 182   4                                              if (*format == 'd')
+ 183   4                                                      pc += printi ( va_arg( args, char ), 10, 1, width, pad, 'a');
+ 184   4                                              else if (*format == 'u')
+ 185   4                                                      pc += printi ( va_arg( args, unsigned char ), 10, 0, width, pad, 'a');
+ 186   4                                              else if (*format == 'x')
+ 187   4                                                      pc += printi ( va_arg( args, unsigned char ), 16, 0, width, pad, 'a');
+ 188   4                                              continue;
+ 189   4                                      case 'd':
+ 190   4                                              pc += printi ( va_arg( args, int ), 10, 1, width, pad, 'a');
+ 191   4                                              continue;
+ 192   4                                      case 'x':
+ 193   4                                              pc += printi ( va_arg( args, int ), 16, 0, width, pad, 'a');
+ 194   4                                              continue;
+ 195   4                                      case 'u' :
+ 196   4                                              pc += printi ( va_arg( args, int ), 10, 0, width, pad, 'a');
+ 197   4                                              continue;
+ 198   4                                      case 'l':
+ 199   4                                              ++format;
+ 200   4                                              if (*format == 'x')
+ 201   4                                                      pc += printi ( va_arg( args, long ), 16, 1, width, pad, 'a');
+ 202   4                                              else if (*format == 'u')
+ 203   4                                                      pc += printi ( va_arg( args, long ), 10, 0, width, pad, 'a');
+ 204   4                                              continue;
+ 205   4                                      case 'c' :
+ 206   4                                              scr[0] = (char)va_arg( args, char );
+ 207   4                                              scr[1] = '\0';
+ 208   4                                              pc += prints ( scr, width, pad);
+ 209   4                                              continue;
+ 210   4                              }
+ 211   3                      }
+ 212   2                      else {
+ 213   3                      out:
+ 214   3                              DEBUG_PORT_PUTCHR(*format);
+ 215   3                              ++pc;
+ 216   3                      }
+ 217   2              }
+ 218   1              va_end( args );
+ 219   1              return pc;
+ 220   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2054    ----
+   CONSTANT SIZE    =      7    ----
+   XDATA SIZE       =      1     118
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

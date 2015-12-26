@@ -1,0 +1,1163 @@
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE WEB_FUN_ACT
+OBJECT MODULE PLACED IN .\web_fun_act.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.exe ..\src\web_page\web_fun_act.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020)
+                    - INCDIR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\
+                    -src\mping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc
+                    -;..\src\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug;..\..\..\Include;
+                    -..\..\..\Build\ASIX8051_220\) DEFINE(RuntimeCodeAt32KH) VARBANKING DEBUG PRINT(.\output\web_fun_act.lst) OBJECT(.\web_fu
+                    -n_act.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010 ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*=============================================================================
+  12           * Module Name: web_fun.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: web_fun.c,v $
+  18           *=============================================================================
+  19           */
+  20          
+  21          /* INCLUDE FILE DECLARATIONS */
+  22          #include "filesys.h"
+  23          #include "httpd.h"
+  24          
+  25          
+  26          /* GLOBAL VARIABLE DECLARATIONS */
+  27          const void *fun_tbl[] =
+  28          {
+  29                  FUN_TEXT_tftps_ip,
+  30                  FUN_TEXT_file_name,
+  31                  NULL,
+  32                  NULL,
+  33                  FUN_TEXT_email_addr,
+  34                  FUN_TEXT_email_from,
+  35                  FUN_TEXT_email_to1,
+  36                  FUN_TEXT_email_to2,
+  37                  FUN_TEXT_email_to3,
+  38                  FUN_SELECT_coldstart,
+  39                  FUN_SELECT_authfail,
+  40                  FUN_SELECT_ipchg,
+  41                  FUN_SELECT_pswchg,
+  42                  FUN_RADIO_dhcps_onoff,
+  43                  FUN_TEXT_dhcps_startip,
+  44                  FUN_TEXT_dhcps_endip,
+  45                  FUN_TEXT_dhcps_gateway,
+  46                  FUN_TEXT_dhcps_mask,
+  47                  FUN_TEXT_dsm_name,
+  48                  FUN_SELECT_dbr,
+  49                  FUN_SELECT_data,
+  50                  FUN_SELECT_parity,
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 2   
+
+  51                  FUN_SELECT_stop,
+  52                  FUN_SELECT_flow,
+  53                  FUN_SELECT_rs485,
+  54                  FUN_SELECT_dhcp,
+  55                  FUN_TEXT_static_ip,
+  56                  FUN_TEXT_mask,
+  57                  FUN_TEXT_gateway_ip,
+  58                  FUN_TEXT_dns_ip,
+  59                  FUN_SELECT_conntype,
+  60                  FUN_TEXT_txtimer,
+  61                  FUN_SELECT_cs_mode,
+  62                  FUN_TEXT_s_lstport,
+  63                  FUN_TEXT_c_deshn,
+  64                  FUN_TEXT_c_desport,
+  65                  NULL,
+  66                  NULL,
+  67                  FUN_TEXT_username,
+  68                  FUN_PASSWORD_password,
+  69                  NULL,
+  70                  FUN_TEXT_new_usn,
+  71                  FUN_PASSWORD_old_psw,
+  72                  FUN_PASSWORD_new_psw,
+  73                  FUN_PASSWORD_cfm_psw,
+  74                  FUN_TEXT_acc_ip1,
+  75                  FUN_TEXT_acc_ip2,
+  76                  FUN_TEXT_acc_ip3,
+  77                  FUN_TEXT_acc_ip4,
+  78                  FUN_SELECT_acc_ipen,
+  79                  FUN_SELECT_network_mode,
+  80                  FUN_SELECT_channel,
+  81                  FUN_TEXT_ssid,
+  82                  FUN_SELECT_security_mode,
+  83                  FUN_SELECT_key_length,
+  84                  FUN_SELECT_key_index,
+  85                  FUN_TEXT_key_index_0,
+  86                  FUN_TEXT_key_index_1,
+  87                  FUN_TEXT_key_index_2,
+  88                  FUN_TEXT_key_index_3,
+  89                  FUN_TEXT_aes_passphrase,
+  90                  FUN_SELECT_tx_data_rate,
+  91                  FUN_SELECT_tx_power,
+  92                  FUN_SELECT_preamble,
+  93                  FUN_TEXT_beacon_intv,
+  94                  FUN_TEXT_rts_threshold,
+  95                  FUN_SELECT_auto_pwr_ctrl
+  96          };
+  97          
+  98          
+  99          /* STATIC VARIABLE DECLARATIONS */
+ 100          
+ 101          
+ 102          /* LOCAL SUBPROGRAM DECLARATIONS */
+ 103          /*
+ 104           * ----------------------------------------------------------------------------
+ 105           * Function Name: FUN_TEXT_tftps_ip
+ 106           * Purpose:
+ 107           * Params:
+ 108           * Returns:
+ 109           * Note:
+ 110           * ----------------------------------------------------------------------------
+ 111           */
+ 112          void FUN_TEXT_tftps_ip (void *pWebData)
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 3   
+
+ 113          {
+ 114   1              // TODO: Add your specialized code here
+ 115   1      
+ 116   1      }
+*** WARNING C280 IN LINE 112 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 117          
+ 118          /*
+ 119           * ----------------------------------------------------------------------------
+ 120           * Function Name: FUN_TEXT_file_name
+ 121           * Purpose:
+ 122           * Params:
+ 123           * Returns:
+ 124           * Note:
+ 125           * ----------------------------------------------------------------------------
+ 126           */
+ 127          void FUN_TEXT_file_name (void *pWebData)
+ 128          {
+ 129   1              // TODO: Add your specialized code here
+ 130   1      
+ 131   1      }
+*** WARNING C280 IN LINE 127 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 132          
+ 133          /*
+ 134           * ----------------------------------------------------------------------------
+ 135           * Function Name: FUN_TEXT_email_addr
+ 136           * Purpose:
+ 137           * Params:
+ 138           * Returns:
+ 139           * Note:
+ 140           * ----------------------------------------------------------------------------
+ 141           */
+ 142          void FUN_TEXT_email_addr (void *pWebData)
+ 143          {
+ 144   1              // TODO: Add your specialized code here
+ 145   1      
+ 146   1      }
+*** WARNING C280 IN LINE 142 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 147          
+ 148          /*
+ 149           * ----------------------------------------------------------------------------
+ 150           * Function Name: FUN_TEXT_email_from
+ 151           * Purpose:
+ 152           * Params:
+ 153           * Returns:
+ 154           * Note:
+ 155           * ----------------------------------------------------------------------------
+ 156           */
+ 157          void FUN_TEXT_email_from (void *pWebData)
+ 158          {
+ 159   1              // TODO: Add your specialized code here
+ 160   1      
+ 161   1      }
+*** WARNING C280 IN LINE 157 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 162          
+ 163          /*
+ 164           * ----------------------------------------------------------------------------
+ 165           * Function Name: FUN_TEXT_email_to1
+ 166           * Purpose:
+ 167           * Params:
+ 168           * Returns:
+ 169           * Note:
+ 170           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 4   
+
+ 171           */
+ 172          void FUN_TEXT_email_to1 (void *pWebData)
+ 173          {
+ 174   1              // TODO: Add your specialized code here
+ 175   1      
+ 176   1      }
+*** WARNING C280 IN LINE 172 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 177          
+ 178          /*
+ 179           * ----------------------------------------------------------------------------
+ 180           * Function Name: FUN_TEXT_email_to2
+ 181           * Purpose:
+ 182           * Params:
+ 183           * Returns:
+ 184           * Note:
+ 185           * ----------------------------------------------------------------------------
+ 186           */
+ 187          void FUN_TEXT_email_to2 (void *pWebData)
+ 188          {
+ 189   1              // TODO: Add your specialized code here
+ 190   1      
+ 191   1      }
+*** WARNING C280 IN LINE 187 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 192          
+ 193          /*
+ 194           * ----------------------------------------------------------------------------
+ 195           * Function Name: FUN_TEXT_email_to3
+ 196           * Purpose:
+ 197           * Params:
+ 198           * Returns:
+ 199           * Note:
+ 200           * ----------------------------------------------------------------------------
+ 201           */
+ 202          void FUN_TEXT_email_to3 (void *pWebData)
+ 203          {
+ 204   1              // TODO: Add your specialized code here
+ 205   1      
+ 206   1      }
+*** WARNING C280 IN LINE 202 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 207          
+ 208          /*
+ 209           * ----------------------------------------------------------------------------
+ 210           * Function Name: FUN_SELECT_coldstart
+ 211           * Purpose:
+ 212           * Params:
+ 213           * Returns:
+ 214           * Note:
+ 215           * ----------------------------------------------------------------------------
+ 216           */
+ 217          void FUN_SELECT_coldstart (void *pWebData)
+ 218          {
+ 219   1              // TODO: Add your specialized code here
+ 220   1      
+ 221   1      }
+*** WARNING C280 IN LINE 217 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 222          
+ 223          /*
+ 224           * ----------------------------------------------------------------------------
+ 225           * Function Name: FUN_SELECT_authfail
+ 226           * Purpose:
+ 227           * Params:
+ 228           * Returns:
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 5   
+
+ 229           * Note:
+ 230           * ----------------------------------------------------------------------------
+ 231           */
+ 232          void FUN_SELECT_authfail (void *pWebData)
+ 233          {
+ 234   1              // TODO: Add your specialized code here
+ 235   1      
+ 236   1      }
+*** WARNING C280 IN LINE 232 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 237          
+ 238          /*
+ 239           * ----------------------------------------------------------------------------
+ 240           * Function Name: FUN_SELECT_ipchg
+ 241           * Purpose:
+ 242           * Params:
+ 243           * Returns:
+ 244           * Note:
+ 245           * ----------------------------------------------------------------------------
+ 246           */
+ 247          void FUN_SELECT_ipchg (void *pWebData)
+ 248          {
+ 249   1              // TODO: Add your specialized code here
+ 250   1      
+ 251   1      }
+*** WARNING C280 IN LINE 247 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 252          
+ 253          /*
+ 254           * ----------------------------------------------------------------------------
+ 255           * Function Name: FUN_SELECT_pswchg
+ 256           * Purpose:
+ 257           * Params:
+ 258           * Returns:
+ 259           * Note:
+ 260           * ----------------------------------------------------------------------------
+ 261           */
+ 262          void FUN_SELECT_pswchg (void *pWebData)
+ 263          {
+ 264   1              // TODO: Add your specialized code here
+ 265   1      
+ 266   1      }
+*** WARNING C280 IN LINE 262 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 267          
+ 268          /*
+ 269           * ----------------------------------------------------------------------------
+ 270           * Function Name: FUN_RADIO_dhcps_onoff
+ 271           * Purpose:
+ 272           * Params:
+ 273           * Returns:
+ 274           * Note:
+ 275           * ----------------------------------------------------------------------------
+ 276           */
+ 277          void FUN_RADIO_dhcps_onoff (void *pWebData)
+ 278          {
+ 279   1              // TODO: Add your specialized code here
+ 280   1      
+ 281   1      }
+*** WARNING C280 IN LINE 277 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 282          
+ 283          /*
+ 284           * ----------------------------------------------------------------------------
+ 285           * Function Name: FUN_TEXT_dhcps_startip
+ 286           * Purpose:
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 6   
+
+ 287           * Params:
+ 288           * Returns:
+ 289           * Note:
+ 290           * ----------------------------------------------------------------------------
+ 291           */
+ 292          void FUN_TEXT_dhcps_startip (void *pWebData)
+ 293          {
+ 294   1              // TODO: Add your specialized code here
+ 295   1      
+ 296   1      }
+*** WARNING C280 IN LINE 292 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 297          
+ 298          /*
+ 299           * ----------------------------------------------------------------------------
+ 300           * Function Name: FUN_TEXT_dhcps_endip
+ 301           * Purpose:
+ 302           * Params:
+ 303           * Returns:
+ 304           * Note:
+ 305           * ----------------------------------------------------------------------------
+ 306           */
+ 307          void FUN_TEXT_dhcps_endip (void *pWebData)
+ 308          {
+ 309   1              // TODO: Add your specialized code here
+ 310   1      
+ 311   1      }
+*** WARNING C280 IN LINE 307 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 312          
+ 313          /*
+ 314           * ----------------------------------------------------------------------------
+ 315           * Function Name: FUN_TEXT_dhcps_gateway
+ 316           * Purpose:
+ 317           * Params:
+ 318           * Returns:
+ 319           * Note:
+ 320           * ----------------------------------------------------------------------------
+ 321           */
+ 322          void FUN_TEXT_dhcps_gateway (void *pWebData)
+ 323          {
+ 324   1              // TODO: Add your specialized code here
+ 325   1      
+ 326   1      }
+*** WARNING C280 IN LINE 322 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 327          
+ 328          /*
+ 329           * ----------------------------------------------------------------------------
+ 330           * Function Name: FUN_TEXT_dhcps_mask
+ 331           * Purpose:
+ 332           * Params:
+ 333           * Returns:
+ 334           * Note:
+ 335           * ----------------------------------------------------------------------------
+ 336           */
+ 337          void FUN_TEXT_dhcps_mask (void *pWebData)
+ 338          {
+ 339   1              // TODO: Add your specialized code here
+ 340   1      
+ 341   1      }
+*** WARNING C280 IN LINE 337 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 342          
+ 343          /*
+ 344           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 7   
+
+ 345           * Function Name: FUN_TEXT_dsm_name
+ 346           * Purpose:
+ 347           * Params:
+ 348           * Returns:
+ 349           * Note:
+ 350           * ----------------------------------------------------------------------------
+ 351           */
+ 352          void FUN_TEXT_dsm_name (void *pWebData)
+ 353          {
+ 354   1              // TODO: Add your specialized code here
+ 355   1      
+ 356   1      }
+*** WARNING C280 IN LINE 352 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 357          
+ 358          /*
+ 359           * ----------------------------------------------------------------------------
+ 360           * Function Name: FUN_SELECT_dbr
+ 361           * Purpose:
+ 362           * Params:
+ 363           * Returns:
+ 364           * Note:
+ 365           * ----------------------------------------------------------------------------
+ 366           */
+ 367          void FUN_SELECT_dbr (void *pWebData)
+ 368          {
+ 369   1              // TODO: Add your specialized code here
+ 370   1      
+ 371   1      }
+*** WARNING C280 IN LINE 367 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 372          
+ 373          /*
+ 374           * ----------------------------------------------------------------------------
+ 375           * Function Name: FUN_SELECT_data
+ 376           * Purpose:
+ 377           * Params:
+ 378           * Returns:
+ 379           * Note:
+ 380           * ----------------------------------------------------------------------------
+ 381           */
+ 382          void FUN_SELECT_data (void *pWebData)
+ 383          {
+ 384   1              // TODO: Add your specialized code here
+ 385   1      
+ 386   1      }
+*** WARNING C280 IN LINE 382 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 387          
+ 388          /*
+ 389           * ----------------------------------------------------------------------------
+ 390           * Function Name: FUN_SELECT_parity
+ 391           * Purpose:
+ 392           * Params:
+ 393           * Returns:
+ 394           * Note:
+ 395           * ----------------------------------------------------------------------------
+ 396           */
+ 397          void FUN_SELECT_parity (void *pWebData)
+ 398          {
+ 399   1              // TODO: Add your specialized code here
+ 400   1      
+ 401   1      }
+*** WARNING C280 IN LINE 397 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 402          
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 8   
+
+ 403          /*
+ 404           * ----------------------------------------------------------------------------
+ 405           * Function Name: FUN_SELECT_stop
+ 406           * Purpose:
+ 407           * Params:
+ 408           * Returns:
+ 409           * Note:
+ 410           * ----------------------------------------------------------------------------
+ 411           */
+ 412          void FUN_SELECT_stop (void *pWebData)
+ 413          {
+ 414   1              // TODO: Add your specialized code here
+ 415   1      
+ 416   1      }
+*** WARNING C280 IN LINE 412 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 417          
+ 418          /*
+ 419           * ----------------------------------------------------------------------------
+ 420           * Function Name: FUN_SELECT_flow
+ 421           * Purpose:
+ 422           * Params:
+ 423           * Returns:
+ 424           * Note:
+ 425           * ----------------------------------------------------------------------------
+ 426           */
+ 427          void FUN_SELECT_flow (void *pWebData)
+ 428          {
+ 429   1              // TODO: Add your specialized code here
+ 430   1      
+ 431   1      }
+*** WARNING C280 IN LINE 427 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 432          
+ 433          /*
+ 434           * ----------------------------------------------------------------------------
+ 435           * Function Name: FUN_SELECT_rs485
+ 436           * Purpose:
+ 437           * Params:
+ 438           * Returns:
+ 439           * Note:
+ 440           * ----------------------------------------------------------------------------
+ 441           */
+ 442          void FUN_SELECT_rs485 (void *pWebData)
+ 443          {
+ 444   1              // TODO: Add your specialized code here
+ 445   1      
+ 446   1      }
+*** WARNING C280 IN LINE 442 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 447          
+ 448          /*
+ 449           * ----------------------------------------------------------------------------
+ 450           * Function Name: FUN_SELECT_dhcp
+ 451           * Purpose:
+ 452           * Params:
+ 453           * Returns:
+ 454           * Note:
+ 455           * ----------------------------------------------------------------------------
+ 456           */
+ 457          void FUN_SELECT_dhcp (void *pWebData)
+ 458          {
+ 459   1              // TODO: Add your specialized code here
+ 460   1      
+ 461   1      }
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 9   
+
+*** WARNING C280 IN LINE 457 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 462          
+ 463          /*
+ 464           * ----------------------------------------------------------------------------
+ 465           * Function Name: FUN_TEXT_static_ip
+ 466           * Purpose:
+ 467           * Params:
+ 468           * Returns:
+ 469           * Note:
+ 470           * ----------------------------------------------------------------------------
+ 471           */
+ 472          void FUN_TEXT_static_ip (void *pWebData)
+ 473          {
+ 474   1              // TODO: Add your specialized code here
+ 475   1      
+ 476   1      }
+*** WARNING C280 IN LINE 472 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 477          
+ 478          /*
+ 479           * ----------------------------------------------------------------------------
+ 480           * Function Name: FUN_TEXT_mask
+ 481           * Purpose:
+ 482           * Params:
+ 483           * Returns:
+ 484           * Note:
+ 485           * ----------------------------------------------------------------------------
+ 486           */
+ 487          void FUN_TEXT_mask (void *pWebData)
+ 488          {
+ 489   1              // TODO: Add your specialized code here
+ 490   1      
+ 491   1      }
+*** WARNING C280 IN LINE 487 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 492          
+ 493          /*
+ 494           * ----------------------------------------------------------------------------
+ 495           * Function Name: FUN_TEXT_gateway_ip
+ 496           * Purpose:
+ 497           * Params:
+ 498           * Returns:
+ 499           * Note:
+ 500           * ----------------------------------------------------------------------------
+ 501           */
+ 502          void FUN_TEXT_gateway_ip (void *pWebData)
+ 503          {
+ 504   1              // TODO: Add your specialized code here
+ 505   1      
+ 506   1      }
+*** WARNING C280 IN LINE 502 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 507          
+ 508          /*
+ 509           * ----------------------------------------------------------------------------
+ 510           * Function Name: FUN_TEXT_dns_ip
+ 511           * Purpose:
+ 512           * Params:
+ 513           * Returns:
+ 514           * Note:
+ 515           * ----------------------------------------------------------------------------
+ 516           */
+ 517          void FUN_TEXT_dns_ip (void *pWebData)
+ 518          {
+ 519   1              // TODO: Add your specialized code here
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 10  
+
+ 520   1      
+ 521   1      }
+*** WARNING C280 IN LINE 517 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 522          
+ 523          /*
+ 524           * ----------------------------------------------------------------------------
+ 525           * Function Name: FUN_SELECT_conntype
+ 526           * Purpose:
+ 527           * Params:
+ 528           * Returns:
+ 529           * Note:
+ 530           * ----------------------------------------------------------------------------
+ 531           */
+ 532          void FUN_SELECT_conntype (void *pWebData)
+ 533          {
+ 534   1              // TODO: Add your specialized code here
+ 535   1      
+ 536   1      }
+*** WARNING C280 IN LINE 532 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 537          
+ 538          /*
+ 539           * ----------------------------------------------------------------------------
+ 540           * Function Name: FUN_TEXT_txtimer
+ 541           * Purpose:
+ 542           * Params:
+ 543           * Returns:
+ 544           * Note:
+ 545           * ----------------------------------------------------------------------------
+ 546           */
+ 547          void FUN_TEXT_txtimer (void *pWebData)
+ 548          {
+ 549   1              // TODO: Add your specialized code here
+ 550   1      
+ 551   1      }
+*** WARNING C280 IN LINE 547 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 552          
+ 553          /*
+ 554           * ----------------------------------------------------------------------------
+ 555           * Function Name: FUN_SELECT_cs_mode
+ 556           * Purpose:
+ 557           * Params:
+ 558           * Returns:
+ 559           * Note:
+ 560           * ----------------------------------------------------------------------------
+ 561           */
+ 562          void FUN_SELECT_cs_mode (void *pWebData)
+ 563          {
+ 564   1              // TODO: Add your specialized code here
+ 565   1      
+ 566   1      }
+*** WARNING C280 IN LINE 562 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 567          
+ 568          /*
+ 569           * ----------------------------------------------------------------------------
+ 570           * Function Name: FUN_TEXT_s_lstport
+ 571           * Purpose:
+ 572           * Params:
+ 573           * Returns:
+ 574           * Note:
+ 575           * ----------------------------------------------------------------------------
+ 576           */
+ 577          void FUN_TEXT_s_lstport (void *pWebData)
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 11  
+
+ 578          {
+ 579   1              // TODO: Add your specialized code here
+ 580   1      
+ 581   1      }
+*** WARNING C280 IN LINE 577 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 582          
+ 583          /*
+ 584           * ----------------------------------------------------------------------------
+ 585           * Function Name: FUN_TEXT_c_deshn
+ 586           * Purpose:
+ 587           * Params:
+ 588           * Returns:
+ 589           * Note:
+ 590           * ----------------------------------------------------------------------------
+ 591           */
+ 592          void FUN_TEXT_c_deshn (void *pWebData)
+ 593          {
+ 594   1              // TODO: Add your specialized code here
+ 595   1      
+ 596   1      }
+*** WARNING C280 IN LINE 592 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 597          
+ 598          /*
+ 599           * ----------------------------------------------------------------------------
+ 600           * Function Name: FUN_TEXT_c_desport
+ 601           * Purpose:
+ 602           * Params:
+ 603           * Returns:
+ 604           * Note:
+ 605           * ----------------------------------------------------------------------------
+ 606           */
+ 607          void FUN_TEXT_c_desport (void *pWebData)
+ 608          {
+ 609   1              // TODO: Add your specialized code here
+ 610   1      
+ 611   1      }
+*** WARNING C280 IN LINE 607 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 612          
+ 613          /*
+ 614           * ----------------------------------------------------------------------------
+ 615           * Function Name: FUN_TEXT_username
+ 616           * Purpose:
+ 617           * Params:
+ 618           * Returns:
+ 619           * Note:
+ 620           * ----------------------------------------------------------------------------
+ 621           */
+ 622          void FUN_TEXT_username (void *pWebData)
+ 623          {
+ 624   1              // TODO: Add your specialized code here
+ 625   1      
+ 626   1      }
+*** WARNING C280 IN LINE 622 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 627          
+ 628          /*
+ 629           * ----------------------------------------------------------------------------
+ 630           * Function Name: FUN_PASSWORD_password
+ 631           * Purpose:
+ 632           * Params:
+ 633           * Returns:
+ 634           * Note:
+ 635           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 12  
+
+ 636           */
+ 637          void FUN_PASSWORD_password (void *pWebData)
+ 638          {
+ 639   1              // TODO: Add your specialized code here
+ 640   1      
+ 641   1      }
+*** WARNING C280 IN LINE 637 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 642          
+ 643          /*
+ 644           * ----------------------------------------------------------------------------
+ 645           * Function Name: FUN_TEXT_new_usn
+ 646           * Purpose:
+ 647           * Params:
+ 648           * Returns:
+ 649           * Note:
+ 650           * ----------------------------------------------------------------------------
+ 651           */
+ 652          void FUN_TEXT_new_usn (void *pWebData)
+ 653          {
+ 654   1              // TODO: Add your specialized code here
+ 655   1      
+ 656   1      }
+*** WARNING C280 IN LINE 652 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 657          
+ 658          /*
+ 659           * ----------------------------------------------------------------------------
+ 660           * Function Name: FUN_PASSWORD_old_psw
+ 661           * Purpose:
+ 662           * Params:
+ 663           * Returns:
+ 664           * Note:
+ 665           * ----------------------------------------------------------------------------
+ 666           */
+ 667          void FUN_PASSWORD_old_psw (void *pWebData)
+ 668          {
+ 669   1              // TODO: Add your specialized code here
+ 670   1      
+ 671   1      }
+*** WARNING C280 IN LINE 667 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 672          
+ 673          /*
+ 674           * ----------------------------------------------------------------------------
+ 675           * Function Name: FUN_PASSWORD_new_psw
+ 676           * Purpose:
+ 677           * Params:
+ 678           * Returns:
+ 679           * Note:
+ 680           * ----------------------------------------------------------------------------
+ 681           */
+ 682          void FUN_PASSWORD_new_psw (void *pWebData)
+ 683          {
+ 684   1              // TODO: Add your specialized code here
+ 685   1      
+ 686   1      }
+*** WARNING C280 IN LINE 682 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 687          
+ 688          /*
+ 689           * ----------------------------------------------------------------------------
+ 690           * Function Name: FUN_PASSWORD_cfm_psw
+ 691           * Purpose:
+ 692           * Params:
+ 693           * Returns:
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 13  
+
+ 694           * Note:
+ 695           * ----------------------------------------------------------------------------
+ 696           */
+ 697          void FUN_PASSWORD_cfm_psw (void *pWebData)
+ 698          {
+ 699   1              // TODO: Add your specialized code here
+ 700   1      
+ 701   1      }
+*** WARNING C280 IN LINE 697 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 702          
+ 703          /*
+ 704           * ----------------------------------------------------------------------------
+ 705           * Function Name: FUN_TEXT_acc_ip1
+ 706           * Purpose:
+ 707           * Params:
+ 708           * Returns:
+ 709           * Note:
+ 710           * ----------------------------------------------------------------------------
+ 711           */
+ 712          void FUN_TEXT_acc_ip1 (void *pWebData)
+ 713          {
+ 714   1              // TODO: Add your specialized code here
+ 715   1      
+ 716   1      }
+*** WARNING C280 IN LINE 712 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 717          
+ 718          /*
+ 719           * ----------------------------------------------------------------------------
+ 720           * Function Name: FUN_TEXT_acc_ip2
+ 721           * Purpose:
+ 722           * Params:
+ 723           * Returns:
+ 724           * Note:
+ 725           * ----------------------------------------------------------------------------
+ 726           */
+ 727          void FUN_TEXT_acc_ip2 (void *pWebData)
+ 728          {
+ 729   1              // TODO: Add your specialized code here
+ 730   1      
+ 731   1      }
+*** WARNING C280 IN LINE 727 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 732          
+ 733          /*
+ 734           * ----------------------------------------------------------------------------
+ 735           * Function Name: FUN_TEXT_acc_ip3
+ 736           * Purpose:
+ 737           * Params:
+ 738           * Returns:
+ 739           * Note:
+ 740           * ----------------------------------------------------------------------------
+ 741           */
+ 742          void FUN_TEXT_acc_ip3 (void *pWebData)
+ 743          {
+ 744   1              // TODO: Add your specialized code here
+ 745   1      
+ 746   1      }
+*** WARNING C280 IN LINE 742 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 747          
+ 748          /*
+ 749           * ----------------------------------------------------------------------------
+ 750           * Function Name: FUN_TEXT_acc_ip4
+ 751           * Purpose:
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 14  
+
+ 752           * Params:
+ 753           * Returns:
+ 754           * Note:
+ 755           * ----------------------------------------------------------------------------
+ 756           */
+ 757          void FUN_TEXT_acc_ip4 (void *pWebData)
+ 758          {
+ 759   1              // TODO: Add your specialized code here
+ 760   1      
+ 761   1      }
+*** WARNING C280 IN LINE 757 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 762          
+ 763          /*
+ 764           * ----------------------------------------------------------------------------
+ 765           * Function Name: FUN_SELECT_acc_ipen
+ 766           * Purpose:
+ 767           * Params:
+ 768           * Returns:
+ 769           * Note:
+ 770           * ----------------------------------------------------------------------------
+ 771           */
+ 772          void FUN_SELECT_acc_ipen (void *pWebData)
+ 773          {
+ 774   1              // TODO: Add your specialized code here
+ 775   1      
+ 776   1      }
+*** WARNING C280 IN LINE 772 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 777          
+ 778          /*
+ 779           * ----------------------------------------------------------------------------
+ 780           * Function Name: FUN_SELECT_network_mode
+ 781           * Purpose:
+ 782           * Params:
+ 783           * Returns:
+ 784           * Note:
+ 785           * ----------------------------------------------------------------------------
+ 786           */
+ 787          void FUN_SELECT_network_mode (void *pWebData)
+ 788          {
+ 789   1              // TODO: Add your specialized code here
+ 790   1      
+ 791   1      }
+*** WARNING C280 IN LINE 787 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 792          
+ 793          /*
+ 794           * ----------------------------------------------------------------------------
+ 795           * Function Name: FUN_SELECT_channel
+ 796           * Purpose:
+ 797           * Params:
+ 798           * Returns:
+ 799           * Note:
+ 800           * ----------------------------------------------------------------------------
+ 801           */
+ 802          void FUN_SELECT_channel (void *pWebData)
+ 803          {
+ 804   1              // TODO: Add your specialized code here
+ 805   1      
+ 806   1      }
+*** WARNING C280 IN LINE 802 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 807          
+ 808          /*
+ 809           * ----------------------------------------------------------------------------
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 15  
+
+ 810           * Function Name: FUN_TEXT_ssid
+ 811           * Purpose:
+ 812           * Params:
+ 813           * Returns:
+ 814           * Note:
+ 815           * ----------------------------------------------------------------------------
+ 816           */
+ 817          void FUN_TEXT_ssid (void *pWebData)
+ 818          {
+ 819   1              // TODO: Add your specialized code here
+ 820   1      
+ 821   1      }
+*** WARNING C280 IN LINE 817 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 822          
+ 823          /*
+ 824           * ----------------------------------------------------------------------------
+ 825           * Function Name: FUN_SELECT_security_mode
+ 826           * Purpose:
+ 827           * Params:
+ 828           * Returns:
+ 829           * Note:
+ 830           * ----------------------------------------------------------------------------
+ 831           */
+ 832          void FUN_SELECT_security_mode (void *pWebData)
+ 833          {
+ 834   1              // TODO: Add your specialized code here
+ 835   1      
+ 836   1      }
+*** WARNING C280 IN LINE 832 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 837          
+ 838          /*
+ 839           * ----------------------------------------------------------------------------
+ 840           * Function Name: FUN_SELECT_key_length
+ 841           * Purpose:
+ 842           * Params:
+ 843           * Returns:
+ 844           * Note:
+ 845           * ----------------------------------------------------------------------------
+ 846           */
+ 847          void FUN_SELECT_key_length (void *pWebData)
+ 848          {
+ 849   1              // TODO: Add your specialized code here
+ 850   1      
+ 851   1      }
+*** WARNING C280 IN LINE 847 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 852          
+ 853          /*
+ 854           * ----------------------------------------------------------------------------
+ 855           * Function Name: FUN_SELECT_key_index
+ 856           * Purpose:
+ 857           * Params:
+ 858           * Returns:
+ 859           * Note:
+ 860           * ----------------------------------------------------------------------------
+ 861           */
+ 862          void FUN_SELECT_key_index (void *pWebData)
+ 863          {
+ 864   1              // TODO: Add your specialized code here
+ 865   1      
+ 866   1      }
+*** WARNING C280 IN LINE 862 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 867          
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 16  
+
+ 868          /*
+ 869           * ----------------------------------------------------------------------------
+ 870           * Function Name: FUN_TEXT_key_index_0
+ 871           * Purpose:
+ 872           * Params:
+ 873           * Returns:
+ 874           * Note:
+ 875           * ----------------------------------------------------------------------------
+ 876           */
+ 877          void FUN_TEXT_key_index_0 (void *pWebData)
+ 878          {
+ 879   1              // TODO: Add your specialized code here
+ 880   1      
+ 881   1      }
+*** WARNING C280 IN LINE 877 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 882          
+ 883          /*
+ 884           * ----------------------------------------------------------------------------
+ 885           * Function Name: FUN_TEXT_key_index_1
+ 886           * Purpose:
+ 887           * Params:
+ 888           * Returns:
+ 889           * Note:
+ 890           * ----------------------------------------------------------------------------
+ 891           */
+ 892          void FUN_TEXT_key_index_1 (void *pWebData)
+ 893          {
+ 894   1              // TODO: Add your specialized code here
+ 895   1      
+ 896   1      }
+*** WARNING C280 IN LINE 892 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 897          
+ 898          /*
+ 899           * ----------------------------------------------------------------------------
+ 900           * Function Name: FUN_TEXT_key_index_2
+ 901           * Purpose:
+ 902           * Params:
+ 903           * Returns:
+ 904           * Note:
+ 905           * ----------------------------------------------------------------------------
+ 906           */
+ 907          void FUN_TEXT_key_index_2 (void *pWebData)
+ 908          {
+ 909   1              // TODO: Add your specialized code here
+ 910   1      
+ 911   1      }
+*** WARNING C280 IN LINE 907 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 912          
+ 913          /*
+ 914           * ----------------------------------------------------------------------------
+ 915           * Function Name: FUN_TEXT_key_index_3
+ 916           * Purpose:
+ 917           * Params:
+ 918           * Returns:
+ 919           * Note:
+ 920           * ----------------------------------------------------------------------------
+ 921           */
+ 922          void FUN_TEXT_key_index_3 (void *pWebData)
+ 923          {
+ 924   1              // TODO: Add your specialized code here
+ 925   1      
+ 926   1      }
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 17  
+
+*** WARNING C280 IN LINE 922 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 927          
+ 928          /*
+ 929           * ----------------------------------------------------------------------------
+ 930           * Function Name: FUN_TEXT_aes_passphrase
+ 931           * Purpose:
+ 932           * Params:
+ 933           * Returns:
+ 934           * Note:
+ 935           * ----------------------------------------------------------------------------
+ 936           */
+ 937          void FUN_TEXT_aes_passphrase (void *pWebData)
+ 938          {
+ 939   1              // TODO: Add your specialized code here
+ 940   1      
+ 941   1      }
+*** WARNING C280 IN LINE 937 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 942          
+ 943          /*
+ 944           * ----------------------------------------------------------------------------
+ 945           * Function Name: FUN_SELECT_tx_data_rate
+ 946           * Purpose:
+ 947           * Params:
+ 948           * Returns:
+ 949           * Note:
+ 950           * ----------------------------------------------------------------------------
+ 951           */
+ 952          void FUN_SELECT_tx_data_rate (void *pWebData)
+ 953          {
+ 954   1              // TODO: Add your specialized code here
+ 955   1      
+ 956   1      }
+*** WARNING C280 IN LINE 952 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 957          
+ 958          /*
+ 959           * ----------------------------------------------------------------------------
+ 960           * Function Name: FUN_SELECT_tx_power
+ 961           * Purpose:
+ 962           * Params:
+ 963           * Returns:
+ 964           * Note:
+ 965           * ----------------------------------------------------------------------------
+ 966           */
+ 967          void FUN_SELECT_tx_power (void *pWebData)
+ 968          {
+ 969   1              // TODO: Add your specialized code here
+ 970   1      
+ 971   1      }
+*** WARNING C280 IN LINE 967 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 972          
+ 973          /*
+ 974           * ----------------------------------------------------------------------------
+ 975           * Function Name: FUN_SELECT_preamble
+ 976           * Purpose:
+ 977           * Params:
+ 978           * Returns:
+ 979           * Note:
+ 980           * ----------------------------------------------------------------------------
+ 981           */
+ 982          void FUN_SELECT_preamble (void *pWebData)
+ 983          {
+ 984   1              // TODO: Add your specialized code here
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 18  
+
+ 985   1      
+ 986   1      }
+*** WARNING C280 IN LINE 982 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+ 987          
+ 988          /*
+ 989           * ----------------------------------------------------------------------------
+ 990           * Function Name: FUN_TEXT_beacon_intv
+ 991           * Purpose:
+ 992           * Params:
+ 993           * Returns:
+ 994           * Note:
+ 995           * ----------------------------------------------------------------------------
+ 996           */
+ 997          void FUN_TEXT_beacon_intv (void *pWebData)
+ 998          {
+ 999   1              // TODO: Add your specialized code here
+1000   1      
+1001   1      }
+*** WARNING C280 IN LINE 997 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+1002          
+1003          /*
+1004           * ----------------------------------------------------------------------------
+1005           * Function Name: FUN_TEXT_rts_threshold
+1006           * Purpose:
+1007           * Params:
+1008           * Returns:
+1009           * Note:
+1010           * ----------------------------------------------------------------------------
+1011           */
+1012          void FUN_TEXT_rts_threshold (void *pWebData)
+1013          {
+1014   1              // TODO: Add your specialized code here
+1015   1      
+1016   1      }
+*** WARNING C280 IN LINE 1012 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+1017          
+1018          /*
+1019           * ----------------------------------------------------------------------------
+1020           * Function Name: FUN_SELECT_auto_pwr_ctrl
+1021           * Purpose:
+1022           * Params:
+1023           * Returns:
+1024           * Note:
+1025           * ----------------------------------------------------------------------------
+1026           */
+1027          void FUN_SELECT_auto_pwr_ctrl (void *pWebData)
+1028          {
+1029   1              // TODO: Add your specialized code here
+1030   1      
+1031   1      }
+*** WARNING C280 IN LINE 1027 OF ..\SRC\WEB_PAGE\WEB_FUN_ACT.C: 'pWebData': unreferenced local variable
+1032          
+1033          /* End of web_fun.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    806    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    201     186
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.01   WEB_FUN_ACT                                                           08/29/2011 15:28:03 PAGE 19  
+
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  62 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>    
+    <string name="app_name">AV Server</string>
+    <string name="text_UID"> UID: </string>
+    <string name="title_btn_listen">Listen</string>
+    <string name="title_btn_disconnect">Disconnect</string>
+    <string name="title_btn_exit">Exit</string>
+    <string name="menu_settings">menu_settings</string>
+    <string name="hello_world">hello_world</string>    
+</resources>

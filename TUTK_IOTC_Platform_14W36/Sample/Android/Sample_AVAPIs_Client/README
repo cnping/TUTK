@@ -1,0 +1,46 @@
+This README file contains build instructions for the AVAPI sample code.
+
+Requirements:
+
+1. Android SDK for Linux
+   http://developer.android.com/sdk/index.html
+
+2. Apache Ant
+   http://ant.apache.org/
+
+How to build:
+
+1. Change directory to IOTCAPI_Release/Sample/Android/Sample_AVAPIs_Client/ .
+
+2. Copy ../../../Lib/Android/AVAPIs/src/com/tutk/IOTC/AVAPIs.java and
+   ../../../Lib/Android/IOTCAPIs/src/com/tutk/IOTC/*.java into
+   src/com/tutk/IOTC/
+
+3. Copy ../../../Lib/Android/AVAPIs/libs/armeabi/libAVAPIs.so and
+   ../../../Lib/Android/IOTCAPIs/libs/armeabi/libIOTCAPIs.so into
+   libs/armeabi/
+
+4. Execute command "android update project --path . --target <target_ID>",
+   where <target_ID> is the "build target" for your application. 
+   See http://developer.android.com/guide/developing/projects/projects-cmdline.html
+   for more information.
+
+5. Put your device's uid in src/com/tutk/sample/AVAPI/MainActivity.java .
+
+6. Execute command "ant debug".
+
+7. The .apk file is generated in bin/ directory.
+
+
+
+How to run the app:
+
+This source code of sample client app is converted from 
+Linux/Sample_AVAPIs/AVAPIs_Client.c directly. So it has no UI elements, and it
+outputs message to stdout(System.out in java) like a console program.
+
+See http://developer.android.com/guide/developing/tools/adb.html#logcat for how
+to redirect stdout to logcat in android emulator.
+
+Before running the app, an AVAPI sample server in Linux/Sample_AVAPIs/ should
+be ready for listening incoming connections.

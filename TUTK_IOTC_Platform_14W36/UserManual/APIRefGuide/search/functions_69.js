@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['iotc_5fdeinitialize',['IOTC_DeInitialize',['../_i_o_t_c_a_p_is_8h.html#a15533de1971026e5ce37d0b5b19ff441',1,'IOTCAPIs.h']]],
+  ['iotc_5fdevice_5flogin',['IOTC_Device_Login',['../_i_o_t_c_a_p_is_8h.html#a0220c5e5c999abc814b8dfcd75a8accd',1,'IOTCAPIs.h']]],
+  ['iotc_5fget_5flogin_5finfo',['IOTC_Get_Login_Info',['../_i_o_t_c_a_p_is_8h.html#a20099c0c85f4b5b5bb53d1296e7c6549',1,'IOTCAPIs.h']]],
+  ['iotc_5fget_5flogin_5finfo_5fbycallbackfn',['IOTC_Get_Login_Info_ByCallBackFn',['../_i_o_t_c_a_p_is_8h.html#a258a162fdca566884b3d7a1986eaa273',1,'IOTCAPIs.h']]],
+  ['iotc_5fget_5fversion',['IOTC_Get_Version',['../_i_o_t_c_a_p_is_8h.html#a6f2c3b33089e1f428638a5ef01e8c295',1,'IOTCAPIs.h']]],
+  ['iotc_5finitialize',['IOTC_Initialize',['../_i_o_t_c_a_p_is_8h.html#ae9469c1b8f1494da98cd27cb70e114e9',1,'IOTCAPIs.h']]],
+  ['iotc_5finitialize2',['IOTC_Initialize2',['../_i_o_t_c_a_p_is_8h.html#a27698e807222c90d55eab4f98fc806c1',1,'IOTCAPIs.h']]],
+  ['iotc_5flan_5fsearch',['IOTC_Lan_Search',['../_i_o_t_c_a_p_is_8h.html#ad5928e6bb67401c4c9ef0597b8e71f16',1,'IOTCAPIs.h']]],
+  ['iotc_5flan_5fsearch2',['IOTC_Lan_Search2',['../_i_o_t_c_a_p_is_8h.html#a5532931ea668166a634a7d18d3ffffdc',1,'IOTCAPIs.h']]],
+  ['iotc_5flisten',['IOTC_Listen',['../_i_o_t_c_a_p_is_8h.html#a15a423da8caf447e75950b5b70cf9ad0',1,'IOTCAPIs.h']]],
+  ['iotc_5flisten_5fexit',['IOTC_Listen_Exit',['../_i_o_t_c_a_p_is_8h.html#a6412b15838b841fe77ae198d933164d9',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fchannel_5foff',['IOTC_Session_Channel_OFF',['../_i_o_t_c_a_p_is_8h.html#ab46537bb103e877141f3c26013f9aabc',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fchannel_5fon',['IOTC_Session_Channel_ON',['../_i_o_t_c_a_p_is_8h.html#ac52c89a89b8d0affaeae76c99f5f4f8b',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fcheck',['IOTC_Session_Check',['../_i_o_t_c_a_p_is_8h.html#aba063ebab7b20004add5e6fab9d7ac79',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fcheck_5fbycallbackfn',['IOTC_Session_Check_ByCallBackFn',['../_i_o_t_c_a_p_is_8h.html#a37d0af8703d22673697d19c259b71a11',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fclose',['IOTC_Session_Close',['../_i_o_t_c_a_p_is_8h.html#a279afae7e6128f8cfa6c3c5dc1450423',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fget_5ffree_5fchannel',['IOTC_Session_Get_Free_Channel',['../_i_o_t_c_a_p_is_8h.html#abe0ed1835f9ae2c0f93d303481ecaa85',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fread',['IOTC_Session_Read',['../_i_o_t_c_a_p_is_8h.html#a1223bdfbdf15b9d7d6ff4fb3559e5972',1,'IOTCAPIs.h']]],
+  ['iotc_5fsession_5fwrite',['IOTC_Session_Write',['../_i_o_t_c_a_p_is_8h.html#af3ccff950c03de6e325d062e107a2bc9',1,'IOTCAPIs.h']]],
+  ['iotc_5fset_5fdevice_5fname',['IOTC_Set_Device_Name',['../_i_o_t_c_a_p_is_8h.html#aae6ccc667cff48257ac5172f504cf23b',1,'IOTCAPIs.h']]],
+  ['iotc_5fset_5flog_5fpath',['IOTC_Set_Log_Path',['../_i_o_t_c_a_p_is_8h.html#afd3027f239051b709c4014b3546e7b80',1,'IOTCAPIs.h']]],
+  ['iotc_5fset_5fmax_5fsession_5fnumber',['IOTC_Set_Max_Session_Number',['../_i_o_t_c_a_p_is_8h.html#ab33e66d7a4f2a0f4d7912a01321b5dc9',1,'IOTCAPIs.h']]],
+  ['iotc_5fset_5fpartial_5fencryption',['IOTC_Set_Partial_Encryption',['../_i_o_t_c_a_p_is_8h.html#adb9d84e3033e25345d538b49502372c0',1,'IOTCAPIs.h']]],
+  ['iotc_5fsetup_5flanconnection_5ftimeout',['IOTC_Setup_LANConnection_Timeout',['../_i_o_t_c_a_p_is_8h.html#a46dda644171729060a598661766e6bff',1,'IOTCAPIs.h']]],
+  ['iotc_5ftcprelayonly_5fturnon',['IOTC_TCPRelayOnly_TurnOn',['../_i_o_t_c_a_p_is_8h.html#a5f9ffe5073602ca19ee9b49c1b842887',1,'IOTCAPIs.h']]]
+];

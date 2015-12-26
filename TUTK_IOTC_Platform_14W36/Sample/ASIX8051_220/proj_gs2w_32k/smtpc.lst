@@ -1,0 +1,565 @@
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE SMTPC
+OBJECT MODULE PLACED IN .\smtpc.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\msmtpc\smtpc.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(
+                    -..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mpin
+                    -g;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\
+                    -mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32KH
+                    -) VARBANKING DEBUG PRINT(.\smtpc.lst) OBJECT(.\smtpc.obj)
+
+line level    source
+
+   1          /*
+   2          *********************************************************************************
+   3          *     Copyright (c) 2010   ASIX Electronic Corporation      All rights reserved.
+   4          *
+   5          *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6          *
+   7          *     The copyright notice above does not evidence any actual or intended
+   8          *     publication of such source code.
+   9          *********************************************************************************
+  10          */
+  11          /*============================================================================
+  12           * Module name: smtpc.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: smtpc.c,v $
+  18           *
+  19           *=============================================================================
+  20           */
+  21          
+  22          /* INCLUDE FILE DECLARATIONS */
+  23          #include "adapter.h"
+  24          #include "smtpc.h"
+  25          #include "tcpip.h"
+  26          /* NAMING CONSTANT DECLARATIONS */
+  27          
+  28          /* GLOBAL VARIABLES DECLARATIONS */
+  29          S8_T each3toc;  /* Buffer each 3 byte to coding Base64 format*/
+  30          S8_T b64[4];    /* memory output 4 base64 data*/
+  31          
+  32          
+  33          /* STATIC VARIABLE DECLARATIONS */
+  34          static U8_T *smtpc_Buf;
+  35          static U8_T *smtpc_Subject;
+  36          static SMTPC_CONN XDATA smtpc_Conns;
+  37          static U8_T XDATA smtpc_InterAppId;
+  38          
+  39          /* LOCAL SUBPROGRAM DECLARATIONS */
+  40          
+  41          /*
+  42           * ----------------------------------------------------------------------------
+  43           * Function Name: SMTPC_Init
+  44           * Purpose: to initial the FTP client connection information.
+  45           * Params:
+  46           * Returns:
+  47           * Note:
+  48           * ----------------------------------------------------------------------------
+  49           */
+  50          void SMTPC_Init(U8_T *pBuf, U8_T *pSubject)
+  51          {
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 2   
+
+  52   1              smtpc_Conns.State = SMTP_STATE_NONE;
+  53   1              smtpc_Conns.ServerIp = 0;
+  54   1              smtpc_InterAppId = TCPIP_Bind(NULL, SMTPC_Event, SMTPC_Receive);
+  55   1          smtpc_Buf = pBuf;
+  56   1          smtpc_Subject = pSubject;
+  57   1      } /* End of SMTPC_Init() */
+  58          
+  59          /*
+  60           * ----------------------------------------------------------------------------
+  61           * Function Name: SMTPC_Event
+  62           * Purpose: 
+  63           * Params:
+  64           * Returns:
+  65           * Note:
+  66           * ----------------------------------------------------------------------------
+  67           */
+  68          void SMTPC_Event(U8_T id, U8_T event)
+  69          {
+  70   1              if (id != 0)
+  71   1                      return;
+  72   1      
+  73   1              if (event <= TCPIP_CONNECT_ACTIVE)
+  74   1                      smtpc_Conns.State = event;
+  75   1              else if (event == TCPIP_CONNECT_ACTIVE)
+  76   1                      smtpc_Conns.State = SMTP_STATE_CONNECTED;
+  77   1              else if (event == TCPIP_CONNECT_XMIT_COMPLETE)
+  78   1              {
+  79   2                      if (smtpc_Conns.State == SMTP_STATE_SEND_MESSAGE)
+  80   2                      {
+  81   3                              smtpc_Buf[0] = 0xd;
+  82   3                              smtpc_Buf[1] = 0xa;
+  83   3                              smtpc_Buf[2] = '.';
+  84   3                              smtpc_Buf[3] = 0xd;
+  85   3                              smtpc_Buf[4] = 0xa;
+  86   3                              TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, 5, TCPIP_SEND_NOT_FINAL);
+  87   3                              smtpc_Conns.State = SMTP_STATE_MESSAGE_SENT;
+  88   3                      }
+  89   2              }
+  90   1      
+  91   1      } /* End of SMTPC_Event() */
+  92          
+  93          /*
+  94           * ----------------------------------------------------------------------------
+  95           * Function Name: SMTPC_Receive
+  96           * Purpose: 
+  97           * Params:
+  98           * Returns:
+  99           * Note:
+ 100           * ----------------------------------------------------------------------------
+ 101           */
+ 102          void SMTPC_Receive(U8_T XDATA* pbuf, U16_T length, U8_T id)
+ 103          {
+ 104   1              U16_T           codes, len;
+ 105   1              U8_T            *point, *pData;
+ 106   1      
+ 107   1              if (id != 0)
+ 108   1                      return;
+ 109   1      
+ 110   1              codes = (pbuf[0] - '0') * 100 + (pbuf[1] - '0') * 10 + (pbuf[2] - '0');
+ 111   1              if (smtpc_Conns.State == SMTP_STATE_CONNECTED)
+ 112   1              {
+ 113   2                      if (codes != 220)
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 3   
+
+ 114   2                              goto sendquit;
+ 115   2                              
+ 116   2                      smtpc_Buf[0] = 'H';
+ 117   2                      smtpc_Buf[1] = 'E';
+ 118   2                      smtpc_Buf[2] = 'L';
+ 119   2                      smtpc_Buf[3] = 'O';
+ 120   2                      smtpc_Buf[4] = ' ';
+ 121   2      
+ 122   2                      len = 5;
+ 123   2                      pbuf += 4;
+ 124   2                      point = &smtpc_Buf[5];
+ 125   2                      while ((*pbuf != ' ') && (length > 0))
+ 126   2                      {
+ 127   3                              *point++ = *pbuf++;
+ 128   3                              len++;
+ 129   3                              length--;
+ 130   3                      }
+ 131   2      
+ 132   2                      *point++ = 0x0d;
+ 133   2                      *point = 0x0a;
+ 134   2                      len += 2;
+ 135   2                      TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 136   2                      smtpc_Conns.State = SMTP_STATE_HELO_SENT;
+ 137   2              }
+ 138   1              else if (smtpc_Conns.State == SMTP_STATE_HELO_SENT)
+ 139   1              {
+ 140   2                      if (codes != 250)
+ 141   2                              goto sendquit;
+ 142   2              
+ 143   2                      smtpc_Buf[0] = 'M';
+ 144   2                      smtpc_Buf[1] = 'A';
+ 145   2                      smtpc_Buf[2] = 'I';
+ 146   2                      smtpc_Buf[3] = 'L';
+ 147   2                      smtpc_Buf[4] = ' ';
+ 148   2                      smtpc_Buf[5] = 'F';
+ 149   2                      smtpc_Buf[6] = 'R';
+ 150   2                      smtpc_Buf[7] = 'O';
+ 151   2                      smtpc_Buf[8] = 'M';
+ 152   2                      smtpc_Buf[9] = ':';
+ 153   2                      smtpc_Buf[10] = '<';
+ 154   2      
+ 155   2                      len = 11;
+ 156   2                      pData = smtpc_Conns.From;
+ 157   2                      point = &smtpc_Buf[11];
+ 158   2                      while (*pData != 0)
+ 159   2                      {
+ 160   3                              *point++ = *pData++;
+ 161   3                              len++;
+ 162   3                      }
+ 163   2      
+ 164   2                      *point++ = '>';
+ 165   2                      *point++ = 0x0d;
+ 166   2                      *point = 0x0a;
+ 167   2                      len += 3;
+ 168   2                      TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 169   2                      smtpc_Conns.State = SMTP_STATE_FROM_SENT;
+ 170   2              }
+ 171   1              else if ((smtpc_Conns.State >= SMTP_STATE_FROM_SENT) && (smtpc_Conns.State < SMTP_STATE_RCV3_SENT))
+ 172   1              {
+ 173   2                      if (smtpc_Conns.State == SMTP_STATE_FROM_SENT)
+ 174   2                      {
+ 175   3                              if (smtpc_Conns.To1[0])
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 4   
+
+ 176   3                              {
+ 177   4                                      pData = smtpc_Conns.To1;
+ 178   4                                      smtpc_Conns.State = SMTP_STATE_RCV1_SENT;
+ 179   4                              }
+ 180   3                              else if (smtpc_Conns.To2[0])
+ 181   3                              {
+ 182   4                                      pData = smtpc_Conns.To2;
+ 183   4                                      smtpc_Conns.State = SMTP_STATE_RCV2_SENT;
+ 184   4                              }
+ 185   3                              else if (smtpc_Conns.To3[0])
+ 186   3                              {
+ 187   4                                      pData = smtpc_Conns.To3;
+ 188   4                                      smtpc_Conns.State = SMTP_STATE_RCV3_SENT;
+ 189   4                              }
+ 190   3                              else
+ 191   3                                      goto sendquit;                          
+ 192   3                      }
+ 193   2                      else if (smtpc_Conns.State == SMTP_STATE_RCV1_SENT)
+ 194   2                      {
+ 195   3                              if (smtpc_Conns.To2[0])
+ 196   3                              {
+ 197   4                                      pData = smtpc_Conns.To2;
+ 198   4                                      smtpc_Conns.State = SMTP_STATE_RCV2_SENT;
+ 199   4                              }
+ 200   3                              else if (smtpc_Conns.To3[0])
+ 201   3                              {
+ 202   4                                      pData = smtpc_Conns.To3;
+ 203   4                                      smtpc_Conns.State = SMTP_STATE_RCV3_SENT;
+ 204   4                              }
+ 205   3                              else
+ 206   3                                      goto senddata;
+ 207   3                      }
+ 208   2                      else if (smtpc_Conns.State == SMTP_STATE_RCV2_SENT)
+ 209   2                      {
+ 210   3                              if (smtpc_Conns.To3[0])
+ 211   3                              {
+ 212   4                                      pData = smtpc_Conns.To3;
+ 213   4                                      smtpc_Conns.State = SMTP_STATE_RCV3_SENT;
+ 214   4                              }
+ 215   3                              else
+ 216   3                                      goto senddata;
+ 217   3                      }
+ 218   2      
+ 219   2                      smtpc_Buf[0] = 'R';
+ 220   2                      smtpc_Buf[1] = 'C';
+ 221   2                      smtpc_Buf[2] = 'P';
+ 222   2                      smtpc_Buf[3] = 'T';
+ 223   2                      smtpc_Buf[4] = ' ';
+ 224   2                      smtpc_Buf[5] = 'T';
+ 225   2                      smtpc_Buf[6] = 'O';
+ 226   2                      smtpc_Buf[7] = ':';
+ 227   2                      smtpc_Buf[8] = '<';
+ 228   2      
+ 229   2                      len = 9;
+ 230   2                      point = &smtpc_Buf[9];
+ 231   2                      while (*pData != 0)
+ 232   2                      {
+ 233   3                              *point++ = *pData++;
+ 234   3                              len++;
+ 235   3                      }
+ 236   2      
+ 237   2                      *point++ = '>';
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 5   
+
+ 238   2                      *point++ = 0x0d;
+ 239   2                      *point = 0x0a;
+ 240   2                      len += 3;
+ 241   2                      TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 242   2              }
+ 243   1              else if (smtpc_Conns.State == SMTP_STATE_RCV3_SENT)
+ 244   1              {
+ 245   2      senddata:
+ 246   2                      smtpc_Buf[0] = 'D';
+ 247   2                      smtpc_Buf[1] = 'A';
+ 248   2                      smtpc_Buf[2] = 'T';
+ 249   2                      smtpc_Buf[3] = 'A';
+ 250   2                      smtpc_Buf[4] = 0x0d;
+ 251   2                      smtpc_Buf[5] = 0x0a;
+ 252   2                      len = 6;
+ 253   2                      TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 254   2                      smtpc_Conns.State = SMTP_STATE_DATA_SENT;
+ 255   2              }
+ 256   1              else if (smtpc_Conns.State == SMTP_STATE_DATA_SENT)
+ 257   1              {
+ 258   2                      if (codes != 354)
+ 259   2                              goto sendquit;
+ 260   2                              
+ 261   2                      smtpc_Conns.State = SMTP_STATE_WAIT_MESSAGE;//wait for user send the message.
+ 262   2              }
+ 263   1              else if (smtpc_Conns.State == SMTP_STATE_MESSAGE_SENT)
+ 264   1              {
+ 265   2      sendquit:
+ 266   2                      smtpc_Buf[0] = 'Q';
+ 267   2                      smtpc_Buf[1] = 'U';
+ 268   2                      smtpc_Buf[2] = 'I';
+ 269   2                      smtpc_Buf[3] = 'T';
+ 270   2                      smtpc_Buf[4] = 0x0d;
+ 271   2                      smtpc_Buf[5] = 0x0a;
+ 272   2                      len = 6;
+ 273   2                      TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 274   2                      smtpc_Conns.State = SMTP_STATE_QUIT_SENT;
+ 275   2              }
+ 276   1      
+ 277   1      } /* End of SMTPC_Receive() */
+ 278          
+ 279          /*
+ 280           * ----------------------------------------------------------------------------
+ 281           * Function Name: SMTPC_SendMessage
+ 282           * Purpose: 
+ 283           * Params:
+ 284           * Returns:
+ 285           * Note:
+ 286           * ----------------------------------------------------------------------------
+ 287           */
+ 288          void SMTPC_SendMessage(U8_T* pBuf, U16_T length)
+ 289          {
+ 290   1              U16_T           len, j;
+ 291   1              U8_T            *point, *pData, *ptemp;
+ 292   1              S8_T*           pimage;         /* point to image data */
+ 293   1              U8_T            char_count, i;
+ 294   1              U8_T            multi = 0;
+ 295   1      
+ 296   1              /* From header */
+ 297   1              smtpc_Buf[0] = 'F';
+ 298   1              smtpc_Buf[1] = 'r';
+ 299   1              smtpc_Buf[2] = 'o';
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 6   
+
+ 300   1              smtpc_Buf[3] = 'm';
+ 301   1              smtpc_Buf[4] = ':';
+ 302   1              smtpc_Buf[5] = ' ';
+ 303   1              smtpc_Buf[6] = '"';
+ 304   1      
+ 305   1              len = 7;
+ 306   1              pData = smtpc_Conns.From;
+ 307   1              point = &smtpc_Buf[7];
+ 308   1              while (*pData != 0)
+ 309   1              {
+ 310   2                      *point++ = *pData++;
+ 311   2                      len++;
+ 312   2              }
+ 313   1      
+ 314   1              *point++ = '"';
+ 315   1              *point++ = ' ';
+ 316   1              *point++ = '<';
+ 317   1              len += 3;
+ 318   1              pData = smtpc_Conns.From;
+ 319   1              while (*pData != 0)
+ 320   1              {
+ 321   2                      *point++ = *pData++;
+ 322   2                      len++;
+ 323   2              }
+ 324   1      
+ 325   1              *point++ = '>';
+ 326   1              *point++ = 0x0d;
+ 327   1              *point++ = 0x0a;
+ 328   1              len += 3;
+ 329   1      
+ 330   1              /* To header */
+ 331   1              *point++ = 'T';
+ 332   1              *point++ = 'o';
+ 333   1              *point++ = ':';
+ 334   1              *point++ = ' ';
+ 335   1              len += 4;
+ 336   1      
+ 337   1              for (i = 0; i < 3; i++)
+ 338   1              {
+ 339   2                      if (i == 0)
+ 340   2                      {
+ 341   3                              if (smtpc_Conns.To1[0])
+ 342   3                              {
+ 343   4                                      pData = smtpc_Conns.To1;
+ 344   4                                      ptemp = smtpc_Conns.To1;
+ 345   4                              }
+ 346   3                              else
+ 347   3                                      continue;
+ 348   3                      }
+ 349   2                      else if (i == 1)
+ 350   2                      {
+ 351   3                              if (smtpc_Conns.To2[0])
+ 352   3                              {
+ 353   4                                      pData = smtpc_Conns.To2;
+ 354   4                                      ptemp = smtpc_Conns.To2;
+ 355   4                              }
+ 356   3                              else
+ 357   3                                      continue;
+ 358   3                      }
+ 359   2                      else
+ 360   2                      {
+ 361   3                              if (smtpc_Conns.To3[0])
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 7   
+
+ 362   3                              {
+ 363   4                                      pData = smtpc_Conns.To3;
+ 364   4                                      ptemp = smtpc_Conns.To3;
+ 365   4                              }
+ 366   3                              else
+ 367   3                                      continue;
+ 368   3                      }
+ 369   2      
+ 370   2                      if (multi == 1)
+ 371   2                      {
+ 372   3                              *point++ = ',';
+ 373   3                              len++;
+ 374   3                      }
+ 375   2      
+ 376   2                      *point++ = '"';
+ 377   2                      len++;
+ 378   2      
+ 379   2                      while (*pData != 0)
+ 380   2                      {
+ 381   3                              *point++ = *pData++;
+ 382   3                              len++;
+ 383   3                      }
+ 384   2      
+ 385   2                      *point++ = '"';
+ 386   2                      *point++ = ' ';
+ 387   2                      *point++ = '<';
+ 388   2                      len += 3;
+ 389   2      
+ 390   2                      pData = ptemp;
+ 391   2                      while (*pData != 0)
+ 392   2                      {
+ 393   3                              *point++ = *pData++;
+ 394   3                              len++;
+ 395   3                      }
+ 396   2      
+ 397   2                      *point++ = '>';
+ 398   2                      len += 1;
+ 399   2                      multi = 1;
+ 400   2              }
+ 401   1      
+ 402   1              *point++ = 0x0d;
+ 403   1              *point++ = 0x0a;
+ 404   1              len += 2;
+ 405   1              /* Subject header */
+ 406   1              *point++ = 'S';
+ 407   1              *point++ = 'u';
+ 408   1              *point++ = 'b';
+ 409   1              *point++ = 'j';
+ 410   1              *point++ = 'e';
+ 411   1              *point++ = 'c';
+ 412   1              *point++ = 't';
+ 413   1              *point++ = ':';
+ 414   1              *point++ = ' ';
+ 415   1              len += 9;
+ 416   1      
+ 417   1              pData = smtpc_Subject;
+ 418   1              while (*pData != 0)
+ 419   1              {
+ 420   2                      if (*pData == 'Z')
+ 421   2                      {
+ 422   3                              *point++ = 9;
+ 423   3                              pData++;
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 8   
+
+ 424   3                      }
+ 425   2                      else
+ 426   2                              *point++ = *pData++;
+ 427   2                      len++;
+ 428   2              }
+ 429   1              
+ 430   1              //Initial MIME64
+ 431   1              Cmime64_Init();
+ 432   1              char_count = 0;
+ 433   1      
+ 434   1              pimage = pBuf;
+ 435   1              for(j=0;j<length;j++)
+ 436   1              {
+ 437   2                      cmime64((S8_T*)pimage);
+ 438   2                      each3toc++;
+ 439   2                      if(each3toc == 3)
+ 440   2                      {
+ 441   3                              if(char_count == SMTP_MAX_LENGTH)
+ 442   3                              {
+ 443   4                                      *point++ = '\r';
+ 444   4                                      *point++ = '\n';
+ 445   4                                      len += 2;
+ 446   4                                      char_count = 0;
+ 447   4                              }
+ 448   3      
+ 449   3                              for(i=0;i<4;i++)
+ 450   3                              {
+ 451   4                                      *point++ = b64[3-i];/*output b64[3..0]array for original 4 byte*/
+ 452   4                                      len++;
+ 453   4                              }
+ 454   3                              char_count +=4;
+ 455   3                              each3toc = 0;
+ 456   3                      } 
+ 457   2                      pimage++;
+ 458   2              }
+ 459   1              *point++ = '\r';
+ 460   1              *point++ = '\n';
+ 461   1              len += 2;
+ 462   1      
+ 463   1              TCPIP_TcpSend(smtpc_Conns.TcpSocket, smtpc_Buf, len, TCPIP_SEND_NOT_FINAL);
+ 464   1              smtpc_Conns.State = SMTP_STATE_SEND_MESSAGE;
+ 465   1      
+ 466   1      } /* End of SMTPC_SendMessage() */
+ 467          
+ 468          /*
+ 469           * ----------------------------------------------------------------------------
+ 470           * Function Name: SMTPC_Start
+ 471           * Purpose: 
+ 472           * Params:
+ 473           * Returns:
+ 474           * Note:
+ 475           * ----------------------------------------------------------------------------
+ 476           */
+ 477          void SMTPC_Start(U32_T ip, U8_T* from, U8_T* to1, U8_T* to2, U8_T* to3)
+ 478          {
+ 479   1              if (smtpc_Conns.State != SMTP_STATE_NONE)
+ 480   1              {
+ 481   2                      return;
+ 482   2              }
+ 483   1      
+ 484   1              smtpc_Conns.ServerIp = ip;
+ 485   1              /* Create SMTP client port */
+C51 COMPILER V9.01   SMTPC                                                                 03/08/2012 11:01:11 PAGE 9   
+
+ 486   1              if ((smtpc_Conns.TcpSocket = TCPIP_TcpNew(smtpc_InterAppId, 0,smtpc_Conns.ServerIp,
+ 487   1                      0, SMTP_SERVER_PORT)) == TCPIP_NO_NEW_CONN)
+ 488   1              {
+ 489   2                      return;
+ 490   2              }
+ 491   1      
+ 492   1              smtpc_Conns.From = from;
+ 493   1              smtpc_Conns.To1 = to1;
+ 494   1              smtpc_Conns.To2 = to2;
+ 495   1              smtpc_Conns.To3 = to3;
+ 496   1              smtpc_Conns.State = SMTP_STATE_INITIAL;
+ 497   1      
+ 498   1              TCPIP_TcpConnect(smtpc_Conns.TcpSocket);
+ 499   1      
+ 500   1      } /* End of SMTPC_Start() */
+ 501          
+ 502          /*
+ 503           * ----------------------------------------------------------------------------
+ 504           * Function Name: SMTPC_GetState
+ 505           * Purpose: 
+ 506           * Params:
+ 507           * Returns:
+ 508           * Note:
+ 509           * ----------------------------------------------------------------------------
+ 510           */
+ 511          U8_T SMTPC_GetState(void)
+ 512          {
+ 513   1              return smtpc_Conns.State; 
+ 514   1      
+ 515   1      } /* End of SMTPC_GetState() */
+ 516          
+ 517          
+ 518          /* End of smtpc.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   4847    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     30      59
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

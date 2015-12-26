@@ -1,0 +1,759 @@
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\main.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\main\main.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INCDIR(..\
+                    -src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\mping;.
+                    -.\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\src\mht
+                    -tp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt32KH) V
+                    -ARBANKING DEBUG PRINT(.\main.lst) OBJECT(.\main.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2010       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11           /*============================================================================
+  12           * Module Name: main.c
+  13           * Purpose:
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log: main.c,v $
+  18           *=============================================================================
+  19           */
+  20          
+  21          /* INCLUDE FILE DECLARATIONS */
+  22          #include <stdio.h>
+  23          #include "mcpu_cfg.h"
+  24          #include "main.h"
+  25          #include "mcpu.h"
+  26          #include "adapter.h"
+  27          #include "mstimer.h"
+  28          #include "ax22000.h"
+  29          #include "interrupt.h"
+  30          #include "stoe.h"
+  31          #include "mac.h"
+  32          #include "dma.h"
+  33          #include "tcpip.h"
+  34          #include "hsuart.h"
+  35          #include "hsuart2.h"
+  36          #include "printd.h"
+  37          #include "delay.h"
+  38          #include "uart0.h"
+  39          #include "mwif.h"
+  40          #include "mwioctl.h"
+  41          #include "filesys.h"
+  42          #include "httpd.h"
+  43          #include "at24c02.h"
+  44          #include <stdlib.h>
+  45          #include "IOTCAPIs.h"
+  46          
+  47          #if (INCLUDE_DHCP_CLIENT)
+  48            #include "dhcpc.h"
+  49          #endif
+  50          #if (INCLUDE_DHCP_SERVER)
+  51            #include "dhcps.h"
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 2   
+
+  52          #endif
+  53          #include "gs2w.h"
+  54          #include "gconfig.h"
+  55          #include <string.h>
+  56          
+  57          /* NAMING CONSTANT DECLARATIONS */
+  58          #ifdef DEBUG
+              #define DBGMSG(A) {A}
+              #else
+  61          #define DBGMSG(A) {}
+  62          #endif
+  63          
+  64          #define TIME_OUT_COUNTER        (250/SWTIMER_INTERVAL)
+  65          
+  66          /* GLOBAL VARIABLES DECLARATIONS */
+  67          U8_T InitWifi = 1;
+  68          /* LOCAL VARIABLES DECLARATIONS */
+  69          static U8_T main_EnableFactorySetting=0;
+  70          static U8_T main_AppInit=1;
+  71          #if (INCLUDE_DHCP_CLIENT)
+  72          U8_T  cmdDhcpFlag = 0;
+  73          U32_T dhcpTimeStart = 0;
+  74          #endif
+  75          
+  76          U32_T main_MDefaultTimeStart = 0;
+  77          U32_T main_MDefaultTimeNow = 0;
+  78          
+  79          /* LOCAL SUBPROGRAM DECLARATIONS */
+  80          static void UpdateIpSettings(U32_T);
+  81          #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+  82          extern U8_T GUDPMC_Multicast[MAC_ADDRESS_LEN];
+  83          static void main_ConfigWifi(void);
+  84          #endif //#if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+  85          
+  86          /*
+  87           * ----------------------------------------------------------------------------
+  88           * Function Name: UpdateIpSettings
+  89           * Purpose: Update IP address, subnet mak, gateway IP address and DNS IP address 
+  90           * Params:
+  91           * Returns:
+  92           * Note:
+  93           * ----------------------------------------------------------------------------
+  94           */
+  95          void UpdateIpSettings(U32_T ip)
+  96          {
+  97   1              if (ip > 0)     
+  98   1              {
+  99   2                      printd("IP: %bu.%bu.%bu.%bu\n\r", (U8_T) ((ip >> 24) & 0x000000FF),
+ 100   2                                                                                    (U8_T) ((ip >> 16) & 0x000000FF),
+ 101   2                                                                                    (U8_T) ((ip >> 8) & 0x000000FF),
+ 102   2                                                                                    (U8_T) (ip & 0x000000FF));
+ 103   2              }
+ 104   1              else
+ 105   1              {
+ 106   2                      U32_T mask = GCONFIG_GetNetmask();
+ 107   2                      U32_T gateway = GCONFIG_GetGateway();
+ 108   2                      ip = GCONFIG_GetServerStaticIP();
+ 109   2                      
+ 110   2      #if (INCLUDE_DHCP_CLIENT)
+ 111   2                      TCPIP_SetIPAddr(ip);
+ 112   2      #endif
+ 113   2                      STOE_SetIPAddr(ip);
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 3   
+
+ 114   2      #if (INCLUDE_DHCP_CLIENT)
+ 115   2                      TCPIP_SetSubnetMask(mask);
+ 116   2      #endif
+ 117   2                      STOE_SetSubnetMask(mask);
+ 118   2      #if (INCLUDE_DHCP_CLIENT)
+ 119   2                      TCPIP_SetGateway(gateway);
+ 120   2      #endif
+ 121   2                      STOE_SetGateway(gateway);
+ 122   2              }
+ 123   1          if (main_AppInit)
+ 124   1          {
+ 125   2                  GS2W_Init();
+ 126   2              main_AppInit = 0;
+ 127   2          }
+ 128   1      } /* End of UpdateIpSettings */
+ 129          
+ 130          #if (INCLUDE_DHCP_CLIENT)
+ 131          /*
+ 132           * ----------------------------------------------------------------------------
+ 133           * Function Name: MAIN_RestartDhcpClient
+ 134           * Purpose: 
+ 135           * Params:
+ 136           * Returns:
+ 137           * Note:
+ 138           * ----------------------------------------------------------------------------
+ 139           */
+ 140          void MAIN_RestartDhcpClient()
+ 141          {
+ 142   1          if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_DHCP_ENABLE) == 0)
+ 143   1              return;
+ 144   1      
+ 145   1          cmdDhcpFlag = 1;
+ 146   1          dhcpTimeStart = SWTIMER_Tick();
+ 147   1      #if (STOE_TRANSPARENT)
+ 148   1          ETH_SetDhcpFlag(1);
+ 149   1      #endif
+ 150   1      #if (INCLUDE_DHCP_SERVER)
+ 151   1          if (GCONFIG_GetDhcpSrvStatus())
+ 152   1              DHCPS_SetServerStatus(0);
+ 153   1      #endif
+ 154   1          DHCP_ResetState();
+ 155   1          DHCP_Start();
+ 156   1      
+ 157   1      } /* End of MAIN_RestartDhcpClient() */
+ 158          #endif
+ 159          
+ 160          void SessionRead(void)
+ 161          {
+ 162   1              struct st_SInfo Sinfo;
+ 163   1              int status, nRead;
+ 164   1              int SID;
+ 165   1              char buf[32];
+ 166   1              
+ 167   1              for(SID =0; SID < MAX_CLIENT_NUMBER; SID++)
+ 168   1              {
+ 169   2                      status = IOTC_Session_Check(SID, &Sinfo);
+ 170   2                      if((status == IOTC_ER_SESSION_CLOSE_BY_REMOTE) || (status == IOTC_ER_REMOTE_TIMEOUT_DISCONNECT))
+ 171   2                      {
+ 172   3                              printd("Session already close = %d\n", SID);
+ 173   3                              IOTC_Session_Close(SID);
+ 174   3                              continue;
+ 175   3                      }
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 4   
+
+ 176   2                      
+ 177   2                      nRead = IOTC_Session_Read(SID, buf, IOTC_MAX_PACKET_SIZE, 10, 0);
+ 178   2                      
+ 179   2                      if(nRead > 0)
+ 180   2                      {
+ 181   3                              unsigned char i, val;
+ 182   3                              
+ 183   3                              buf[nRead] = 0;
+ 184   3                              #if 0
+                                      if(Sinfo.Mode ==0)
+                                              printd("Client is from %s:%d[%s] Mode=P2P\n",Sinfo.RemoteIP, Sinfo.RemotePort, Sinfo.UID);
+                                      else
+                                              printd("Client is from %s:%d[%s] Mode=RLY\n",Sinfo.RemoteIP, Sinfo.RemotePort, Sinfo.UID);
+                                      #endif
+ 190   3                              if(strncmp(buf, "DO", 2) == 0)
+ 191   3                              {
+ 192   4                                      i = atoi(&buf[4]);
+ 193   4                                      
+ 194   4                                      switch(i)
+ 195   4                                      {
+ 196   5                                              case 0:
+ 197   5                                              val = P3_0;
+ 198   5                                              P3_0 = !val;
+ 199   5                                              break;
+ 200   5                                              case 1:
+ 201   5                                              val = P3_1;
+ 202   5                                              P3_1 = !val;
+ 203   5                                              break;
+ 204   5                                              case 2:
+ 205   5                                              val = P3_2;
+ 206   5                                              P3_2 = !val;
+ 207   5                                              break;
+ 208   5                                              case 3:
+ 209   5                                              val = P3_3;
+ 210   5                                              P3_3 = (!val);
+ 211   5                                              break;
+ 212   5                                      }
+ 213   4                                      
+ 214   4                              }
+ 215   3                              
+ 216   3                      }
+ 217   2              }
+ 218   1      }
+ 219          
+ 220          #define BROCAST_DIO_TIME_COUNT  10
+ 221          
+ 222          void BroadCastDIO(void)
+ 223          {
+ 224   1              static unsigned long preTimeCount = 0;
+ 225   1              unsigned long nowTimeCount = SWTIMER_Tick();
+ 226   1              if((nowTimeCount - preTimeCount) > BROCAST_DIO_TIME_COUNT)
+ 227   1              {
+ 228   2                      int SID;
+ 229   2                      char far buf[16];
+ 230   2                      struct st_SInfo Sinfo;
+ 231   2                      unsigned char val = P3;
+ 232   2                      preTimeCount = nowTimeCount;
+ 233   2                      sprintf(buf,"%bu%bu%bu%bu%bu%bu%bu%bu", !(val & 0x01), !(val & (0x01 << 1)), !(val & (0x01<<2)), !(val &
+             - (0x01<<3)), !(P3 & (0x01<<4)), !(val & (0x01<<5)), !(val & (0x01<<6)), !(val & (0x01<<7)));
+ 234   2                      
+ 235   2                      buf[8] = 0;
+ 236   2                      
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 5   
+
+ 237   2                      for(SID =0; SID < MAX_CLIENT_NUMBER; SID++)
+ 238   2                      {
+ 239   3                              if(IOTC_Session_Check(SID, &Sinfo) != IOTC_ER_NoERROR)
+ 240   3                                      continue;                       
+ 241   3                              IOTC_Session_Write(SID,buf,8, 0);
+ 242   3                      }
+ 243   2                      
+ 244   2              }
+ 245   1      }
+ 246          
+ 247          void EnterAdHocMode()
+ 248          {
+ 249   1              char ssid[16];
+ 250   1              strcpy(ssid, "AXIS220");
+ 251   1              #if (INCLUDE_DHCP_SERVER)
+ 252   1              DHCPS_SetServerStatus(1);
+ 253   1              #endif
+ 254   1              IO_SsidRW(IO_COMMAND_WRITE, strlen(ssid), ssid);
+ 255   1              IO_OpenSysRW(1, 0);
+ 256   1              IO_NetworkModeRW(1, 2);/* 2/3: Ad-hoc/infra */
+ 257   1              printd("NO IP into Ad-hoc mode\n");
+ 258   1      }
+ 259          
+ 260          /*
+ 261           * ----------------------------------------------------------------------------
+ 262           * Function Name: main
+ 263           * Purpose:
+ 264           * Params:
+ 265           * Returns:
+ 266           * Note:
+ 267           * ----------------------------------------------------------------------------
+ 268           */
+ 269          void main(void)
+ 270          {
+ 271   1      #if (!AX_ETH_INT_ENABLE)
+                      ERROR: Must enable ethernet module in this driver.
+              #endif
+ 274   1      #if (INCLUDE_DHCP_CLIENT)
+ 275   1          U32_T       dhcpTimeStop = 0;
+ 276   1              U8_T    dhcpArpRequest = 0;
+ 277   1              U8_T    dhcpDeclineCount = 0;
+ 278   1      #endif
+ 279   1              U32_T   timeCount,preTimeCount, timeElapse, ip;
+ 280   1      
+ 281   1              /* System Initiation */
+ 282   1              MCPU_Init();
+ 283   1      
+ 284   1              /* UART0 Console Interface Initiation */
+ 285   1              UART_Init();
+ 286   1              printd("UART-0 init ok.\n\r");
+ 287   1              /* UART2 High Speed Serial Interface Initiation */
+ 288   1              HSUR2_Setup(HS_BR80M_115200, (HSLCR_CHAR_8|HSLCR_STOP_10),
+ 289   1              (HSIER_RDI_ENB|HSIER_RLSI_ENB|HSIER_RBRFI_ENB|HSIER_DOEI_ENB|HSIER_FCCRI_ENB|HSIER_TDCI_ENB),
+ 290   1              (HSFCR_HSUART_ENB|HSFCR_FIFOE|HSFCR_RFR|HSFCR_TFR|HSFCR_TRIG_08), (HSMCR_RTS|HSMCR_DEREC_MASTER));
+ 291   1              printd("UART-2 init ok.\n\r");
+ 292   1                      
+ 293   1              printd("AX220xx RS-232 to WiFi Device Server Firmware - Version %s\n\r", GCONFIG_VERSION_STRING);
+ 294   1      
+ 295   1              EEPROM_Init();
+ 296   1      
+ 297   1              /* Initialize Network adapter */
+ 298   1              ETH_Init();
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 6   
+
+ 299   1      
+ 300   1      #if (INCLUDE_DHCP_CLIENT)
+ 301   1              if (DHCP_Init())
+ 302   1                      printd("DHCP client init ok.\n\r");
+ 303   1      #endif
+ 304   1      
+ 305   1              MWIF_Init();
+ 306   1      
+ 307   1              /* Generic serial-to-ethernet module initialization */
+ 308   1              GCONFIG_Init();
+ 309   1      
+ 310   1              SWTIMER_Init();
+ 311   1      
+ 312   1      #if (INCLUDE_DHCP_CLIENT)       
+ 313   1              if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_DHCP_ENABLE) == GCONFIG_NETWORK_DHCP_ENABLE)
+ 314   1              {
+ 315   2                      printd("DHCP client request... ");
+ 316   2                      DHCP_Start();
+ 317   2      #if (!STOE_TRANSPARENT)
+                              STOE_DisableIpFilter();
+              #else
+ 320   2              ETH_SetDhcpFlag(1);
+ 321   2      #endif
+ 322   2                      cmdDhcpFlag = 1;
+ 323   2              }
+ 324   1              else
+ 325   1              {
+ 326   2                      printd("DHCP client disable.\n\r");
+ 327   2                      UpdateIpSettings(0);
+ 328   2              }
+ 329   1      #else
+                      printd("DHCP client disable.\n\r");
+                      GS2W_Init();
+              #endif
+ 333   1              ETH_Start();    
+ 334   1              MWIF_Start();   
+ 335   1              SWTIMER_Start();
+ 336   1      
+ 337   1              DELAY_Ms(1000);
+ 338   1      
+ 339   1      #if (INCLUDE_DHCP_CLIENT)
+ 340   1              if (cmdDhcpFlag == 1)
+ 341   1              {
+ 342   2                      dhcpTimeStart = SWTIMER_Tick();
+ 343   2              }
+ 344   1      #endif
+ 345   1      
+ 346   1              HSUR2_Start();
+ 347   1              
+ 348   1      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 349   1              /* Notice WCPU that MCPU had ready */
+ 350   1              IO_NoticeWcpu(IO_MCPU_WCPU_READY, NULL, 0);
+ 351   1      
+ 352   1          /* Check the WiFi link has established */
+ 353   1          preTimeCount = (U16_T)SWTIMER_Tick();
+ 354   1          while (1)
+ 355   1          {
+ 356   2                      if ((InitWifi) && (MCPU_WcpuReady))
+ 357   2                      {
+ 358   3                              main_ConfigWifi(); /* WiFi default setting */
+ 359   3                              InitWifi = 0;
+ 360   3                      }
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 7   
+
+ 361   2      
+ 362   2              if (STOE_ConnectState & STOE_WIRELESS_LINK)
+ 363   2                  break;
+ 364   2      
+ 365   2                      timeCount = (U16_T)SWTIMER_Tick();
+ 366   2                      if ((timeCount- preTimeCount) > (SWTIMER_COUNT_SECOND * 5))
+ 367   2                  break;
+ 368   2      
+ 369   2                      MWIF_Sys();
+ 370   2          }
+ 371   1      
+ 372   1          preTimeCount = 0;
+ 373   1      #endif
+ 374   1              
+ 375   1              while (1)
+ 376   1              {
+ 377   2                      HSUR2_ErrorRecovery();
+ 378   2                      STOE_DeferredProcess();
+ 379   2                      
+ 380   2      #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 381   2                      if ((InitWifi) && (MCPU_WcpuReady))
+ 382   2                      {
+ 383   3                              main_ConfigWifi(); /* WiFi default setting */
+ 384   3                              InitWifi = 0;
+ 385   3                      }
+ 386   2      #endif
+ 387   2      
+ 388   2                      ETH_SendArpToGateway(ETH_CONTINUE_ARP_REQUEST_TO_GATEWAY_AFTER_REPLY);
+ 389   2      
+ 390   2      #if (INCLUDE_DHCP_CLIENT)
+ 391   2                      if (cmdDhcpFlag == 1)
+ 392   2                      {
+ 393   3                              if (DHCP_GetState() > DHCP_IDLE_STATE)
+ 394   3                              {
+ 395   4                                      DHCP_Send();
+ 396   4                                      dhcpTimeStop = SWTIMER_Tick();
+ 397   4      
+ 398   4                                      if ((dhcpTimeStop - dhcpTimeStart) > (SWTIMER_COUNT_SECOND * 5))
+ 399   4                                      {
+ 400   5                                              printd(" fail!\n\r");
+ 401   5                                              UpdateIpSettings(0);
+ 402   5      #if (STOE_TRANSPARENT)
+ 403   5                          ETH_SetDhcpFlag(0);
+ 404   5      #endif
+ 405   5      #if (INCLUDE_DHCP_SERVER)
+ 406   5                          if (GCONFIG_GetDhcpSrvStatus())
+ 407   5                              DHCPS_SetServerStatus(1);
+ 408   5      #endif
+ 409   5                                              cmdDhcpFlag = 0;
+ 410   5                                              
+ 411   5                                              EnterAdHocMode();
+ 412   5                                      }
+ 413   4                              }
+ 414   3                              else
+ 415   3                              {
+ 416   4                      ip = STOE_GetIPAddr();
+ 417   4                                      // Check if the IP address is already in use.
+ 418   4                                      if (dhcpArpRequest == 0) // 0: Not yet send out the ARP request
+ 419   4                                      {
+ 420   5                                              ETH_SendDhcpArpRequest();
+ 421   5                                              dhcpArpRequest = 1;  // 1: Have sent out the ARP request 
+ 422   5      
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 8   
+
+ 423   5                                              dhcpTimeStart = SWTIMER_Tick();
+ 424   5                                      }
+ 425   4      
+ 426   4                                      dhcpTimeStop = SWTIMER_Tick();
+ 427   4      
+ 428   4                      if (uip_findarptable((U16_T *)&ip) != 0xFF)
+ 429   4                                      { // Received an ARP reply, IP address confliction occurs                                       
+ 430   5                                              if (dhcpDeclineCount < MAX_DHCP_DECLINE_COUNT)
+ 431   5                                              {
+ 432   6                                                      printd("DHCP client decline. \n\r");
+ 433   6                                                      DHCP_RejectOffer(); // Reject the IP address and request a new one
+ 434   6                                                      dhcpDeclineCount++;
+ 435   6                                                      dhcpArpRequest = 0;
+ 436   6                                      
+ 437   6                                                      printd("DHCP client request... ");
+ 438   6                                                      DHCP_Start();
+ 439   6                                                      dhcpTimeStart = SWTIMER_Tick();
+ 440   6                                              }
+ 441   5                                              else
+ 442   5                                              {
+ 443   6                                                      printd(" fail!\n\r");                                           
+ 444   6                                                      UpdateIpSettings(0); // Failed to get a valid IP address, use the static IP address
+ 445   6      #if (!STOE_TRANSPARENT)
+                                                              STOE_EnableIpFilter();
+              #else
+ 448   6                              ETH_SetDhcpFlag(0);
+ 449   6      #endif
+ 450   6      #if (INCLUDE_DHCP_SERVER)
+ 451   6                              if (GCONFIG_GetDhcpSrvStatus())
+ 452   6                                  DHCPS_SetServerStatus(1);
+ 453   6      #endif
+ 454   6                                                      cmdDhcpFlag = 0;
+ 455   6                                                      
+ 456   6                                                      EnterAdHocMode();
+ 457   6                                              }
+ 458   5                                      }
+ 459   4                                      else
+ 460   4                                      {                
+ 461   5                                              if ((dhcpTimeStop - dhcpTimeStart) > (SWTIMER_COUNT_SECOND * 3)) // Timeout, i.e., no IP address conf
+             -liction
+ 462   5                                              {
+ 463   6                                                      ip = STOE_GetIPAddr();
+ 464   6                                                      
+ 465   6                                                      if (ip == 0)
+ 466   6                                                      {
+ 467   7                                                              printd(" fail!\n\r");
+ 468   7                                                      }
+ 469   6                                                      UpdateIpSettings(ip);
+ 470   6      #if (!STOE_TRANSPARENT)
+                                                              STOE_EnableIpFilter();
+              #else
+ 473   6                              ETH_SetDhcpFlag(0);
+ 474   6      #endif
+ 475   6      #if (INCLUDE_DHCP_SERVER)
+ 476   6                              /* when the dhcp client got IP, then disable the dhcp server */
+ 477   6                              if (ip)
+ 478   6                                  DHCPS_SetServerStatus(0);
+ 479   6                              else
+ 480   6                              {
+ 481   7                                      EnterAdHocMode();
+ 482   7                              }
+ 483   6      #endif
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 9   
+
+ 484   6                                                      cmdDhcpFlag = 0;
+ 485   6                                                      
+ 486   6                                                      IOTC_Initialize(0, "m1.iotcplatform.com", "m2.iotcplatform.com", "m4.iotcplatform.com", "m5.iotcplat
+             -form.com");
+ 487   6                                                      printd("IOTC_Initialize OK!!\n");
+ 488   6                                                      IOTC_Device_Login("W0000000000000000009", NULL, NULL);
+ 489   6                                                      printd("IOTC_Device_Login OK\n");
+ 490   6                                              }
+ 491   5                                      }
+ 492   4                              }
+ 493   3                      }
+ 494   2      #endif
+ 495   2      
+ 496   2                      timeCount = (U16_T)SWTIMER_Tick();
+ 497   2                      if ((timeCount- preTimeCount)>= TIME_OUT_COUNTER)
+ 498   2                      {
+ 499   3                              preTimeCount = timeCount;
+ 500   3                              TCPIP_PeriodicCheck();
+ 501   3      
+ 502   3      #if (!STOE_TRANSPARENT)
+                                      ETH_ArpTableTimer(); /* update for every 250ms */
+              #endif
+ 505   3                      }
+ 506   2                      
+ 507   2      #if (STOE_GET_INTSTATUS_MODE == STOE_INTERRUPT_MODE)    /* interrupt mode */
+                              if (STOE_GetInterruptFlag())
+                              {
+                                      STOE_ProcessInterrupt();
+                              }
+              #else   /* polling mode */
+ 513   2                      STOE_ProcessInterrupt();
+ 514   2      #endif //#if (STOE_GET_INTSTATUS_MODE == STOE_INTERRUPT_MODE)
+ 515   2      
+ 516   2      #if (MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+                              if (MAC_GetInterruptFlag())
+                              {
+              #if (!MAC_GET_INTSTATUS_MODE)
+                                      if (MAC_GetInterruptFlag())
+                                      {
+                                              MAC_ProcessInterrupt();
+                                      }
+              #else
+                                      MAC_LinkSpeedChk();
+              #endif //#if (!MAC_GET_INTSTATUS_MODE)
+                              }
+              #endif //#if (MAC_ARBIT_MODE & MAC_ARBIT_ETH)
+ 529   2      #if (INCLUDE_DHCP_CLIENT)
+ 530   2                      if (cmdDhcpFlag == 0)
+ 531   2                      {
+ 532   3                              IOTC_Listen(0);
+ 533   3                              SessionRead();
+ 534   3                              BroadCastDIO();
+ 535   3                              IOTC_PeriodicRun();
+ 536   3                              GS2W_Task();
+ 537   3                      }
+ 538   2      #else
+                                      GS2W_Task();
+              #endif //#if (INCLUDE_DHCP_CLIENT)
+ 541   2      
+ 542   2                      HSUR2_XmitOutDeq();
+ 543   2                      
+ 544   2                      MWIF_Sys();
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 10  
+
+ 545   2      
+ 546   2              /* Check the button is pressed still. */
+ 547   2              if (TCON & BIT1)
+ 548   2              {
+ 549   3                  if (!main_EnableFactorySetting)
+ 550   3                  {
+ 551   4                      main_EnableFactorySetting = 1;
+ 552   4                      main_MDefaultTimeStart = SWTIMER_Tick();
+ 553   4                  }
+ 554   3      
+ 555   3                  main_MDefaultTimeNow = SWTIMER_Tick();
+ 556   3                  if (main_MDefaultTimeNow >= main_MDefaultTimeStart)
+ 557   3                      timeElapse = main_MDefaultTimeNow - main_MDefaultTimeStart;
+ 558   3                  else
+ 559   3                      timeElapse = (0xFFFFFFFF - main_MDefaultTimeStart) + main_MDefaultTimeNow;
+ 560   3      
+ 561   3                  if (timeElapse >= (5 * SWTIMER_COUNT_SECOND))
+ 562   3                  {
+ 563   4                              GCONFIG_ReadDefaultConfigData();
+ 564   4                              GCONFIG_WriteConfigData();
+ 565   4                              DELAY_Ms(500);
+ 566   4                              MCPU_SoftReboot();
+ 567   4                  }
+ 568   3              }
+ 569   2              else
+ 570   2                  main_EnableFactorySetting = 0;
+ 571   2              }
+ 572   1      } /* End of main() */
+ 573          
+ 574          #if (MAC_ARBIT_MODE & MAC_ARBIT_WIFI)
+ 575          /*
+ 576           * ----------------------------------------------------------------------------
+ 577           * Function Name: main_ConfigWifi
+ 578           * Purpose:
+ 579           * Params:
+ 580           * Returns:
+ 581           * Note:
+ 582           * ----------------------------------------------------------------------------
+ 583           */
+ 584          static void main_ConfigWifi(void)
+ 585          {
+ 586   1              U8_T i, Buf[64];
+ 587   1              U16_T j;
+ 588   1      
+ 589   1              /* Set baseband mode */
+ 590   1              IO_OperateModeRW(1, GCONFIG_GetWifiBasebandMode() ? 1:1);/* 1/1: 802.11b+g */
+ 591   1      
+ 592   1              /* set network type */
+ 593   1              IO_NetworkModeRW(1, GCONFIG_GetWifiNetworkMode() ? 2:3);/* 2/3: Ad-hoc/infra */
+ 594   1              
+ 595   1              /* set channel */
+ 596   1              IO_ChannelRW(1, IO_WiFiSupportedCh[GCONFIG_GetChannel()]);
+ 597   1              
+ 598   1              /* set ssid */
+ 599   1              i = GCONFIG_GetSsid(Buf);
+ 600   1              IO_SsidRW(1, i, Buf);
+ 601   1                              
+ 602   1              /* set tx rate */
+ 603   1              IO_TxDataRateRW(1, GCONFIG_GetWifiTxRate());
+ 604   1                      
+ 605   1              /* set tx power level */
+ 606   1              IO_TxDefaultPowerLevelRW(1, GCONFIG_GetWifiTxPowerLevel());
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 11  
+
+ 607   1      
+ 608   1              /* set preamble mode */
+ 609   1              IO_PreambleRW(1, GCONFIG_GetWifiPreambleMode() ? 20:0); /* 0/20: long/auto */   
+ 610   1              
+ 611   1              /* set beacon interval */
+ 612   1              j = GCONFIG_GetWifiBcnInterval();
+ 613   1              IO_BeaconIntervalRW(1, (U8_T XDATA*)&j);
+ 614   1              
+ 615   1              /* set RTS threshold */
+ 616   1              j = GCONFIG_GetWifiRtsThreshold();
+ 617   1              IO_RtsThresholdRW(1, (U8_T XDATA*)&j);
+ 618   1      
+ 619   1              /* set auto power control ON/OFF */
+ 620   1              IO_AutoPowerCtrlRW(1, GCONFIG_GetWifiAutoPowerCtrl() ? 1:0);
+ 621   1      
+ 622   1              /* set wep key index */
+ 623   1              IO_WepKeyIndexRW(1, GCONFIG_GetWifiWepKeyIndex());
+ 624   1      
+ 625   1              /* set wep 64-bits key */
+ 626   1              GCONFIG_GetWifiWep64Key(0, Buf);
+ 627   1              IO_Wep64KeyRW (1, 0, Buf);
+ 628   1              
+ 629   1              GCONFIG_GetWifiWep64Key(1, Buf);
+ 630   1              IO_Wep64KeyRW (1, 1, Buf);
+ 631   1                      
+ 632   1              GCONFIG_GetWifiWep64Key(2, Buf);
+ 633   1              IO_Wep64KeyRW (1, 2, Buf);
+ 634   1                      
+ 635   1              GCONFIG_GetWifiWep64Key(3, Buf);
+ 636   1              IO_Wep64KeyRW (1, 3, Buf);              
+ 637   1      
+ 638   1              /* set wep 128-bits key */
+ 639   1              GCONFIG_GetWifiWep128Key(0, Buf);       
+ 640   1              IO_Wep128KeyRW (1, 0, Buf);     
+ 641   1              
+ 642   1              GCONFIG_GetWifiWep128Key(1, Buf);
+ 643   1              IO_Wep128KeyRW (1, 1, Buf);     
+ 644   1              
+ 645   1              GCONFIG_GetWifiWep128Key(2, Buf);
+ 646   1              IO_Wep128KeyRW (1, 2, Buf);     
+ 647   1              
+ 648   1              GCONFIG_GetWifiWep128Key(3, Buf);
+ 649   1              IO_Wep128KeyRW (1, 3, Buf);
+ 650   1              
+ 651   1              /* set tkip/aes pre-share key */
+ 652   1              i = GCONFIG_GetWifiPreShareKey(Buf);
+ 653   1              IO_TkipAesRW(1, i, Buf);
+ 654   1      
+ 655   1          /* set encryption type */
+ 656   1              i = GCONFIG_GetWifiEncryptMode();
+ 657   1      
+ 658   1              if (i == 2)
+ 659   1              {
+ 660   2                      IO_OpenSysRW(1, 0); /* open system */
+ 661   2                      IO_EncryptionRW(1, 5); /* wep128 */
+ 662   2              }
+ 663   1              else if (i == 3)
+ 664   1              {
+ 665   2                      IO_OpenSysRW(1, 3); /* mixed mode */
+ 666   2                      IO_EncryptionRW(1, 2); /* tkip */
+ 667   2              }
+ 668   1              else if (i == 1) /* do not know current encrypt mode */
+C51 COMPILER V9.01   MAIN                                                                  03/08/2012 11:00:54 PAGE 12  
+
+ 669   1              {
+ 670   2                      IO_OpenSysRW(1, 0); /* open system */
+ 671   2                      IO_EncryptionRW(1, 1); /* wep64 */
+ 672   2              }
+ 673   1              else if (i == 4)
+ 674   1              {
+ 675   2                      IO_OpenSysRW(1, 3); /* mixed mode */
+ 676   2                      IO_EncryptionRW(1, 4);
+ 677   2              }
+ 678   1              else /* 0:disable, 1:wep64 */
+ 679   1              {
+ 680   2                      IO_OpenSysRW(1, 0); /* open system */
+ 681   2                      IO_EncryptionRW(1, i);
+ 682   2              }
+ 683   1              
+ 684   1              /* radio on */
+ 685   1              IO_RadioOnOff(1);
+ 686   1              
+ 687   1          /* enable the WCPU firmware to receive mcast packet */
+ 688   1          if ((GCONFIG_GetNetwork() & GCONFIG_NETWORK_PROTO_UDP_MCAST) == GCONFIG_NETWORK_PROTO_UDP_MCAST)
+ 689   1              IO_SetMulticastMac(GUDPMC_Multicast);
+ 690   1      
+ 691   1          /* set traffic profile */
+ 692   1              IO_TrafficProfile(1, 0);
+ 693   1      
+ 694   1              /* get WCPU MAC address */
+ 695   1              IO_WiFiMacRW(0, 0);
+ 696   1              
+ 697   1              /* get WCPU F/W version */      
+ 698   1              IO_WifiDriverVer();
+ 699   1              
+ 700   1              printd("WiFi init ok.\n\r");    
+ 701   1      } /* End of main_ConfigWifi() */
+ 702          #endif
+ 703          /* End of adapter.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3167    ----
+   CONSTANT SIZE    =    477    ----
+   XDATA SIZE       =     20     284
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =     16    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

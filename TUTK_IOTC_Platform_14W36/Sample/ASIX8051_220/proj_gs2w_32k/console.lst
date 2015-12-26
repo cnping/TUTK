@@ -1,0 +1,889 @@
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE CONSOLE
+OBJECT MODULE PLACED IN .\console.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\src\mconsole\console.c LARGE OMF2 ROM(D16M) BROWSE INTVECTOR(0X8020) INC
+                    -DIR(..\src\main;..\src\mcpu;..\src\mswdma;..\src\uart0;..\src\mmstimer;..\src\mwif;..\src\madapter;..\src\mtcpip;..\src\
+                    -mping;..\src\mpppoe;..\src\si2c;..\src\mdnsc;..\src\mconsole;..\src\mtelnet;..\src\meeprom;..\src\mmac;..\src\mdhcpc;..\
+                    -src\mhttp;..\src\mgs2wifi;..\src\mhsuart;..\src\msmtpc;..\src\web_page;..\src\mdhcps;..\src\mdebug) DEFINE(RuntimeCodeAt
+                    -32KH) VARBANKING DEBUG PRINT(.\console.lst) OBJECT(.\console.obj)
+
+line level    source
+
+   1          /*
+   2           ******************************************************************************
+   3           *     Copyright (c) 2006       ASIX Electronic Corporation      All rights reserved.
+   4           *
+   5           *     This is unpublished proprietary source code of ASIX Electronic Corporation
+   6           *
+   7           *     The copyright notice above does not evidence any actual or intended
+   8           *     publication of such source code.
+   9           ******************************************************************************
+  10           */
+  11          /*=============================================================================
+  12           * Module Name: CONSOLE
+  13           * Purpose: The purpose of this package provides the services to CONSOLE
+  14           * Author:
+  15           * Date:
+  16           * Notes:
+  17           * $Log$
+  18          *=============================================================================
+  19          */
+  20          
+  21          /* INCLUDE FILE DECLARATIONS */
+  22          #include <stdio.h>
+  23          #include <stdarg.h>
+  24          #include <stdlib.h>
+  25          #include <string.h>
+  26          #include "main.h"
+  27          #include "gconfig.h"
+  28          #include "ax22000.h"
+  29          #include "mcpu.h"
+  30          #include "console.h"
+  31          #include "uart0.h"
+  32          #include "clicmd.h"
+  33          #if (INCLUDE_TELNET_SERVER)
+  34          #include "telnet.h"
+  35          #endif
+  36          #if (INCLUDE_EVENT_DETECT)
+              #include "gevent.h"
+              #endif
+  39          /* NAMING CONSTANT DECLARATIONS */
+  40          #if (INCLUDE_TELNET_SERVER)
+  41          #define MAX_INST_NUM 2
+  42          #else
+              #define MAX_INST_NUM 1
+              #endif
+  45          #define USERNAME_STR "username: "
+  46          #define PASSWD_STR   "password: "
+  47          #define CONSOLE_QUIT "quit"
+  48          #define CONSOLE_HELP "help"
+  49          #define CONSOLE_PASSWD "passwd"
+  50          #define CONSOLE_REBOOT "reboot"
+  51          #define CONSOLE_PROMPT "uart> "
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 2   
+
+  52          
+  53          #define CTRL_C  0x03
+  54          #define BACKSP  0x08
+  55          #define DELCHAR 0x7F
+  56          #define SPACE   0x20
+  57          #define BELL    0x07
+  58          #define CLI_CR  0x0d
+  59          #define CLI_LF  0x0a
+  60          #define CLI_ECHO_ON "\010 \010"
+  61          #define CLI_MAX_ARGS 16
+  62          #define CLI_CLOSED -1
+  63          #define CLI_COMMAND_DONE 10
+  64          /* MACRO DECLARATIONS */
+  65          #define IsSpace(x) ((x == SPACE) ? 1 : 0)
+  66          
+  67          /* GLOBAL VARIABLES DECLARATIONS */
+  68          
+  69          /* LOCAL VARIABLES DECLARATIONS */
+  70          static CONSOLE_Inst far console_Instance[MAX_INST_NUM];
+  71          static S8_T far pBuf[CLI_MAX_MESSAGE_LEN];
+  72          static U16_T far console_CmdTableSize=0;
+  73          
+  74          /* LOCAL SUBPROGRAM DECLARATIONS */
+  75          static S16_T console_PutString(CONSOLE_Inst *pInst, S8_T *strData, S16_T len);
+  76          static void console_ClearLine(CONSOLE_Inst *pInst);
+  77          static void console_HelpMessage(CONSOLE_Inst *pInst, U8_T privilege);
+  78          static void console_ParseLine(char *pLine, int numArgvs, int *pArgc, char *argv[]);
+  79          static int console_CollectCommand(CONSOLE_Inst *pInst, S8_T buf[], S16_T size, S16_T echo);
+  80          static void console_InitInstance(CONSOLE_Inst *pInst);
+  81          static int console_Authenticate(CONSOLE_Inst *pInst);
+  82          static int console_CommandProcess(CONSOLE_Inst *pInst, S8_T *pLine, U8_T privilege);
+  83          static void console_CmdExecute(CONSOLE_Inst *pInst, S16_T argc, S8_T *argv[], U8_T privilege);
+  84          static void console_LoadUserAccount(void);
+  85          static S16_T console_ChangePasswd(CONSOLE_Inst *pInst);
+  86          
+  87          /* LOCAL SUBPROGRAM BODIES */
+  88          /*
+  89           * ----------------------------------------------------------------------------
+  90           * Function Name: CONSOLE_ChangeUsername()
+  91           * Purpose:
+  92           * Params:
+  93           * Returns:
+  94           * Note:
+  95           * ----------------------------------------------------------------------------
+  96           */
+  97          S16_T CONSOLE_ChangeUsername(CONSOLE_Inst *pInst, U8_T *username)
+  98          {
+  99   1          CONSOLE_Account *account;
+ 100   1          U8_T ulen, plen, i;
+ 101   1      
+ 102   1          ulen = strlen(pInst->UserName);
+ 103   1          plen = strlen(username);
+ 104   1          
+ 105   1          for (i=0, account=&CLICMD_userTable[0]; i < MAX_USER_ACCOUNT; i++, account++)
+ 106   1          {
+ 107   2              if ((ulen == strlen(account->Name)) && (memcmp(account->Name, pInst->UserName, ulen)==0))
+ 108   2              {
+ 109   3                  strcpy(account->Name, username);
+ 110   3                  strcpy(pInst->UserName, username);
+ 111   3                  /* Update the configuration */
+ 112   3                  GCONFIG_SetAdmin(account->Name, account->Passwd);
+ 113   3      
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 3   
+
+ 114   3                  return 1;
+ 115   3              }
+ 116   2          }
+ 117   1      
+ 118   1          return -1;
+ 119   1      } /* End of CONSOLE_ChangeUsername() */
+ 120          
+ 121          
+ 122          /*
+ 123           * ----------------------------------------------------------------------------
+ 124           * Function Name: console_ChangePasswd()
+ 125           * Purpose:
+ 126           * Params:
+ 127           * Returns:
+ 128           * Note:
+ 129           * ----------------------------------------------------------------------------
+ 130           */
+ 131          static S16_T console_ChangePasswd(CONSOLE_Inst *pInst)
+ 132          {
+ 133   1          CONSOLE_Account *account;
+ 134   1          U8_T ulen, plen, i;
+ 135   1      
+ 136   1          ulen = strlen(pInst->UserName);
+ 137   1          plen = strlen(pInst->Passwd);
+ 138   1          
+ 139   1          for (i=0, account=&CLICMD_userTable[0]; i < MAX_USER_ACCOUNT; i++, account++)
+ 140   1          {
+ 141   2              if ((ulen == strlen(account->Name)) &&
+ 142   2                  (memcmp(account->Name, pInst->UserName, ulen)==0) &&
+ 143   2                  (plen == strlen(account->Passwd)) &&
+ 144   2                  (memcmp(account->Passwd, pInst->Passwd, plen)==0))
+ 145   2              {
+ 146   3                  ulen = strlen(pInst->PasswdNew);
+ 147   3                  plen = strlen(pInst->CmdBuf);
+ 148   3                  if ((ulen == plen) && (memcmp(pInst->PasswdNew, pInst->CmdBuf, ulen)==0))
+ 149   3                  {
+ 150   4                      strcpy(account->Passwd, pInst->PasswdNew);
+ 151   4                      /* Update the configuration */
+ 152   4                      GCONFIG_SetAdmin(account->Name, account->Passwd);
+ 153   4      
+ 154   4                      return 1;
+ 155   4                  }
+ 156   3                  else
+ 157   3                      return -1;
+ 158   3              }
+ 159   2          }
+ 160   1      
+ 161   1          return -1;
+ 162   1      } /* End of console_ChangePasswd() */
+ 163          
+ 164          /*
+ 165           * ----------------------------------------------------------------------------
+ 166           * Function Name: console_LoadUserAccount()
+ 167           * Purpose:
+ 168           * Params:
+ 169           * Returns:
+ 170           * Note:
+ 171           * ----------------------------------------------------------------------------
+ 172           */
+ 173          static void console_LoadUserAccount(void)
+ 174          {
+ 175   1          GCONFIG_GetAdmin(CLICMD_userTable[0].Name, CLICMD_userTable[0].Passwd, &CLICMD_userTable[0].Level);
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 4   
+
+ 176   1      } /* End of console_LoadUserAccount() */
+ 177          
+ 178          /*
+ 179           * ----------------------------------------------------------------------------
+ 180           * Function Name: console_PutString()
+ 181           * Purpose:
+ 182           * Params:
+ 183           * Returns:
+ 184           * Note:
+ 185           * ----------------------------------------------------------------------------
+ 186           */
+ 187          static S16_T console_PutString(CONSOLE_Inst *pInst, S8_T *strData, S16_T len)
+ 188          {
+ 189   1          S8_T *pStr=strData;
+ 190   1          
+ 191   1          if (!pStr)
+ 192   1              return -1;
+ 193   1      
+ 194   1          while (len-->0)
+ 195   1          {
+ 196   2              pInst->PutChar(*pStr);
+ 197   2              pStr++;
+ 198   2          }
+ 199   1          
+ 200   1          return 1;   
+ 201   1      } /* End of console_PutString() */
+ 202          
+ 203          /*
+ 204           * ----------------------------------------------------------------------------
+ 205           * Function Name: console_ParseLine()
+ 206           * Purpose:
+ 207           * Params:
+ 208           * Returns:
+ 209           * Note:
+ 210           * ----------------------------------------------------------------------------
+ 211           */
+ 212          static void console_ParseLine(S8_T *pLine, S16_T numArgvs, S16_T *pArgc, S8_T *argv[])
+ 213          {
+ 214   1          S16_T argc;
+ 215   1      
+ 216   1          /* for each argument */
+ 217   1          for (argc = 0; argc < (numArgvs - 1); argc++)
+ 218   1          {
+ 219   2              /* Skip leading white space */
+ 220   2              while (IsSpace(*pLine))
+ 221   2              {
+ 222   3                  pLine++;
+ 223   3              }
+ 224   2      
+ 225   2              /* if end of line. */
+ 226   2              if( *pLine == '\0')
+ 227   2              {
+ 228   3                  break;
+ 229   3              }
+ 230   2      
+ 231   2              /* record the start of the argument */
+ 232   2              argv[argc] = pLine;
+ 233   2      
+ 234   2              /* find the end of the argument */
+ 235   2              while (*pLine != '\0' && !IsSpace(*pLine))
+ 236   2              {
+ 237   3                  pLine++;
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 5   
+
+ 238   3              }
+ 239   2      
+ 240   2              /* null terminate argument */
+ 241   2              if (*pLine != '\0')
+ 242   2              {
+ 243   3                  *pLine = '\0';
+ 244   3                  pLine++;
+ 245   3              }
+ 246   2          }
+ 247   1      
+ 248   1          /* null terminate list of arguments */
+ 249   1          argv[argc] = 0;
+ 250   1          *pArgc = argc;
+ 251   1      } /* End of console_ParseLine() */
+ 252          
+ 253          /*
+ 254           * ----------------------------------------------------------------------------
+ 255           * Function Name: console_HelpMessage()
+ 256           * Purpose:
+ 257           * Params:
+ 258           * Returns:
+ 259           * Note:
+ 260           * ----------------------------------------------------------------------------
+ 261           */
+ 262          static void console_HelpMessage(CONSOLE_Inst *pInst, U8_T privilege)
+ 263          {
+ 264   1          CONSOLE_CmdEntry *pCmd;
+ 265   1          U8_T i;
+ 266   1      
+ 267   1          CONSOLE_PutMessage(pInst, "help\r\n");
+ 268   1          CONSOLE_PutMessage(pInst, "quit\r\n");
+ 269   1          CONSOLE_PutMessage(pInst, "reboot\r\n");
+ 270   1          CONSOLE_PutMessage(pInst, "Usage: passwd\r\n");
+ 271   1          CONSOLE_PutMessage(pInst, "       Old Password: \r\n");
+ 272   1          CONSOLE_PutMessage(pInst, "       New Password: \r\n");
+ 273   1          CONSOLE_PutMessage(pInst, "       Re-enter New Password: \r\n");
+ 274   1          for (i = 0, pCmd = &CLICMD_userCmdTable[0]; i < console_CmdTableSize; i++, pCmd++)
+ 275   1          {
+ 276   2              if (pCmd->Level >= privilege && pCmd->Help)
+ 277   2              {
+ 278   3                  pCmd->Help(pInst);
+ 279   3              }
+ 280   2          }
+ 281   1      } /* End of console_HelpMessage() */
+ 282          
+ 283          /*
+ 284           * ----------------------------------------------------------------------------
+ 285           * Function Name: console_Authenticate()
+ 286           * Purpose:
+ 287           * Params:
+ 288           * Returns:
+ 289           * Note:
+ 290           * ----------------------------------------------------------------------------
+ 291           */
+ 292          static S16_T console_Authenticate(CONSOLE_Inst *pInst)
+ 293          {
+ 294   1          CONSOLE_Account *account;
+ 295   1          U8_T ulen, plen, i;
+ 296   1      
+ 297   1          ulen = strlen(pInst->UserName);
+ 298   1          plen = strlen(pInst->Passwd);
+ 299   1          
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 6   
+
+ 300   1          for (i=0, account=&CLICMD_userTable[0]; i < MAX_USER_ACCOUNT; i++, account++)
+ 301   1          {
+ 302   2              if ((ulen == strlen(account->Name)) &&
+ 303   2                  (memcmp(account->Name, pInst->UserName, ulen)==0) &&
+ 304   2                  (plen == strlen(account->Passwd)) &&
+ 305   2                  (memcmp(account->Passwd, pInst->Passwd, plen)==0))
+ 306   2              {
+ 307   3      #if (INCLUDE_TELNET_SERVER)
+ 308   3                  if (pInst->LowLayerId == LL_TELNET )
+ 309   3                      CONSOLE_PutMessage(pInst, "Successful login through telnet\r\n");
+ 310   3      #endif
+ 311   3                  pInst->Privilege = account->Level;
+ 312   3                  return 1;
+ 313   3              }
+ 314   2          }
+ 315   1          
+ 316   1          return -1;
+ 317   1      } /* End of console_Authenticate() */
+ 318          
+ 319          /*
+ 320           * ----------------------------------------------------------------------------
+ 321           * Function Name: console_CommandProcess()
+ 322           * Purpose:
+ 323           * Params:
+ 324           * Returns:
+ 325           * Note:
+ 326           * ----------------------------------------------------------------------------
+ 327           */
+ 328          static S16_T console_CommandProcess(CONSOLE_Inst *pInst, S8_T *pLine, U8_T privilege)
+ 329          {
+ 330   1          S8_T *argv[CLI_MAX_ARGS+1];
+ 331   1          S16_T argc;
+ 332   1         
+ 333   1          if (!strncmp(pLine, CONSOLE_HELP, strlen(CONSOLE_HELP)))
+ 334   1          {
+ 335   2              console_HelpMessage(pInst, privilege);
+ 336   2              return 1;
+ 337   2          }
+ 338   1          else if (!strncmp(pLine, CONSOLE_PASSWD, strlen(CONSOLE_PASSWD)))
+ 339   1          {
+ 340   2              pInst->State = CLI_STATE_PASSWD_CHANGE1;
+ 341   2              return 1;
+ 342   2          }
+ 343   1          else if (!strncmp(pLine, CONSOLE_QUIT, strlen(CONSOLE_QUIT)))
+ 344   1          {
+ 345   2              return -1;
+ 346   2          }
+ 347   1          else if (!strncmp(pLine, CONSOLE_REBOOT, strlen(CONSOLE_REBOOT)))
+ 348   1          {
+ 349   2              MCPU_SoftReboot();
+ 350   2              return 1;
+ 351   2          }
+ 352   1      
+ 353   1          console_ParseLine(pLine, (sizeof(argv)/sizeof(argv[0])), &argc, argv);
+ 354   1          console_CmdExecute(pInst, argc, argv, privilege);
+ 355   1          
+ 356   1          return 1;
+ 357   1      } /* End of console_CommandProcess() */
+ 358          
+ 359          /*
+ 360           * ----------------------------------------------------------------------------
+ 361           * Function Name: console_CmdExecute()
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 7   
+
+ 362           * Purpose:
+ 363           * Params:
+ 364           * Returns:
+ 365           * Note:
+ 366           * ----------------------------------------------------------------------------
+ 367           */
+ 368          static void console_CmdExecute(CONSOLE_Inst *pInst, S16_T argc, S8_T* argv[], U8_T privilege)
+ 369          {
+ 370   1          U8_T i;
+ 371   1          CONSOLE_CmdEntry *pCmd;
+ 372   1      
+ 373   1          if (argc < 1)
+ 374   1          {
+ 375   2              return;
+ 376   2          }
+ 377   1      
+ 378   1          /* check the command in command list */
+ 379   1          for (i = 0, pCmd = &CLICMD_userCmdTable[0]; i < console_CmdTableSize; i++, pCmd++)
+ 380   1          {
+ 381   2              if (strcmp(argv[0], pCmd->Cmd) == 0)
+ 382   2              {
+ 383   3                  if (pCmd->Level >= privilege)
+ 384   3                  {
+ 385   4                      pInst->Argc = argc - 1;
+ 386   4                      pInst->Argv = (S8_T **)&argv[1];
+ 387   4                      if (pCmd->CmdFunc(pInst) > 0)
+ 388   4                      {
+ 389   5                                              if (pInst->State != CLI_STATE_COMMAND_WAIT)
+ 390   5                          CONSOLE_PutMessage(pInst, "Ok\r\n");
+ 391   5                      }
+ 392   4                      else
+ 393   4                      {
+ 394   5                          CONSOLE_PutMessage(pInst, "Error\r\n");
+ 395   5                      }
+ 396   4                      return;
+ 397   4                  }
+ 398   3                  else
+ 399   3                      break;
+ 400   3             }
+ 401   2          }
+ 402   1      
+ 403   1          CONSOLE_PutMessage(pInst, "Unknown command %s\r\n", argv[0]);
+ 404   1          return;
+ 405   1      }  /* End of console_CmdExecute() */
+ 406          
+ 407          /*
+ 408           * ----------------------------------------------------------------------------
+ 409           * Function Name: console_CollectCommand()
+ 410           * Purpose:
+ 411           * Params:
+ 412           * Returns:
+ 413           * Note:
+ 414           * ----------------------------------------------------------------------------
+ 415           */
+ 416          static S16_T console_CollectCommand(CONSOLE_Inst *pInst, S8_T buf[], S16_T size, S16_T echo)
+ 417          {
+ 418   1          S16_T c;
+ 419   1          S8_T tmp;
+ 420   1      
+ 421   1          c = pInst->GetChar();
+ 422   1              
+ 423   1          switch (c)
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 8   
+
+ 424   1          {
+ 425   2              case CLI_CLOSED :  /* telnet quit */
+ 426   2                  return -1;
+ 427   2      
+ 428   2              case CTRL_C:
+ 429   2                  return -5;  /* user abort, return -1, means nothing */
+ 430   2      
+ 431   2              case BACKSP:
+ 432   2              case DELCHAR:
+ 433   2                  if (pInst->BufIndex == 0)
+ 434   2                  {
+ 435   3                      tmp = BELL;
+ 436   3                      pInst->PutChar(tmp);
+ 437   3                      return 0;
+ 438   3                  }
+ 439   2                  /* if echo flag do back space */
+ 440   2                  if(echo)
+ 441   2                      console_PutString(pInst, CLI_ECHO_ON, strlen(CLI_ECHO_ON));
+ 442   2      
+ 443   2                  if( pInst->BufIndex != 0 )  /* get rid of one char from buf */
+ 444   2                      pInst->BufIndex -= 1;
+ 445   2      
+ 446   2                  break;
+ 447   2      
+ 448   2              case 21:
+ 449   2                  /* ^U */
+ 450   2                  console_ClearLine(pInst);
+ 451   2                  return 0;
+ 452   2      
+ 453   2              case '\r':
+ 454   2                  buf[pInst->BufIndex] = '\0';  /* NULL char would not be counted */
+ 455   2                  tmp = '\r';
+ 456   2                  pInst->PutChar(tmp);
+ 457   2                  tmp = '\n';
+ 458   2                  pInst->PutChar(tmp);
+ 459   2                  return CLI_COMMAND_DONE;
+ 460   2      
+ 461   2              case '\n':
+ 462   2      #if (INCLUDE_TELNET_SERVER)
+ 463   2                  if (pInst->LowLayerId == LL_TELNET)
+ 464   2                  {
+ 465   3                      buf[pInst->BufIndex] = '\0';  /* NULL char would not be counted */
+ 466   3                      tmp = '\r';
+ 467   3                      pInst->PutChar(tmp);
+ 468   3                      tmp = '\n';
+ 469   3                      pInst->PutChar(tmp);
+ 470   3                      return CLI_COMMAND_DONE;
+ 471   3                  }
+ 472   2                  else
+ 473   2      #endif
+ 474   2                      return 0;
+ 475   2              default:
+ 476   2                  if ( c < SPACE) /* if want printable ascii only */
+ 477   2                      return 0;
+ 478   2       
+ 479   2                  if (pInst->BufIndex <= (size - 1))
+ 480   2                  {
+ 481   3                      buf[pInst->BufIndex] = c;
+ 482   3                      pInst->BufIndex++;
+ 483   3                      tmp = (char)c;
+ 484   3                      if (echo)
+ 485   3                          pInst->PutChar(tmp); /* for passwd no echo */
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 9   
+
+ 486   3                      if (pInst->BufIndex == size)
+ 487   3                           return CLI_COMMAND_DONE;
+ 488   3                  }
+ 489   2                  else
+ 490   2                  {   
+ 491   3                      tmp = BELL;                   /* buffer full, but no cr/lf */
+ 492   3                      pInst->PutChar(tmp); /* send bell, notify user */
+ 493   3                  }
+ 494   2                  break;
+ 495   2          }
+ 496   1      
+ 497   1          return 1;
+ 498   1      } /* End of console_CollectCommand() */
+ 499          
+ 500          /*
+ 501           * ----------------------------------------------------------------------------
+ 502           * Function Name: console_ClearLine()
+ 503           * Purpose:
+ 504           * Params:
+ 505           * Returns:
+ 506           * Note:
+ 507           * ----------------------------------------------------------------------------
+ 508           */
+ 509          static void console_ClearLine(CONSOLE_Inst *pInst)
+ 510          {
+ 511   1          pBuf[0] = '\r';
+ 512   1          memset(&pBuf[1], ' ', 79);
+ 513   1          pBuf[80] = '\r';
+ 514   1          console_PutString(pInst, pBuf, 81);
+ 515   1      
+ 516   1      } /* End of console_ClearLine() */
+ 517          
+ 518          /* EXPORTED SUBPROGRAM BODIES */
+ 519          
+ 520          #if (INCLUDE_TELNET_SERVER)
+ 521          /*
+ 522           * ----------------------------------------------------------------------------
+ 523           * Function Name: CONSOLE_GetInstance()
+ 524           * Purpose:
+ 525           * Params:
+ 526           * Returns:
+ 527           * Note:
+ 528           * ----------------------------------------------------------------------------
+ 529           */
+ 530          CONSOLE_Inst *CONSOLE_GetInstance(U8_T id)
+ 531          {
+ 532   1          U8_T i;
+ 533   1      
+ 534   1          for (i= 0; i < MAX_INST_NUM; i++)
+ 535   1          {
+ 536   2              if (console_Instance[i].LowLayerId == id)
+ 537   2                  return (CONSOLE_Inst *)&console_Instance[i];
+ 538   2          }
+ 539   1      
+ 540   1          return (CONSOLE_Inst *)0;
+ 541   1      
+ 542   1      } /* End of CONSOLE_GetInstance() */
+ 543          #endif
+ 544          
+ 545          /*
+ 546           * ----------------------------------------------------------------------------
+ 547           * Function Name: CONSOLE_Init()
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 10  
+
+ 548           * Purpose:
+ 549           * Params:
+ 550           * Returns:
+ 551           * Note:
+ 552           * ----------------------------------------------------------------------------
+ 553           */
+ 554          void CONSOLE_Init(void)
+ 555          {
+ 556   1          CONSOLE_Inst *pInst;
+ 557   1      
+ 558   1          console_CmdTableSize = CLICMD_GetCmdTableSize();
+ 559   1          pInst = &console_Instance[LL_UART];
+ 560   1          pInst->State = CLI_STATE_LOGIN;
+ 561   1          pInst->PromptEnable = 1;
+ 562   1          pInst->Privilege = 5;
+ 563   1          pInst->BufIndex = 0;
+ 564   1          pInst->GetChar = UART0_NoBlockGetkey;
+ 565   1          pInst->PutChar = UART0_PutChar;
+ 566   1          pInst->LowLayerId = LL_UART;
+ 567   1          memset(pInst->UserName, 0, CLI_MAX_USERNAME_LEN);
+ 568   1          memset(pInst->Passwd, 0, CLI_MAX_PASSWD_LEN);
+ 569   1          memset(pInst->CmdBuf, 0, CLI_MAX_COMMAND_LEN);
+ 570   1          strcpy(pInst->PromptStr, CONSOLE_PROMPT);
+ 571   1          console_LoadUserAccount();
+ 572   1      
+ 573   1      #if (INCLUDE_TELNET_SERVER)
+ 574   1          pInst = &console_Instance[LL_TELNET];
+ 575   1          pInst->State = CLI_STATE_BLOCK;
+ 576   1          pInst->PromptEnable = 1;
+ 577   1          pInst->Privilege = 5;
+ 578   1          pInst->BufIndex = 0;
+ 579   1          pInst->GetChar = TELNET_GetChar;
+ 580   1          pInst->PutChar = TELNET_PutChar;
+ 581   1          pInst->LowLayerId = LL_TELNET;
+ 582   1          memset(pInst->UserName, 0, CLI_MAX_USERNAME_LEN);
+ 583   1          memset(pInst->Passwd, 0, CLI_MAX_PASSWD_LEN);
+ 584   1          memset(pInst->CmdBuf, 0, CLI_MAX_COMMAND_LEN);
+ 585   1          strcpy(pInst->PromptStr, "telnet> ");
+ 586   1      #endif
+ 587   1      
+ 588   1      } /* End of CONSOLE_Init() */
+ 589          
+ 590          /*
+ 591           * ----------------------------------------------------------------------------
+ 592           * Function Name: CONSOLE_Task
+ 593           * Purpose: 
+ 594           * Params:
+ 595           * Returns:
+ 596           * Note:
+ 597           * ----------------------------------------------------------------------------
+ 598           */
+ 599          void CONSOLE_Task(void)
+ 600          {
+ 601   1          CONSOLE_Inst *pInst;
+ 602   1          U8_T retCode, i;
+ 603   1      
+ 604   1          for (i = 0; i < MAX_INST_NUM; i++)
+ 605   1          {
+ 606   2              retCode=0;
+ 607   2              pInst = &console_Instance[i];
+ 608   2              
+ 609   2              switch(pInst->State)
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 11  
+
+ 610   2              {
+ 611   3                  case CLI_STATE_LOGIN:
+ 612   3                      if (pInst->PromptEnable == 1)
+ 613   3                      {
+ 614   4                          CONSOLE_PutMessage(pInst, "%s", USERNAME_STR);
+ 615   4                          pInst->PromptEnable = 0;
+ 616   4                          pInst->BufIndex = 0;
+ 617   4                          memset(pInst->UserName, 0, CLI_MAX_USERNAME_LEN);
+ 618   4                      }
+ 619   3                      retCode = console_CollectCommand(pInst, pInst->UserName, CLI_MAX_USERNAME_LEN, 1);
+ 620   3                      if (retCode == CLI_COMMAND_DONE)
+ 621   3                      {
+ 622   4                          pInst->PromptEnable = 1;
+ 623   4                          pInst->State = CLI_STATE_PASSWD;
+ 624   4                      }
+ 625   3                      else if (retCode < 0)
+ 626   3                      {
+ 627   4                          pInst->PromptEnable = 1;
+ 628   4      #if (INCLUDE_TELNET_SERVER)
+ 629   4                          if (pInst->LowLayerId == LL_TELNET)
+ 630   4                          {
+ 631   5                              pInst->State = CLI_STATE_BLOCK;
+ 632   5                              /* Notify telnet to close connection */
+ 633   5                              TELNET_NotifyClose();
+ 634   5                          }
+ 635   4      #endif
+ 636   4                      }
+ 637   3                      break;
+ 638   3                  case CLI_STATE_PASSWD:
+ 639   3                      if (pInst->PromptEnable == 1)
+ 640   3                      {
+ 641   4                          CONSOLE_PutMessage(pInst, "%s", PASSWD_STR);
+ 642   4                          memset(pInst->Passwd, 0, CLI_MAX_PASSWD_LEN);
+ 643   4                          pInst->PromptEnable = 0;
+ 644   4                          pInst->BufIndex = 0;
+ 645   4                      }
+ 646   3                      retCode = console_CollectCommand(pInst, pInst->Passwd, CLI_MAX_PASSWD_LEN, 0);
+ 647   3                      if (retCode == CLI_COMMAND_DONE)
+ 648   3                      {
+ 649   4                          pInst->PromptEnable = 1;
+ 650   4                          if (console_Authenticate(pInst) > 0)
+ 651   4                          {
+ 652   5                              pInst->State = CLI_STATE_COMMAND;
+ 653   5                          }
+ 654   4                          else
+ 655   4                          {
+ 656   5      #if (INCLUDE_EVENT_DETECT)
+                                                              GEVENT_SetAuthFailEvent(1);//*** Add for authentication fail detect ***
+              #endif
+ 659   5                              CONSOLE_PutMessage(pInst, "Authentication failed!\r\n\r\n");
+ 660   5                              pInst->State = CLI_STATE_LOGIN;
+ 661   5                          }
+ 662   4                      }
+ 663   3                      else if (retCode < 0)
+ 664   3                      {
+ 665   4                          pInst->PromptEnable = 1;
+ 666   4      #if (INCLUDE_TELNET_SERVER)
+ 667   4                          if (pInst->LowLayerId == LL_TELNET)
+ 668   4                          {
+ 669   5                              pInst->State = CLI_STATE_BLOCK;
+ 670   5                              /* Notify telnet to close connection */
+ 671   5                              TELNET_NotifyClose();
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 12  
+
+ 672   5                          }
+ 673   4                          else
+ 674   4      #endif
+ 675   4                              pInst->State = CLI_STATE_LOGIN;
+ 676   4                      }
+ 677   3                      break;
+ 678   3                  case CLI_STATE_COMMAND:
+ 679   3                      if (pInst->PromptEnable == 1)
+ 680   3                      {
+ 681   4                          CONSOLE_PutMessage(pInst, "%s", pInst->PromptStr);
+ 682   4                          memset(pInst->CmdBuf, 0, CLI_MAX_COMMAND_LEN);
+ 683   4                          pInst->PromptEnable = 0;
+ 684   4                          pInst->BufIndex = 0;
+ 685   4                      }
+ 686   3                      
+ 687   3                      retCode = console_CollectCommand(pInst, pInst->CmdBuf, CLI_MAX_COMMAND_LEN, 1);
+ 688   3                      if (retCode == CLI_COMMAND_DONE)
+ 689   3                      {
+ 690   4                          pInst->PromptEnable = 1;
+ 691   4                          if (console_CommandProcess(pInst, pInst->CmdBuf, pInst->Privilege) < 0)
+ 692   4                          {
+ 693   5      #if (INCLUDE_TELNET_SERVER)
+ 694   5                              if (pInst->LowLayerId == LL_TELNET)
+ 695   5                              {
+ 696   6                                  pInst->State = CLI_STATE_BLOCK;
+ 697   6                                  /* Notify telnet to close connection */
+ 698   6                                  TELNET_NotifyClose();
+ 699   6                              }
+ 700   5                              else
+ 701   5      #endif
+ 702   5                              {
+ 703   6                                  pInst->State = CLI_STATE_LOGIN;
+ 704   6                              }
+ 705   5                          }
+ 706   4                      }
+ 707   3                      else if (retCode < 0)
+ 708   3                      {
+ 709   4                          pInst->PromptEnable = 1;
+ 710   4      #if (INCLUDE_TELNET_SERVER)
+ 711   4                          if (pInst->LowLayerId == LL_TELNET)
+ 712   4                          {
+ 713   5                              pInst->State = CLI_STATE_BLOCK;
+ 714   5                              /* Notify telnet to close connection */
+ 715   5                              TELNET_NotifyClose();
+ 716   5                          }
+ 717   4                          else
+ 718   4      #endif
+ 719   4                              pInst->State = CLI_STATE_LOGIN;
+ 720   4                      }
+ 721   3                      break;
+ 722   3                                      /* for task type command */
+ 723   3                              case CLI_STATE_COMMAND_WAIT:
+ 724   3                                      console_CommandProcess(pInst, pInst->CmdBuf, pInst->Privilege);
+ 725   3                                              
+ 726   3                                      break;
+ 727   3                  case CLI_STATE_BLOCK:
+ 728   3                      /* instance has been block */
+ 729   3                      break;
+ 730   3                  case CLI_STATE_PASSWD_CHANGE1:
+ 731   3                      if (pInst->PromptEnable == 1)
+ 732   3                      {
+ 733   4                          CONSOLE_PutMessage(pInst, "Old Password: ");
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 13  
+
+ 734   4                          memset(pInst->Passwd, 0, CLI_MAX_PASSWD_LEN);
+ 735   4                          pInst->PromptEnable = 0;
+ 736   4                          pInst->BufIndex = 0;
+ 737   4                      }
+ 738   3                      retCode = console_CollectCommand(pInst, pInst->Passwd, CLI_MAX_PASSWD_LEN, 0);
+ 739   3                      if (retCode == CLI_COMMAND_DONE)
+ 740   3                      {
+ 741   4                          pInst->PromptEnable = 1;
+ 742   4                          pInst->State = CLI_STATE_PASSWD_CHANGE2;
+ 743   4                      }
+ 744   3                      else if (retCode < 0)
+ 745   3                      {
+ 746   4                          pInst->PromptEnable = 1;
+ 747   4                          pInst->State = CLI_STATE_COMMAND;
+ 748   4                      }
+ 749   3                      break;
+ 750   3              
+ 751   3                  case CLI_STATE_PASSWD_CHANGE2:
+ 752   3                      if (pInst->PromptEnable == 1)
+ 753   3                      {
+ 754   4                          CONSOLE_PutMessage(pInst, "New Password: ");
+ 755   4                          memset(pInst->PasswdNew, 0, CLI_MAX_PASSWD_LEN);
+ 756   4                          pInst->PromptEnable = 0;
+ 757   4                          pInst->BufIndex = 0;
+ 758   4                      }
+ 759   3                      retCode = console_CollectCommand(pInst, pInst->PasswdNew, CLI_MAX_PASSWD_LEN, 0);
+ 760   3                      if (retCode == CLI_COMMAND_DONE)
+ 761   3                      {
+ 762   4                          pInst->PromptEnable = 1;
+ 763   4                          pInst->State = CLI_STATE_PASSWD_CHANGE3;
+ 764   4                      }
+ 765   3                      else if (retCode < 0)
+ 766   3                      {
+ 767   4                          pInst->PromptEnable = 1;
+ 768   4                          pInst->State = CLI_STATE_COMMAND;
+ 769   4                      }
+ 770   3                      break;
+ 771   3              
+ 772   3                  case CLI_STATE_PASSWD_CHANGE3:
+ 773   3                      if (pInst->PromptEnable == 1)
+ 774   3                      {
+ 775   4                          CONSOLE_PutMessage(pInst, "Re-enter New Password: ");
+ 776   4                          memset(pInst->CmdBuf, 0, CLI_MAX_PASSWD_LEN);
+ 777   4                          pInst->PromptEnable = 0;
+ 778   4                          pInst->BufIndex = 0;
+ 779   4                      }
+ 780   3                      retCode = console_CollectCommand(pInst, pInst->CmdBuf, CLI_MAX_PASSWD_LEN, 0);
+ 781   3                      if (retCode == CLI_COMMAND_DONE)
+ 782   3                      {
+ 783   4                          pInst->PromptEnable = 1;
+ 784   4                          if (console_ChangePasswd(pInst) < 0)
+ 785   4                          {
+ 786   5                              CONSOLE_PutMessage(pInst, "Failed to change password\r\n");
+ 787   5                          }
+ 788   4                          else
+ 789   4                          {
+ 790   5                              CONSOLE_PutMessage(pInst, "Success to change password\r\n");
+ 791   5                          }
+ 792   4                          pInst->State = CLI_STATE_COMMAND;
+ 793   4                      }
+ 794   3                      else if (retCode < 0)
+ 795   3                      {
+C51 COMPILER V9.01   CONSOLE                                                               03/08/2012 11:01:02 PAGE 14  
+
+ 796   4                          pInst->PromptEnable = 1;
+ 797   4                          pInst->State = CLI_STATE_COMMAND;
+ 798   4                      }
+ 799   3                      break;
+ 800   3                  default:
+ 801   3                      CONSOLE_PutMessage(pInst, "Unknow state was detected, reset to LOGIN state\r\n");
+ 802   3                      pInst->PromptEnable = 1;
+ 803   3                      pInst->State = CLI_STATE_LOGIN;
+ 804   3                      break;
+ 805   3              } /* switch */
+ 806   2          } /* for */
+ 807   1      
+ 808   1      } /* End of CONSOLE_Task() */
+ 809          
+ 810          /*
+ 811           * ----------------------------------------------------------------------------
+ 812           * Function Name: CONSOLE_PutMessage()
+ 813           * Purpose:
+ 814           * Params:
+ 815           * Returns:
+ 816           * Note:
+ 817           * ----------------------------------------------------------------------------
+ 818           */
+ 819          S16_T CONSOLE_PutMessage(CONSOLE_Inst *pInst, S8_T *fmt, ...)
+ 820          {
+ 821   1          S16_T ret;
+ 822   1          va_list args;
+ 823   1      
+ 824   1          va_start(args, fmt);
+ 825   1          ret = vsprintf(pBuf,fmt,args);  /* process fmt & args into buf */
+ 826   1          console_PutString(pInst, pBuf, ret);
+ 827   1          va_end(args);
+ 828   1      
+ 829   1          return ret;
+ 830   1      } /* End of CONSOLE_PutMessage() */
+ 831          
+ 832          /* End of console.c */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   6571    ----
+   CONSTANT SIZE    =    445    ----
+   XDATA SIZE       =   ----     210
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =    674    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
