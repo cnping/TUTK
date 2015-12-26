@@ -9,7 +9,7 @@
 
 package com.iotc.sample_AVServer;
 
-import com.iotc.sample.R;
+import com.iotc.sampleIOTC2.R;
 
 import com.tutk.IOTC.IOTCAPIs;
 import com.tutk.IOTC.St_SInfo;
@@ -210,7 +210,7 @@ public class Sample extends Activity {
 		
         FileInputStream is = new FileInputStream(tmpFile);
     
-        //取得檔案大小
+        //嚙踝蕭o嚙褕案大嚙緘
         long length = tmpFile.length();
         byte[] bytes = new byte[(int)length];
     

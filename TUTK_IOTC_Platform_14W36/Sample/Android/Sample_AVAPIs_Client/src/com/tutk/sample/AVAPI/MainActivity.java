@@ -7,7 +7,7 @@ import com.tutk.sample.AVAPI.*;
 
 public class MainActivity extends Activity
 {
-    static final String UID = "Put your uid here";
+    static final String UID = "ZSCYLVKMKPYERAA9111A";
 
     /** Called when the activity is first created. */
     @Override
